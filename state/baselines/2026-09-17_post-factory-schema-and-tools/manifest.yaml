@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-17_post-factory-schema-and-tools"
+  purpose: "prompts/api/01_01_factory_schema_and_tools.md complete: backend/src/migrations/001_init.sql + 002_evidence.sql applied to factory-postgres (12 tables total), scripts/seed.sql applied and confirmed idempotent (40 products, 5 suppliers, 60 inventory rows, 20 orders with 5 already inconsistent, 30 order_items). prompts/api/API_CONTRACTS.md documents the full typed tool contract (/api/actions/* with /tools/* aliases) that prompts/backend/01_01_orchestrator_api.md will implement. Actual HTTP-level validation (curl against a running API) deferred to backend/01_01 since no server exists yet — this prompt's own scope was schema/seed/contract only, validated directly via psql."
+  captured_at: "2026-09-17T12:08:32Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-17_post-ollama-model-runtime"
+  git:
+    commit: "5379ec86e072ab28c9f6c598b97926867934bf49"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: UNKNOWN
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

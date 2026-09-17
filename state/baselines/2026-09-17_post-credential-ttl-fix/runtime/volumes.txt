@@ -1,0 +1,11 @@
+factory-ollama_data
+factory-vault_vault-s-data
+factory-vault_vault-s-audit
+factory-vault_vault-1-data
+factory-vault_vault-1-audit
+factory-vault_vault-2-data
+factory-vault_vault-2-audit
+factory-vault_vault-3-data
+factory-vault_vault-3-audit
+factory-vault_vault-agent-secrets
+factory-infra_postgres-data

@@ -1,0 +1,15 @@
+{
+  "name": "factory-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Factory — shared agent runtime (Agents A/B/C/D share this image, differentiated by AGENT_IDENTITY).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {}
+}

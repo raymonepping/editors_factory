@@ -1,0 +1,54 @@
+baseline:
+  id: "2026-09-17_post-vault-followup"
+  purpose: "prompts/base_project/02_02_vault_follow_up.md complete: factory Vault namespace, factory-api AppRole (terraform/vault-platform/), two Sentinel EGPs (terraform/vault-sentinel/: require-agent-c-for-db-creds, protect-audit-devices), Vault Agent auto-auth (compose/vault/vault-agent/) all applied and running/healthy. Revised prompts/base_project/03_01 and prompts/backend/01_01 for namespace-awareness and the Sentinel header requirement before either was executed. Found and fixed a real operational gotcha (vault-s comes back sealed after any force-recreate, cascades to vault-1/2/3 restart-looping) and a real .gitignore bug (.terraform.lock.hcl was excluded, contradicting Terraform's own guidance to commit it) inherited from arcanium's same boilerplate. Namespaces/Sentinel/Vault Agent added per explicit project-owner decision after reviewing two AI validation reports (input/VALIDATION.md, input/Navi_Validation.md)."
+  captured_at: "2026-09-17T10:04:01Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-17_post-vault-bootstrapped"
+  git:
+    commit: "5379ec86e072ab28c9f6c598b97926867934bf49"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: UNKNOWN
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

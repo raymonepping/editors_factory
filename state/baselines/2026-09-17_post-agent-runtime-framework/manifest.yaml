@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-17_post-agent-runtime-framework"
+  purpose: "prompts/agents/01_01_agent_runtime_framework.md complete: shared agent runtime (agents/src/{config,backendClient,ollamaClient,tools,runtime,observerRuntime,heartbeat,index}.js), Containerfile, compose/agents/compose.yaml (4 services from one shared image, differentiated by AGENT_IDENTITY, each carrying only its own bearer token). Validated end-to-end with a temporary throwaway agent-a identity stub (removed after testing, per the deliverables tree's own attribution of agents/identities/agent-a.js to prompt 02_01): real SSE-based task dispatch, GET /api/tasks/:id fetch, live Ollama qwen3:4b-instruct tool-calling across a 3-iteration reasoning loop (get_health/get_incidents/get_order_metrics), and a correct delegate_task call to agent-b with the authority-envelope fallback producing the expected delegations row. Also verified the real Ollama /api/chat tool-calling wire format directly (tool_calls[].function.{name,arguments} as an object, and a tool-result round-trip) before trusting ollamaClient.js's assumptions. Found and fixed live: a bare unresolved Promise does not hold Node's event loop open, so the 'identity not yet built' parking path was silently exiting and restart-looping until replaced with a real setInterval-based keep-alive."
+  captured_at: "2026-09-17T13:06:49Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-17_post-credential-ttl-fix"
+  git:
+    commit: "5379ec86e072ab28c9f6c598b97926867934bf49"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

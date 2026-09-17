@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-17_post-credential-ttl-fix"
+  purpose: "Fixed a real bug found via live testing after 2026-09-17_post-backend-orchestrator-v2: Vault cascade-revokes a dynamic database credential's lease when the child token that requested it expires, and the backend was minting that child token with a flat ttl=60s for every role, silently killing the backend's own 1h pool credential and Agent C's factory-bad-role/factory-good-role credentials ~60-75s after issuance regardless of their configured TTL. Fixed in backend/src/vault.js by matching the child token's TTL to the target role's own TTL (DB_ROLE_TOKEN_TTL_SECONDS). Verified end-to-end: backend pool credential now stable for 15+ minutes; a factory-bad-role credential survived 90s+ and performed a real DELETE; factory-good-role credential issuance + correct policy DENY still work. Full BAD+GOOD delegation chains re-verified, make reset re-verified."
+  captured_at: "2026-09-17T12:54:00Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-17_post-backend-orchestrator-v2"
+  git:
+    commit: "5379ec86e072ab28c9f6c598b97926867934bf49"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

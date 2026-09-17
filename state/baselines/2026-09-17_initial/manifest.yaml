@@ -1,0 +1,54 @@
+baseline:
+  id: "2026-09-17_initial"
+  purpose: "Initial baseline before any infrastructure is implemented — prompts/, scripts/, security/ authored, nothing built yet"
+  captured_at: "2026-09-17T08:44:57Z"
+  project: "editors_factory"
+  previous_baseline: ""
+  git:
+    commit: "5379ec86e072ab28c9f6c598b97926867934bf49"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: false
+    observed_running: false
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: false
+    observed_running: false
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: false
+    observed_running: false
+  api:
+    capture_status: CAPTURED
+    compose_file_present: false
+    observed_running: false
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: false
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: false
+    observed_running: false
+
+verification:
+  backend-health: UNKNOWN
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

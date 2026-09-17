@@ -1,0 +1,144 @@
+# Vault Enterprise HA cluster — adapted from vault_reference/arcanium's
+# docker-compose.yml Vault services (only the primary cluster; no KMIP —
+# Factory has no KMIP use case). Vault Agent (factory-api's AppRole
+# auto-auth) added by prompts/base_project/02_02_vault_follow_up.md.
+# See prompts/base_project/02_01_vault_ha_cluster.md.
+x-vault: &vault
+  image: docker.io/hashicorp/vault-enterprise:2.1.0-ent
+  user: "100:1000"
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  environment:
+    VAULT_ADDR: https://127.0.0.1:8200
+    VAULT_CACERT: /vault/config/tls/ca-chain.pem
+    VAULT_LICENSE: "${VAULT_LICENSE}"
+  entrypoint: ["/bin/sh", "/factory/vault-server.sh"]
+  restart: unless-stopped
+  mem_limit: 2g
+  networks: [default]
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedok=true&uninitok=false >/dev/null"]
+    interval: 10s
+    timeout: 5s
+    retries: 15
+    start_period: 20s
+
+services:
+  vault-s:
+    <<: *vault
+    container_name: factory-vault_s
+    hostname: vault-s
+    ports: ["127.0.0.1:18190:8200"]
+    volumes:
+      - vault-s-data:/vault/file
+      - vault-s-audit:/vault/audit
+      - ../../vault-s/config-s.hcl:/vault/config/config.hcl:ro
+      - ../../vault-s/config/vault_v2.hclic:/vault/config/vault_v2.hclic:ro
+      - ../../vault-tls:/vault/config/tls:ro
+      - ../../scripts/vault-server.sh:/factory/vault-server.sh:ro
+
+  vault-1:
+    <<: *vault
+    container_name: factory-vault_1
+    hostname: vault-1
+    ports: ["127.0.0.1:18200:8200"]
+    volumes:
+      - vault-1-data:/vault/file
+      - vault-1-audit:/vault/audit
+      - ../../vault-1/config.hcl:/vault/config/config.hcl:ro
+      - ../../vault-s/config/vault_v2.hclic:/vault/config/vault_v2.hclic:ro
+      - ../../vault-tls:/vault/config/tls:ro
+      - ../../scripts/vault-server.sh:/factory/vault-server.sh:ro
+      - ../../.secrets/vault/transit-token:/run/secrets/transit-token:ro
+    depends_on:
+      vault-s:
+        condition: service_healthy
+
+  vault-2:
+    <<: *vault
+    container_name: factory-vault_2
+    hostname: vault-2
+    ports: ["127.0.0.1:18201:8200"]
+    volumes:
+      - vault-2-data:/vault/file
+      - vault-2-audit:/vault/audit
+      - ../../vault-2/config-2.hcl:/vault/config/config.hcl:ro
+      - ../../vault-s/config/vault_v2.hclic:/vault/config/vault_v2.hclic:ro
+      - ../../vault-tls:/vault/config/tls:ro
+      - ../../scripts/vault-server.sh:/factory/vault-server.sh:ro
+      - ../../.secrets/vault/transit-token:/run/secrets/transit-token:ro
+    depends_on:
+      vault-s:
+        condition: service_healthy
+
+  vault-3:
+    <<: *vault
+    container_name: factory-vault_3
+    hostname: vault-3
+    ports: ["127.0.0.1:18202:8200"]
+    volumes:
+      - vault-3-data:/vault/file
+      - vault-3-audit:/vault/audit
+      - ../../vault-3/config-3.hcl:/vault/config/config.hcl:ro
+      - ../../vault-s/config/vault_v2.hclic:/vault/config/vault_v2.hclic:ro
+      - ../../vault-tls:/vault/config/tls:ro
+      - ../../scripts/vault-server.sh:/factory/vault-server.sh:ro
+      - ../../.secrets/vault/transit-token:/run/secrets/transit-token:ro
+    depends_on:
+      vault-s:
+        condition: service_healthy
+
+  # factory-api's AppRole auto-auth (prompts/base_project/02_02_vault_follow_up.md).
+  # Renders a renewed token only — deliberately does NOT template-render
+  # database/creds/* (see compose/vault/vault-agent/config.hcl's own
+  # comment for why). compose/api/compose.yaml references
+  # vault-agent-secrets as external once
+  # prompts/backend/01_01_orchestrator_api.md is implemented; this prompt
+  # only produces the token, that one consumes it.
+  vault-agent:
+    image: docker.io/hashicorp/vault-enterprise:2.1.0-ent
+    container_name: factory-vault_agent
+    hostname: vault-agent
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp, /home/vault]
+    entrypoint: ["/vault/agent/entrypoint.sh"]
+    environment:
+      VAULT_ADDR: "https://vault-1:8200"
+      VAULT_CACERT: "/vault/tls/ca-chain.pem"
+      FACTORY_VAULT_ROLE_ID: "${FACTORY_VAULT_ROLE_ID}"
+      FACTORY_VAULT_SECRET_ID: "${FACTORY_VAULT_SECRET_ID}"
+    volumes:
+      - ../../vault-tls:/vault/tls:ro
+      - ./vault-agent/config.hcl:/vault/agent/config.hcl:ro
+      - ./vault-agent/entrypoint.sh:/vault/agent/entrypoint.sh:ro
+      - vault-agent-secrets:/vault/secrets
+    networks: [default]
+    restart: unless-stopped
+    depends_on:
+      vault-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /vault/secrets/token"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+networks:
+  default:
+    name: factory-vault-internal
+    external: true
+
+volumes:
+  vault-s-data: {}
+  vault-s-audit: {}
+  vault-1-data: {}
+  vault-1-audit: {}
+  vault-2-data: {}
+  vault-2-audit: {}
+  vault-3-data: {}
+  vault-3-audit: {}
+  vault-agent-secrets: {}

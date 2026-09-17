@@ -1,0 +1,54 @@
+baseline:
+  id: "2026-09-17_post-postgres-dynamic-creds"
+  purpose: "prompts/base_project/03_01_postgres_dynamic_creds.md complete: factory-postgres running, terraform/vault-database/ applied (database secrets engine + factory-bad-role/factory-good-role, mounted inside the factory namespace). Full stack now: vault-s/1/2/3 + vault-agent + postgres, all healthy. Corrected the require-agent-c-for-db-creds Sentinel EGP from prompt 02_02 mid-execution: the original header-based design was empirically wrong (Sentinel's request object has no HTTP-header access in Vault Enterprise); replaced with a token.metadata-based child-token mechanism and verified end-to-end (untagged token denied, factory_agent=agent-c-tagged child token allowed). All affected prompts and security/authority-model.md updated to describe the corrected, verified mechanism."
+  captured_at: "2026-09-17T10:12:53Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-17_post-vault-followup"
+  git:
+    commit: "5379ec86e072ab28c9f6c598b97926867934bf49"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: UNKNOWN
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

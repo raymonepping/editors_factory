@@ -1,0 +1,79 @@
+[
+  {
+    "Names": [
+      "factory-vault_s"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18190,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_2"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18201,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_3"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18202,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_1"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18200,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_agent"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  }
+]

@@ -1,0 +1,13 @@
+# Nuxt frontend — the factory dashboard. Service definition lands with
+# prompts/frontend/01_01_factory_dashboard_ui.md. This file currently
+# only establishes network membership.
+
+networks:
+  default:
+    name: factory-control
+    external: true
+
+services: {}
+  # ui — see prompts/frontend/01_01_factory_dashboard_ui.md.
+  # Container name: factory-ui. DNS hostname: ui. Published at
+  # http://localhost:3000/. Rebuilt via scripts/ui-rebuild.sh.

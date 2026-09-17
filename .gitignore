@@ -11,6 +11,10 @@ Thumbs.db
 *.pid
 git_commit.sh
 FOLDER_TREE.md
+/article
+/images
+/input
+/prompts
 
 ########################################
 # 💻 IDE & Editor Configs
@@ -124,7 +128,10 @@ docker-compose.override.yml
 *.tfstate.backup
 *.tfplan
 *.backup
-.terraform.lock.hcl
+# .terraform.lock.hcl is intentionally NOT ignored — Terraform's own
+# guidance is to commit it so provider version selection is reproducible
+# (found live: the generic boilerplate this section started from ignored
+# it, same as arcanium's own .gitignore; fixed here, not there).
 *.log
 crash.log
 justfile
@@ -171,6 +178,14 @@ vault-data/
 vault-init.txt
 vault.init
 init.txt
+# Vault Enterprise license files (vault-s/config/vault_v2*.hclic) — never
+# committed. The rest of vault-s/, vault-1/, vault-2/, vault-3/ (the HCL
+# server configs) IS meant to be committed; only the license extension
+# is excluded here.
+*.hclic
+# Generated local TLS material (CA key, server cert/key) — see
+# scripts/vault-prepare.sh, prompts/base_project/02_01_vault_ha_cluster.md.
+vault-tls/
 
 ########################################
 # 🍪 Sessions, Cookies & Auth State
