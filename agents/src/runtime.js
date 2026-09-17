@@ -16,13 +16,13 @@
 // itself in the audit_events row — only its id — so the agent then
 // fetches it via GET /api/tasks/:taskId.
 
-import { config } from './config.js';
-import { backendClient, subscribeEvents } from './backendClient.js';
-import { chat } from './ollamaClient.js';
-import { TOOLS, schemasFor } from './tools.js';
-import { beat } from './heartbeat.js';
+import { config } from "./config.js";
+import { backendClient, subscribeEvents } from "./backendClient.js";
+import { chat } from "./ollamaClient.js";
+import { TOOLS, schemasFor } from "./tools.js";
+import { beat } from "./heartbeat.js";
 
-const TASK_EVENT_ACTIONS = new Set(['task.created', 'task.delegated']);
+const TASK_EVENT_ACTIONS = new Set(["task.created", "task.delegated"]);
 const processedTaskIds = new Set(); // guards against any duplicate SSE delivery
 
 export async function startTaskRuntime(identity, { signal } = {}) {
@@ -30,18 +30,24 @@ export async function startTaskRuntime(identity, { signal } = {}) {
   const heartbeatTimer = setInterval(beat, 5000);
   beat();
 
-  await subscribeEvents(({ type, payload }) => {
-    if (type !== 'audit_events') return;
-    if (payload.actor_id !== config.identity) return;
-    if (!TASK_EVENT_ACTIONS.has(payload.action)) return;
-    if (payload.result !== 'ALLOW') return;
-    if (processedTaskIds.has(payload.task_id)) return;
-    processedTaskIds.add(payload.task_id);
+  await subscribeEvents(
+    ({ type, payload }) => {
+      if (type !== "audit_events") return;
+      if (payload.actor_id !== config.identity) return;
+      if (!TASK_EVENT_ACTIONS.has(payload.action)) return;
+      if (payload.result !== "ALLOW") return;
+      if (processedTaskIds.has(payload.task_id)) return;
+      processedTaskIds.add(payload.task_id);
 
-    handleTask(identity, payload.task_id).catch((err) => {
-      console.error(`[${config.identity}] task ${payload.task_id} failed:`, err.message);
-    });
-  }, { signal });
+      handleTask(identity, payload.task_id).catch((err) => {
+        console.error(
+          `[${config.identity}] task ${payload.task_id} failed:`,
+          err.message,
+        );
+      });
+    },
+    { signal },
+  );
 
   clearInterval(heartbeatTimer); // subscribeEvents only resolves once `signal` aborts
 }
@@ -49,19 +55,29 @@ export async function startTaskRuntime(identity, { signal } = {}) {
 async function handleTask(identity, taskId) {
   const task = await backendClient.getTask(taskId);
   if (!task) {
-    console.error(`[${config.identity}] task ${taskId} not found (already reset?)`);
+    console.error(
+      `[${config.identity}] task ${taskId} not found (already reset?)`,
+    );
     return;
   }
-  console.log(`[${config.identity}] task ${taskId} received — goal: "${task.goal}"`);
+  console.log(
+    `[${config.identity}] task ${taskId} received — goal: "${task.goal}"`,
+  );
 
   const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('AGENT_TASK_TIMEOUT_MS exceeded')), config.taskTimeoutMs)
+    setTimeout(
+      () => reject(new Error("AGENT_TASK_TIMEOUT_MS exceeded")),
+      config.taskTimeoutMs,
+    ),
   );
 
   try {
     await Promise.race([runLoop(identity, task), timeout]);
   } catch (err) {
-    console.error(`[${config.identity}] task ${taskId} ended with error:`, err.message);
+    console.error(
+      `[${config.identity}] task ${taskId} ended with error:`,
+      err.message,
+    );
   }
 }
 
@@ -92,8 +108,11 @@ async function runLoop(identity, task) {
   const ctx = { task, identity: config.identity };
 
   const messages = [
-    { role: 'system', content: identity.systemPrompt(task) + TOOL_CALL_DISCIPLINE },
-    { role: 'user', content: task.goal },
+    {
+      role: "system",
+      content: identity.systemPrompt(task) + TOOL_CALL_DISCIPLINE,
+    },
+    { role: "user", content: task.goal },
   ];
   let nudged = false;
 
@@ -103,17 +122,22 @@ async function runLoop(identity, task) {
     if (!message.toolCalls.length) {
       if (!nudged && mentionsATool(message.content, toolNames)) {
         nudged = true;
-        messages.push({ role: 'assistant', content: message.content });
+        messages.push({ role: "assistant", content: message.content });
         messages.push({
-          role: 'user',
-          content: 'You described an action but did not call a tool. If you intend to take that action, call the corresponding tool now. If you are actually done, say so without naming a tool.',
+          role: "user",
+          content:
+            "You described an action but did not call a tool. If you intend to take that action, call the corresponding tool now. If you are actually done, say so without naming a tool.",
         });
-        console.log(`[${config.identity}] task ${task.taskId} nudged at iteration ${iteration} (described a tool but did not call it)`);
+        console.log(
+          `[${config.identity}] task ${task.taskId} nudged at iteration ${iteration} (described a tool but did not call it)`,
+        );
         continue;
       }
       // No tool call selected — the 8-step loop's "stop" condition.
-      messages.push({ role: 'assistant', content: message.content });
-      console.log(`[${config.identity}] task ${task.taskId} stopped (no further tool call) after ${iteration} iteration(s): ${message.content}`);
+      messages.push({ role: "assistant", content: message.content });
+      console.log(
+        `[${config.identity}] task ${task.taskId} stopped (no further tool call) after ${iteration} iteration(s): ${message.content}`,
+      );
       return;
     }
 
@@ -123,27 +147,37 @@ async function runLoop(identity, task) {
     // code, but the model's chat template expects its own shape echoed
     // back, not our normalized one.
     messages.push({
-      role: 'assistant',
+      role: "assistant",
       content: message.content,
-      tool_calls: message.toolCalls.map((tc) => ({ function: { name: tc.name, arguments: tc.arguments } })),
+      tool_calls: message.toolCalls.map((tc) => ({
+        function: { name: tc.name, arguments: tc.arguments },
+      })),
     });
 
     let delegated = false;
     for (const call of message.toolCalls) {
       const result = await executeTool(call, toolNames, ctx);
-      messages.push({ role: 'tool', tool_name: call.name, content: JSON.stringify(result) });
-      if (call.name === 'delegate_task' && !result.error) delegated = true;
+      messages.push({
+        role: "tool",
+        tool_name: call.name,
+        content: JSON.stringify(result),
+      });
+      if (call.name === "delegate_task" && !result.error) delegated = true;
     }
 
     if (delegated) {
       // Handed off — this agent's own involvement in the task ends here;
       // the receiving agent picks it up via its own SSE subscription.
-      console.log(`[${config.identity}] task ${task.taskId} delegated onward after ${iteration} iteration(s)`);
+      console.log(
+        `[${config.identity}] task ${task.taskId} delegated onward after ${iteration} iteration(s)`,
+      );
       return;
     }
   }
 
-  console.log(`[${config.identity}] task ${task.taskId} hit AGENT_MAX_ITERATIONS (${config.maxIterations}) without stopping or delegating`);
+  console.log(
+    `[${config.identity}] task ${task.taskId} hit AGENT_MAX_ITERATIONS (${config.maxIterations}) without stopping or delegating`,
+  );
 }
 
 async function executeTool(call, allowedToolNames, ctx) {

@@ -29,7 +29,7 @@
 // create_finding IS shared here since Agent D's Tier-2 step uses the
 // same backend endpoint every other finding-writer would.
 
-import { backendClient } from './backendClient.js';
+import { backendClient } from "./backendClient.js";
 
 function orderSummary(orders) {
   const byStatus = {};
@@ -40,11 +40,11 @@ function orderSummary(orders) {
 export const TOOLS = {
   get_health: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'get_health',
-        description: 'Get overall order-processing health status.',
-        parameters: { type: 'object', properties: {}, required: [] },
+        name: "get_health",
+        description: "Get overall order-processing health status.",
+        parameters: { type: "object", properties: {}, required: [] },
       },
     },
     run: async () => backendClient.getHealth(),
@@ -52,23 +52,24 @@ export const TOOLS = {
 
   get_incidents: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'get_incidents',
-        description: 'List orders currently flagged as inconsistent (candidate incidents).',
-        parameters: { type: 'object', properties: {}, required: [] },
+        name: "get_incidents",
+        description:
+          "List orders currently flagged as inconsistent (candidate incidents).",
+        parameters: { type: "object", properties: {}, required: [] },
       },
     },
-    run: async () => backendClient.listOrders({ status: 'inconsistent' }),
+    run: async () => backendClient.listOrders({ status: "inconsistent" }),
   },
 
   get_order_metrics: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'get_order_metrics',
-        description: 'Get order counts grouped by status, across all orders.',
-        parameters: { type: 'object', properties: {}, required: [] },
+        name: "get_order_metrics",
+        description: "Get order counts grouped by status, across all orders.",
+        parameters: { type: "object", properties: {}, required: [] },
       },
     },
     run: async () => orderSummary(await backendClient.listOrders({})),
@@ -76,13 +77,19 @@ export const TOOLS = {
 
   list_orders: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'list_orders',
-        description: 'List orders, optionally filtered by status.',
+        name: "list_orders",
+        description: "List orders, optionally filtered by status.",
         parameters: {
-          type: 'object',
-          properties: { status: { type: 'string', description: 'e.g. "inconsistent", "fulfilled", "processing", "pending", "cancelled"' } },
+          type: "object",
+          properties: {
+            status: {
+              type: "string",
+              description:
+                'e.g. "inconsistent", "fulfilled", "processing", "pending", "cancelled"',
+            },
+          },
           required: [],
         },
       },
@@ -92,14 +99,14 @@ export const TOOLS = {
 
   inspect_order: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'inspect_order',
-        description: 'Get one order by id, including its line items.',
+        name: "inspect_order",
+        description: "Get one order by id, including its line items.",
         parameters: {
-          type: 'object',
-          properties: { id: { type: 'integer', description: 'Order id' } },
-          required: ['id'],
+          type: "object",
+          properties: { id: { type: "integer", description: "Order id" } },
+          required: ["id"],
         },
       },
     },
@@ -108,33 +115,35 @@ export const TOOLS = {
 
   list_products: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'list_products',
-        description: 'List products, optionally filtered by category.',
+        name: "list_products",
+        description: "List products, optionally filtered by category.",
         parameters: {
-          type: 'object',
-          properties: { category: { type: 'string' } },
+          type: "object",
+          properties: { category: { type: "string" } },
           required: [],
         },
       },
     },
-    run: async (args) => backendClient.listProducts({ category: args.category }),
+    run: async (args) =>
+      backendClient.listProducts({ category: args.category }),
   },
 
   update_order_status: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'update_order_status',
-        description: 'Set an order\'s status (e.g. to "quarantined" while it is investigated).',
+        name: "update_order_status",
+        description:
+          'Set an order\'s status (e.g. to "quarantined" while it is investigated).',
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
-            id: { type: 'integer' },
-            status: { type: 'string' },
+            id: { type: "integer" },
+            status: { type: "string" },
           },
-          required: ['id', 'status'],
+          required: ["id", "status"],
         },
       },
     },
@@ -143,14 +152,14 @@ export const TOOLS = {
 
   update_price: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'update_price',
-        description: 'Update a product\'s price by SKU.',
+        name: "update_price",
+        description: "Update a product's price by SKU.",
         parameters: {
-          type: 'object',
-          properties: { sku: { type: 'string' }, price: { type: 'number' } },
-          required: ['sku', 'price'],
+          type: "object",
+          properties: { sku: { type: "string" }, price: { type: "number" } },
+          required: ["sku", "price"],
         },
       },
     },
@@ -159,19 +168,19 @@ export const TOOLS = {
 
   insert_product: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'insert_product',
-        description: 'Insert a new product.',
+        name: "insert_product",
+        description: "Insert a new product.",
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
-            sku: { type: 'string' },
-            name: { type: 'string' },
-            category: { type: 'string' },
-            price: { type: 'number' },
+            sku: { type: "string" },
+            name: { type: "string" },
+            category: { type: "string" },
+            price: { type: "number" },
           },
-          required: ['sku', 'name', 'category', 'price'],
+          required: ["sku", "name", "category", "price"],
         },
       },
     },
@@ -180,19 +189,23 @@ export const TOOLS = {
 
   delete_orders: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'delete_orders',
-        description: 'Delete orders matching a structured filter (e.g. {"status":"inconsistent"}). Never a raw SQL string.',
+        name: "delete_orders",
+        description:
+          'Delete orders matching a structured filter (e.g. {"status":"inconsistent"}). Never a raw SQL string.',
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
             filter: {
-              type: 'object',
-              properties: { status: { type: 'string' }, customer_ref: { type: 'string' } },
+              type: "object",
+              properties: {
+                status: { type: "string" },
+                customer_ref: { type: "string" },
+              },
             },
           },
-          required: ['filter'],
+          required: ["filter"],
         },
       },
     },
@@ -201,19 +214,24 @@ export const TOOLS = {
 
   delete_products: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'delete_products',
-        description: 'Delete products matching a structured filter (e.g. {"discontinued":true}). Never a raw SQL string.',
+        name: "delete_products",
+        description:
+          'Delete products matching a structured filter (e.g. {"discontinued":true}). Never a raw SQL string.',
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
             filter: {
-              type: 'object',
-              properties: { discontinued: { type: 'boolean' }, category: { type: 'string' }, active: { type: 'boolean' } },
+              type: "object",
+              properties: {
+                discontinued: { type: "boolean" },
+                category: { type: "string" },
+                active: { type: "boolean" },
+              },
             },
           },
-          required: ['filter'],
+          required: ["filter"],
         },
       },
     },
@@ -222,11 +240,11 @@ export const TOOLS = {
 
   restart_order_processor: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'restart_order_processor',
-        description: 'Restart the order-processing service.',
-        parameters: { type: 'object', properties: {}, required: [] },
+        name: "restart_order_processor",
+        description: "Restart the order-processing service.",
+        parameters: { type: "object", properties: {}, required: [] },
       },
     },
     run: async () => backendClient.restartOrderProcessor(),
@@ -234,13 +252,20 @@ export const TOOLS = {
 
   request_credential: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'request_credential',
-        description: 'Request a short-lived, scoped database credential for the current remediation task. Must be called before any mutating tool (update_order_status, update_price, insert_product, delete_orders, delete_products).',
+        name: "request_credential",
+        description:
+          "Request a short-lived, scoped database credential for the current remediation task. Must be called before any mutating tool (update_order_status, update_price, insert_product, delete_orders, delete_products).",
         parameters: {
-          type: 'object',
-          properties: { purpose: { type: 'string', description: 'Short human-readable reason, e.g. "order-remediation".' } },
+          type: "object",
+          properties: {
+            purpose: {
+              type: "string",
+              description:
+                'Short human-readable reason, e.g. "order-remediation".',
+            },
+          },
           required: [],
         },
       },
@@ -250,21 +275,28 @@ export const TOOLS = {
 
   delegate_task: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'delegate_task',
-        description: 'Delegate this task to the next agent in the chain, handing over a subset of your own authority.',
+        name: "delegate_task",
+        description:
+          "Delegate this task to the next agent in the chain, handing over a subset of your own authority.",
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
-            agent: { type: 'string', description: 'The agent to delegate to (e.g. "agent-b", "agent-c")' },
-            goal: { type: 'string' },
+            agent: {
+              type: "string",
+              description:
+                'The agent to delegate to (e.g. "agent-b", "agent-c")',
+            },
+            goal: { type: "string" },
             authority_envelope: {
-              type: 'array', items: { type: 'string' },
-              description: 'The authority you are handing over — must be a subset of your own. Defaults to your own current authority if omitted.',
+              type: "array",
+              items: { type: "string" },
+              description:
+                "The authority you are handing over — must be a subset of your own. Defaults to your own current authority if omitted.",
             },
           },
-          required: ['agent', 'goal'],
+          required: ["agent", "goal"],
         },
       },
     },
@@ -289,36 +321,51 @@ export const TOOLS = {
     // own ceiling either way (backend/src/routes/delegations.js) — this
     // is a usability/robustness default, not the security boundary.
     run: async (args, ctx) => {
-      const requested = Array.isArray(args.authority_envelope) ? args.authority_envelope : [];
+      const requested = Array.isArray(args.authority_envelope)
+        ? args.authority_envelope
+        : [];
       const held = new Set(ctx.task.effectiveAuthority);
       const filtered = requested.filter((a) => held.has(a));
-      const authorityEnvelope = filtered.length ? filtered : ctx.task.effectiveAuthority;
-      return backendClient.delegateTask({ toActor: args.agent, goal: args.goal, authorityEnvelope });
+      const authorityEnvelope = filtered.length
+        ? filtered
+        : ctx.task.effectiveAuthority;
+      return backendClient.delegateTask({
+        toActor: args.agent,
+        goal: args.goal,
+        authorityEnvelope,
+      });
     },
   },
 
   create_finding: {
     schema: {
-      type: 'function',
+      type: "function",
       function: {
-        name: 'create_finding',
-        description: 'Record a detection finding. Discovery creates evidence, not authority — this never blocks or reverses another agent\'s action.',
+        name: "create_finding",
+        description:
+          "Record a detection finding. Discovery creates evidence, not authority — this never blocks or reverses another agent's action.",
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
-            severity: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] },
-            title: { type: 'string' },
-            detail: { type: 'string' },
-            correlates_with_event_id: { type: 'string' },
+            severity: {
+              type: "string",
+              enum: ["low", "medium", "high", "critical"],
+            },
+            title: { type: "string" },
+            detail: { type: "string" },
+            correlates_with_event_id: { type: "string" },
           },
-          required: ['severity', 'title'],
+          required: ["severity", "title"],
         },
       },
     },
-    run: async (args) => backendClient.createFinding({
-      severity: args.severity, title: args.title, detail: args.detail,
-      correlatesWithEventId: args.correlates_with_event_id,
-    }),
+    run: async (args) =>
+      backendClient.createFinding({
+        severity: args.severity,
+        title: args.title,
+        detail: args.detail,
+        correlatesWithEventId: args.correlates_with_event_id,
+      }),
   },
 };
 

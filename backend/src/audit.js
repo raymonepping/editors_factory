@@ -3,37 +3,48 @@
 // agent-issued factory-bad-role/factory-good-role credential — audit
 // writes are not the demo's mutation story.
 
-import { getPool } from './db.js';
-import { publishEvent } from './events.js';
+import { getPool } from "./db.js";
+import { publishEvent } from "./events.js";
 
 export async function startRun(profile) {
   const { rows } = await getPool().query(
     `INSERT INTO demo_runs (profile, status) VALUES ($1, 'running') RETURNING run_id`,
-    [profile]
+    [profile],
   );
   return rows[0].run_id;
 }
 
 export async function endRun(runId, status) {
   await getPool().query(
-    `UPDATE demo_runs SET status = $2, ended_at = now()${status === 'reset' ? ', reset_at = now()' : ''} WHERE run_id = $1`,
-    [runId, status]
+    `UPDATE demo_runs SET status = $2, ended_at = now()${status === "reset" ? ", reset_at = now()" : ""} WHERE run_id = $1`,
+    [runId, status],
   );
 }
 
 export async function getActiveRun() {
   const { rows } = await getPool().query(
-    `SELECT run_id, profile FROM demo_runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`
+    `SELECT run_id, profile FROM demo_runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`,
   );
   return rows[0] || null;
 }
 
 export async function recordAuditEvent(event) {
   const {
-    runId, traceId, taskId, parentTaskId = null, actorId, delegatedBy = null,
-    delegationDepth = 0, requestedAuthority = null, effectiveAuthority = null,
-    credentialId = null, toolName = null, target = null, action = null,
-    result = null, rowsAffected = null,
+    runId,
+    traceId,
+    taskId,
+    parentTaskId = null,
+    actorId,
+    delegatedBy = null,
+    delegationDepth = 0,
+    requestedAuthority = null,
+    effectiveAuthority = null,
+    credentialId = null,
+    toolName = null,
+    target = null,
+    action = null,
+    result = null,
+    rowsAffected = null,
   } = event;
   const { rows } = await getPool().query(
     `INSERT INTO audit_events
@@ -42,76 +53,130 @@ export async function recordAuditEvent(event) {
         credential_id, tool_name, target, action, result, rows_affected)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING *`,
-    [runId, traceId, taskId, parentTaskId, actorId, delegatedBy, delegationDepth,
-      requestedAuthority, effectiveAuthority, credentialId, toolName, target,
-      action, result, rowsAffected]
+    [
+      runId,
+      traceId,
+      taskId,
+      parentTaskId,
+      actorId,
+      delegatedBy,
+      delegationDepth,
+      requestedAuthority,
+      effectiveAuthority,
+      credentialId,
+      toolName,
+      target,
+      action,
+      result,
+      rowsAffected,
+    ],
   );
-  publishEvent('audit_events', rows[0]);
+  publishEvent("audit_events", rows[0]);
   return rows[0];
 }
 
-export async function recordDelegation({ runId, fromActor, toActor, taskId, authorityEnvelope }) {
+export async function recordDelegation({
+  runId,
+  fromActor,
+  toActor,
+  taskId,
+  authorityEnvelope,
+}) {
   const { rows } = await getPool().query(
     `INSERT INTO delegations (run_id, from_actor, to_actor, task_id, authority_envelope)
      VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [runId, fromActor, toActor, taskId, JSON.stringify(authorityEnvelope)]
+    [runId, fromActor, toActor, taskId, JSON.stringify(authorityEnvelope)],
   );
-  publishEvent('delegations', rows[0]);
+  publishEvent("delegations", rows[0]);
   return rows[0];
 }
 
-export async function recordAuthorityDecision({ runId, actorId, requestedAction, policyResult, reason = null }) {
+export async function recordAuthorityDecision({
+  runId,
+  actorId,
+  requestedAction,
+  policyResult,
+  reason = null,
+}) {
   const { rows } = await getPool().query(
     `INSERT INTO authority_decisions (run_id, actor_id, requested_action, policy_result, reason)
      VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [runId, actorId, requestedAction, policyResult, reason]
+    [runId, actorId, requestedAction, policyResult, reason],
   );
-  publishEvent('authority_decisions', rows[0]);
+  publishEvent("authority_decisions", rows[0]);
   return rows[0];
 }
 
-export async function recordCredentialEvent({ runId, actorId, vaultRole, leaseId, ttlSeconds }) {
+export async function recordCredentialEvent({
+  runId,
+  actorId,
+  vaultRole,
+  leaseId,
+  ttlSeconds,
+}) {
   const { rows } = await getPool().query(
     `INSERT INTO credential_events (run_id, actor_id, vault_role, lease_id, ttl_seconds)
      VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [runId, actorId, vaultRole, leaseId, ttlSeconds]
+    [runId, actorId, vaultRole, leaseId, ttlSeconds],
   );
-  publishEvent('credential_events', rows[0]);
+  publishEvent("credential_events", rows[0]);
   return rows[0];
 }
 
 export async function markCredentialRevoked(leaseId) {
   await getPool().query(
     `UPDATE credential_events SET revoked_at = now() WHERE lease_id = $1`,
-    [leaseId]
+    [leaseId],
   );
 }
 
 export async function getUnrevokedLeases(runId) {
   const { rows } = await getPool().query(
     `SELECT lease_id FROM credential_events WHERE run_id = $1 AND revoked_at IS NULL AND lease_id IS NOT NULL`,
-    [runId]
+    [runId],
   );
   return rows.map((r) => r.lease_id);
 }
 
-export async function recordDatabaseChange({ runId, actorId, tableName, action, before = null, after = null, rowsAffected }) {
+export async function recordDatabaseChange({
+  runId,
+  actorId,
+  tableName,
+  action,
+  before = null,
+  after = null,
+  rowsAffected,
+}) {
   const { rows } = await getPool().query(
     `INSERT INTO database_changes (run_id, actor_id, table_name, action, before, after, rows_affected)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [runId, actorId, tableName, action, before ? JSON.stringify(before) : null,
-      after ? JSON.stringify(after) : null, rowsAffected]
+    [
+      runId,
+      actorId,
+      tableName,
+      action,
+      before ? JSON.stringify(before) : null,
+      after ? JSON.stringify(after) : null,
+      rowsAffected,
+    ],
   );
-  publishEvent('database_changes', rows[0]);
+  publishEvent("database_changes", rows[0]);
   return rows[0];
 }
 
-export async function recordFinding({ runId, actorId = 'agent-d', severity, title, detail = null, correlatesWithEventId = null }) {
+export async function recordFinding({
+  runId,
+  actorId = "agent-d",
+  severity,
+  title,
+  detail = null,
+  correlatesWithEventId = null,
+}) {
   const { rows } = await getPool().query(
     `INSERT INTO findings (run_id, actor_id, severity, title, detail, correlates_with_event_id)
      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [runId, actorId, severity, title, detail, correlatesWithEventId]
+    [runId, actorId, severity, title, detail, correlatesWithEventId],
   );
-  publishEvent('findings', rows[0]);
+  publishEvent("findings", rows[0]);
   return rows[0];
 }

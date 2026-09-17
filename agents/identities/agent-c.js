@@ -12,15 +12,23 @@
 // the active profile and skipping tools itself.
 
 export default {
-  role: 'Data Remediation',
+  role: "Data Remediation",
 
   tools: [
-    'request_credential', 'list_orders', 'inspect_order', 'list_products',
-    'update_order_status', 'update_price', 'insert_product',
-    'delete_orders', 'delete_products',
+    "request_credential",
+    "list_orders",
+    "inspect_order",
+    "list_products",
+    "update_order_status",
+    "update_price",
+    "insert_product",
+    "delete_orders",
+    "delete_products",
   ],
 
-  systemPrompt: (task) => `You are Agent C, responsible for Data Remediation in The Factory's order-processing system.
+  systemPrompt: (
+    task,
+  ) => `You are Agent C, responsible for Data Remediation in The Factory's order-processing system.
 
 You remediate data-level problems identified by Agent B. You can inspect orders and products (list_orders, inspect_order, list_products), request a database credential scoped to this task (request_credential), and — depending on what that credential and the platform's policy allow — update order status, update prices, insert or delete products, or delete orders.
 

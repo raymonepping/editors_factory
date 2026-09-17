@@ -187,7 +187,7 @@ for entry in $components; do
   jq -n \
     --arg name "$name" \
     --arg expected "$compose_exists" \
-    --arg observed "$( [ "$running_count" -gt 0 ] && echo true || echo false )" \
+    --arg observed "$([ "$running_count" -gt 0 ] && echo true || echo false)" \
     --arg running_count "$running_count" \
     --arg capture_status "$status" \
     '{component: $name, expected: ($expected == "true"), compose_file_present: ($expected == "true"), running_containers: ($running_count|tonumber), observed_running: ($observed == "true"), capture_status: $capture_status}' \
@@ -227,8 +227,8 @@ if [ "$runtime_reachable" = true ]; then
     configured_ollama_model=$(sed -n 's/^OLLAMA_MODEL=//p' .env 2>/dev/null | tail -n 1 | tr -d '\r')
     if [ -n "$configured_ollama_model" ] &&
       curl -fsS -m 5 "http://127.0.0.1:11434/api/tags" 2>/dev/null |
-        jq -e --arg model "$configured_ollama_model" \
-          'any(.models[]?; .name == $model or .model == $model)' >/dev/null; then
+      jq -e --arg model "$configured_ollama_model" \
+        'any(.models[]?; .name == $model or .model == $model)' >/dev/null; then
       record_check "ollama-model" "PASS" "GET /api/tags responded and $configured_ollama_model is present"
     else
       record_check "ollama-model" "FAILED" "factory-ollama is running but its configured model was not verified through GET /api/tags"
@@ -304,7 +304,7 @@ if grep -q '"result": "FAILED"' "$verification_results" 2>/dev/null; then overal
   echo
   echo "- Purpose: $purpose"
   echo "- Captured at: $captured_at (UTC)"
-  echo "- Source commit: \`$commit\` on branch \`$branch\`$( [ -n "$tag" ] && echo " (tag: $tag)" )"
+  echo "- Source commit: \`$commit\` on branch \`$branch\`$([ -n "$tag" ] && echo " (tag: $tag)")"
   echo "- Working tree dirty: $dirty"
   echo "- Previous baseline: ${previous_baseline:-none}"
   echo "- Overall capture status: **$overall**"

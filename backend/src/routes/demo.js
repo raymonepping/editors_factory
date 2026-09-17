@@ -1,25 +1,25 @@
-import { Router } from 'express';
-import { getPool } from '../db.js';
-import { revokeLease } from '../vault.js';
-import * as audit from '../audit.js';
-import * as state from '../state.js';
+import { Router } from "express";
+import { getPool } from "../db.js";
+import { revokeLease } from "../vault.js";
+import * as audit from "../audit.js";
+import * as state from "../state.js";
 
 export const demoRouter = Router();
 
-demoRouter.get('/demo/mode', (req, res) => {
+demoRouter.get("/demo/mode", (req, res) => {
   res.json({ profile: state.getProfile(), runId: state.getCurrentRunId() });
 });
 
-demoRouter.put('/demo/mode', async (req, res, next) => {
+demoRouter.put("/demo/mode", async (req, res, next) => {
   try {
     const { profile } = req.body || {};
-    if (profile !== 'bad' && profile !== 'good') {
+    if (profile !== "bad" && profile !== "good") {
       return res.status(400).json({ error: 'profile must be "bad" or "good"' });
     }
     // Ending the previous run (if any) before starting a new one keeps
     // audit_events/etc. cleanly scoped to one run_id per profile switch.
     const previous = await audit.getActiveRun();
-    if (previous) await audit.endRun(previous.run_id, 'completed');
+    if (previous) await audit.endRun(previous.run_id, "completed");
 
     state.setProfile(profile);
     const runId = await audit.startRun(profile);
@@ -57,7 +57,7 @@ demoRouter.put('/demo/mode', async (req, res, next) => {
  * reset: it calls this endpoint AND runs `make infra-seed` (the
  * superuser-based re-seed) as two separate, correctly-scoped steps.
  */
-demoRouter.post('/demo/reset', async (req, res, next) => {
+demoRouter.post("/demo/reset", async (req, res, next) => {
   try {
     const runId = state.getCurrentRunId();
 
@@ -73,10 +73,13 @@ demoRouter.post('/demo/reset', async (req, res, next) => {
           await audit.markCredentialRevoked(leaseId);
           revoked += 1;
         } catch (err) {
-          console.error(`[reset] failed to revoke lease ${leaseId}:`, err.message);
+          console.error(
+            `[reset] failed to revoke lease ${leaseId}:`,
+            err.message,
+          );
         }
       }
-      await audit.endRun(runId, 'reset');
+      await audit.endRun(runId, "reset");
     }
 
     // 2. Clear the evidence tables entirely (DELETE, a privilege
@@ -84,7 +87,7 @@ demoRouter.post('/demo/reset', async (req, res, next) => {
     await getPool().query(
       `DELETE FROM findings; DELETE FROM database_changes; DELETE FROM credential_events;
        DELETE FROM authority_decisions; DELETE FROM delegations; DELETE FROM audit_events;
-       DELETE FROM demo_runs;`
+       DELETE FROM demo_runs;`,
     );
 
     // 3. Clear in-memory task/delegation/credential state.
@@ -96,8 +99,11 @@ demoRouter.post('/demo/reset', async (req, res, next) => {
     state.setCurrentRunId(newRunId);
 
     res.json({
-      reset: true, revokedLeases: revoked, runId: newRunId, profile: state.getProfile(),
-      note: 'Evidence tables and Vault leases reset. Product/order data reset separately via `make infra-seed` (see Makefile\'s `reset` target) — factory-backend-role is intentionally not privileged to touch it.',
+      reset: true,
+      revokedLeases: revoked,
+      runId: newRunId,
+      profile: state.getProfile(),
+      note: "Evidence tables and Vault leases reset. Product/order data reset separately via `make infra-seed` (see Makefile's `reset` target) — factory-backend-role is intentionally not privileged to touch it.",
     });
   } catch (err) {
     next(err);

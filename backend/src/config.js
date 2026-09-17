@@ -14,22 +14,22 @@ function optional(name, fallback) {
 }
 
 export const config = {
-  port: Number(optional('PORT', '3001')),
+  port: Number(optional("PORT", "3001")),
 
   vault: {
-    addr: optional('VAULT_ADDR', 'https://vault-1:8200'),
-    namespace: optional('VAULT_NAMESPACE', 'factory'),
-    tokenFile: optional('VAULT_AGENT_TOKEN_FILE', '/vault/secrets/token'),
+    addr: optional("VAULT_ADDR", "https://vault-1:8200"),
+    namespace: optional("VAULT_NAMESPACE", "factory"),
+    tokenFile: optional("VAULT_AGENT_TOKEN_FILE", "/vault/secrets/token"),
   },
 
   postgres: {
-    host: optional('POSTGRES_HOST', 'postgres'),
-    port: Number(optional('POSTGRES_PORT', '5432')),
-    database: required('POSTGRES_DB'),
+    host: optional("POSTGRES_HOST", "postgres"),
+    port: Number(optional("POSTGRES_PORT", "5432")),
+    database: required("POSTGRES_DB"),
   },
 
   demo: {
-    defaultProfile: optional('DEMO_PROFILE', 'good'),
+    defaultProfile: optional("DEMO_PROFILE", "good"),
   },
 
   // Per-agent bearer tokens for agent -> backend calls (input/05.md: every
@@ -39,10 +39,10 @@ export const config = {
   // authentication" section for why this is deliberately simpler than
   // Vault AppRole for this particular hop.
   agentTokens: {
-    'agent-a': required('AGENT_A_TOKEN'),
-    'agent-b': required('AGENT_B_TOKEN'),
-    'agent-c': required('AGENT_C_TOKEN'),
-    'agent-d': required('AGENT_D_TOKEN'),
+    "agent-a": required("AGENT_A_TOKEN"),
+    "agent-b": required("AGENT_B_TOKEN"),
+    "agent-c": required("AGENT_C_TOKEN"),
+    "agent-d": required("AGENT_D_TOKEN"),
   },
 };
 

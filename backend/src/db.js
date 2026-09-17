@@ -13,9 +13,9 @@
 //    order mutation possible ONLY through the credential Agent C was
 //    actually issued — see prompts/backend/01_01_orchestrator_api.md.
 
-import pg from 'pg';
-import { config } from './config.js';
-import { issueDatabaseCredential } from './vault.js';
+import pg from "pg";
+import { config } from "./config.js";
+import { issueDatabaseCredential } from "./vault.js";
 
 const { Pool, Client } = pg;
 
@@ -24,7 +24,10 @@ let poolCredential = null;
 let renewalTimer = null;
 
 async function createBackendPool() {
-  const cred = await issueDatabaseCredential('factory-backend-role', 'factory-api');
+  const cred = await issueDatabaseCredential(
+    "factory-backend-role",
+    "factory-api",
+  );
   const newPool = new Pool({
     host: config.postgres.host,
     port: config.postgres.port,
@@ -34,7 +37,7 @@ async function createBackendPool() {
     max: 5,
   });
   // Fail fast on a bad credential rather than discovering it on first query.
-  await newPool.query('SELECT 1');
+  await newPool.query("SELECT 1");
   return { pool: newPool, cred };
 }
 
@@ -68,7 +71,10 @@ function scheduleRenewal(leaseDurationSeconds) {
       // Keep the existing pool alive on a renewal failure — a demo
       // running past a single failed reissue is better than one that
       // drops its own operational connection mid-run. Retry sooner.
-      console.error('[db] credential renewal failed, retrying in 30s:', err.message);
+      console.error(
+        "[db] credential renewal failed, retrying in 30s:",
+        err.message,
+      );
       renewalTimer = setTimeout(() => scheduleRenewal(0), 30_000);
     }
   }, renewInMs);
@@ -76,7 +82,8 @@ function scheduleRenewal(leaseDurationSeconds) {
 }
 
 export function getPool() {
-  if (!pool) throw new Error('DB pool not initialized — call initDbPool() first');
+  if (!pool)
+    throw new Error("DB pool not initialized — call initDbPool() first");
   return pool;
 }
 

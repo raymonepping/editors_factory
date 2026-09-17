@@ -1,14 +1,14 @@
-import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
-import { agentAuth } from '../middleware/agentAuth.js';
-import * as audit from '../audit.js';
-import * as state from '../state.js';
-import { effectiveAuthorityFor, intersectEnvelope } from '../policy.js';
-import { DELEGATION_DEPTH } from './tasks.js';
+import { Router } from "express";
+import { randomUUID } from "node:crypto";
+import { agentAuth } from "../middleware/agentAuth.js";
+import * as audit from "../audit.js";
+import * as state from "../state.js";
+import { effectiveAuthorityFor, intersectEnvelope } from "../policy.js";
+import { DELEGATION_DEPTH } from "./tasks.js";
 
 export const delegationsRouter = Router();
 
-const ALLOWED_DELEGATIONS = { 'agent-a': 'agent-b', 'agent-b': 'agent-c' };
+const ALLOWED_DELEGATIONS = { "agent-a": "agent-b", "agent-b": "agent-c" };
 
 /**
  * Agent-to-agent delegation. Server-enforced, not merely documented: an
@@ -17,7 +17,7 @@ const ALLOWED_DELEGATIONS = { 'agent-a': 'agent-b', 'agent-b': 'agent-c' };
  * authority, never allowed to grow across the hop
  * (prompts/backend/01_01_orchestrator_api.md).
  */
-delegationsRouter.post('/delegations', agentAuth, async (req, res, next) => {
+delegationsRouter.post("/delegations", agentAuth, async (req, res, next) => {
   try {
     const fromActor = req.actorId;
     const toActor = ALLOWED_DELEGATIONS[fromActor];
@@ -26,7 +26,7 @@ delegationsRouter.post('/delegations', agentAuth, async (req, res, next) => {
     }
 
     const { goal, authorityEnvelope = [] } = req.body || {};
-    if (!goal) return res.status(400).json({ error: 'goal is required' });
+    if (!goal) return res.status(400).json({ error: "goal is required" });
 
     const runId = state.getCurrentRunId();
     const profile = state.getProfile();
@@ -60,33 +60,57 @@ delegationsRouter.post('/delegations', agentAuth, async (req, res, next) => {
     // fixed binding being wrong regardless of what was delegated IS the
     // demonstrated flaw (security/authority-model.md).
     const toActorCeiling = effectiveAuthorityFor(toActor, profile);
-    const effectiveAuthority = toActor === 'agent-c' && profile === 'bad'
-      ? toActorCeiling
-      : intersectEnvelope(authorityEnvelope, toActorCeiling);
+    const effectiveAuthority =
+      toActor === "agent-c" && profile === "bad"
+        ? toActorCeiling
+        : intersectEnvelope(authorityEnvelope, toActorCeiling);
 
     const traceId = randomUUID();
     const taskId = randomUUID();
     const depth = DELEGATION_DEPTH[toActor];
 
     state.createTask({
-      taskId, actorId: toActor, delegatedBy: fromActor, delegationDepth: depth,
-      effectiveAuthority, traceId, parentTaskId: null, goal,
+      taskId,
+      actorId: toActor,
+      delegatedBy: fromActor,
+      delegationDepth: depth,
+      effectiveAuthority,
+      traceId,
+      parentTaskId: null,
+      goal,
     });
 
     const delegation = await audit.recordDelegation({
-      runId, fromActor, toActor, taskId, authorityEnvelope,
+      runId,
+      fromActor,
+      toActor,
+      taskId,
+      authorityEnvelope,
     });
 
     await audit.recordAuditEvent({
-      runId, traceId, taskId, actorId: toActor, delegatedBy: fromActor,
-      delegationDepth: depth, requestedAuthority: authorityEnvelope.join(','),
-      effectiveAuthority: effectiveAuthority.join(','), action: 'task.delegated',
-      result: 'ALLOW', target: toActor,
+      runId,
+      traceId,
+      taskId,
+      actorId: toActor,
+      delegatedBy: fromActor,
+      delegationDepth: depth,
+      requestedAuthority: authorityEnvelope.join(","),
+      effectiveAuthority: effectiveAuthority.join(","),
+      action: "task.delegated",
+      result: "ALLOW",
+      target: toActor,
     });
 
     res.status(201).json({
-      taskId, traceId, actorId: toActor, delegatedBy: fromActor,
-      delegationDepth: depth, effectiveAuthority, goal, delegationId: delegation.delegation_id,
+      taskId,
+      traceId,
+      actorId: toActor,
+      delegatedBy: fromActor,
+      delegationDepth: depth,
+      effectiveAuthority,
+      goal,
+      delegationId: delegation.delegation_id,
     });
   } catch (err) {
     next(err);

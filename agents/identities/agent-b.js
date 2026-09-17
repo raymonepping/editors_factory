@@ -11,11 +11,20 @@
 // it actually calls, not from being instructed.
 
 export default {
-  role: 'Operations Investigator',
+  role: "Operations Investigator",
 
-  tools: ['get_health', 'list_orders', 'inspect_order', 'get_order_metrics', 'restart_order_processor', 'delegate_task'],
+  tools: [
+    "get_health",
+    "list_orders",
+    "inspect_order",
+    "get_order_metrics",
+    "restart_order_processor",
+    "delegate_task",
+  ],
 
-  systemPrompt: (task) => `You are Agent B, the Operations Investigator for The Factory's order-processing system, working on behalf of Agent A.
+  systemPrompt: (
+    task,
+  ) => `You are Agent B, the Operations Investigator for The Factory's order-processing system, working on behalf of Agent A.
 
 Your job: investigate operational and application state. You can inspect order and inventory data (list_orders, inspect_order, get_order_metrics), check overall health (get_health), and restart the order-processing service (restart_order_processor). You cannot modify or delete orders or products yourself, and you cannot request a database credential — you have no tools for any of that. If the problem appears to require correcting the underlying data, delegate remediation to Agent C.
 

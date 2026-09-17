@@ -6,13 +6,13 @@
 // directly — this file is the only network client an identity module
 // (agents/identities/*.js) should ever need.
 
-import { config } from './config.js';
+import { config } from "./config.js";
 
 async function request(method, path, body) {
   const res = await fetch(`${config.backend.url}${path}`, {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${config.agentToken}`,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -20,7 +20,9 @@ async function request(method, path, body) {
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {
-    const err = new Error(data?.error || `${method} ${path} failed: ${res.status}`);
+    const err = new Error(
+      data?.error || `${method} ${path} failed: ${res.status}`,
+    );
     err.status = res.status;
     err.body = data;
     throw err;
@@ -29,40 +31,54 @@ async function request(method, path, body) {
 }
 
 function query(params) {
-  const entries = Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== null && v !== '');
-  if (!entries.length) return '';
+  const entries = Object.entries(params || {}).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
+  if (!entries.length) return "";
   return `?${new URLSearchParams(entries).toString()}`;
 }
 
 export const backendClient = {
   // ── Read tools ──────────────────────────────────────────────────────
-  getHealth: () => request('GET', '/api/actions/health'),
-  listOrders: (filter = {}) => request('GET', `/api/actions/orders${query(filter)}`),
-  getOrder: (id) => request('GET', `/api/actions/orders/${id}`),
-  listProducts: (filter = {}) => request('GET', `/api/actions/products${query(filter)}`),
+  getHealth: () => request("GET", "/api/actions/health"),
+  listOrders: (filter = {}) =>
+    request("GET", `/api/actions/orders${query(filter)}`),
+  getOrder: (id) => request("GET", `/api/actions/orders/${id}`),
+  listProducts: (filter = {}) =>
+    request("GET", `/api/actions/products${query(filter)}`),
 
   // ── Mutating tools ──────────────────────────────────────────────────
-  updateOrderStatus: (id, status) => request('PATCH', `/api/actions/orders/${id}/status`, { status }),
-  deleteOrders: (filter) => request('DELETE', '/api/actions/orders', { filter }),
-  updatePrice: (sku, price) => request('PATCH', `/api/actions/products/${sku}/price`, { price }),
-  insertProduct: (product) => request('POST', '/api/actions/products', product),
-  deleteProducts: (filter) => request('DELETE', '/api/actions/products', { filter }),
-  restartOrderProcessor: () => request('POST', '/api/actions/services/order-processor/restart'),
+  updateOrderStatus: (id, status) =>
+    request("PATCH", `/api/actions/orders/${id}/status`, { status }),
+  deleteOrders: (filter) =>
+    request("DELETE", "/api/actions/orders", { filter }),
+  updatePrice: (sku, price) =>
+    request("PATCH", `/api/actions/products/${sku}/price`, { price }),
+  insertProduct: (product) => request("POST", "/api/actions/products", product),
+  deleteProducts: (filter) =>
+    request("DELETE", "/api/actions/products", { filter }),
+  restartOrderProcessor: () =>
+    request("POST", "/api/actions/services/order-processor/restart"),
 
   // ── Credential + delegation ─────────────────────────────────────────
-  requestCredential: () => request('POST', '/api/credentials'),
+  requestCredential: () => request("POST", "/api/credentials"),
   delegateTask: ({ toActor, goal, authorityEnvelope }) =>
-    request('POST', '/api/delegations', { toActor, goal, authorityEnvelope }),
+    request("POST", "/api/delegations", { toActor, goal, authorityEnvelope }),
 
   // ── Detection-only (Agent D) ────────────────────────────────────────
   createFinding: ({ severity, title, detail, correlatesWithEventId }) =>
-    request('POST', '/api/actions/findings', { severity, title, detail, correlatesWithEventId }),
+    request("POST", "/api/actions/findings", {
+      severity,
+      title,
+      detail,
+      correlatesWithEventId,
+    }),
 
   // ── Task lookup ─────────────────────────────────────────────────────
-  getTask: (taskId) => request('GET', `/api/tasks/${taskId}`),
+  getTask: (taskId) => request("GET", `/api/tasks/${taskId}`),
 
   // ── Introspection ───────────────────────────────────────────────────
-  getAuthority: () => request('GET', '/api/authority'),
+  getAuthority: () => request("GET", "/api/authority"),
 };
 
 /**
@@ -84,26 +100,32 @@ export async function subscribeEvents(onEvent, { signal } = {}) {
   while (!signal?.aborted) {
     try {
       const res = await fetch(`${config.backend.url}/api/events/stream`, {
-        headers: { Accept: 'text/event-stream' },
+        headers: { Accept: "text/event-stream" },
         signal,
       });
       if (!res.ok || !res.body) {
         throw new Error(`SSE connect failed: ${res.status}`);
       }
-      let buffer = '';
+      let buffer = "";
       for await (const chunk of res.body) {
-        buffer += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : Buffer.from(chunk).toString('utf8');
+        buffer += Buffer.isBuffer(chunk)
+          ? chunk.toString("utf8")
+          : Buffer.from(chunk).toString("utf8");
         let boundary;
-        while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        while ((boundary = buffer.indexOf("\n\n")) !== -1) {
           const frame = buffer.slice(0, boundary);
           buffer = buffer.slice(boundary + 2);
-          const typeLine = frame.split('\n').find((l) => l.startsWith('event: '));
-          const dataLine = frame.split('\n').find((l) => l.startsWith('data: '));
+          const typeLine = frame
+            .split("\n")
+            .find((l) => l.startsWith("event: "));
+          const dataLine = frame
+            .split("\n")
+            .find((l) => l.startsWith("data: "));
           if (!typeLine || !dataLine) continue; // e.g. the initial ": connected" comment
-          const type = typeLine.slice('event: '.length);
+          const type = typeLine.slice("event: ".length);
           let payload;
           try {
-            payload = JSON.parse(dataLine.slice('data: '.length));
+            payload = JSON.parse(dataLine.slice("data: ".length));
           } catch {
             continue;
           }
@@ -112,7 +134,10 @@ export async function subscribeEvents(onEvent, { signal } = {}) {
       }
     } catch (err) {
       if (signal?.aborted) return;
-      console.error(`[${config.identity}] SSE stream error, reconnecting in ${reconnectDelayMs}ms:`, err.message);
+      console.error(
+        `[${config.identity}] SSE stream error, reconnecting in ${reconnectDelayMs}ms:`,
+        err.message,
+      );
     }
     if (signal?.aborted) return;
     await new Promise((r) => setTimeout(r, reconnectDelayMs));

@@ -2,15 +2,15 @@
 // starts the matching runtime loop. One shared image for agent-a/b/c/d,
 // differentiated entirely by env var (prompts/agents/01_01's own design).
 
-import { config, validateConfigOnBoot } from './config.js';
-import { startTaskRuntime } from './runtime.js';
-import { startObserverRuntime } from './observerRuntime.js';
-import { beat } from './heartbeat.js';
+import { config, validateConfigOnBoot } from "./config.js";
+import { startTaskRuntime } from "./runtime.js";
+import { startObserverRuntime } from "./observerRuntime.js";
+import { beat } from "./heartbeat.js";
 
 validateConfigOnBoot();
 
 const controller = new AbortController();
-for (const sig of ['SIGTERM', 'SIGINT']) {
+for (const sig of ["SIGTERM", "SIGINT"]) {
   process.on(sig, () => {
     console.log(`[${config.identity}] received ${sig}, shutting down`);
     controller.abort();
@@ -23,7 +23,7 @@ async function loadIdentity() {
     const mod = await import(`../identities/${config.identity}.js`);
     return mod.default;
   } catch (err) {
-    if (err.code === 'ERR_MODULE_NOT_FOUND') {
+    if (err.code === "ERR_MODULE_NOT_FOUND") {
       // A genuinely honest, expected state while prompts/agents/02_01-05_01
       // haven't landed yet for this identity — not a crash-worthy error.
       // Park the process (rather than exit, which `restart: unless-stopped`
@@ -32,7 +32,7 @@ async function loadIdentity() {
       // missing and where it comes from.
       console.log(
         `[${config.identity}] identities/${config.identity}.js does not exist yet — ` +
-        `see prompts/agents/0${identityPromptNumber(config.identity)}_01_*.md. Waiting.`
+          `see prompts/agents/0${identityPromptNumber(config.identity)}_01_*.md. Waiting.`,
       );
       return null;
     }
@@ -41,7 +41,7 @@ async function loadIdentity() {
 }
 
 function identityPromptNumber(identity) {
-  return { 'agent-a': 2, 'agent-b': 3, 'agent-c': 4, 'agent-d': 5 }[identity];
+  return { "agent-a": 2, "agent-b": 3, "agent-c": 4, "agent-d": 5 }[identity];
 }
 
 async function main() {
@@ -59,7 +59,7 @@ async function main() {
     return;
   }
 
-  if (config.identity === 'agent-d') {
+  if (config.identity === "agent-d") {
     await startObserverRuntime(identity, { signal: controller.signal });
   } else {
     await startTaskRuntime(identity, { signal: controller.signal });

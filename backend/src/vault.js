@@ -8,14 +8,16 @@
 // trusts vault-1/2/3's certificates without any custom agent/dispatcher
 // code here.
 
-import { readFile } from 'node:fs/promises';
-import { config } from './config.js';
+import { readFile } from "node:fs/promises";
+import { config } from "./config.js";
 
 async function readAgentToken() {
-  const raw = await readFile(config.vault.tokenFile, 'utf8');
+  const raw = await readFile(config.vault.tokenFile, "utf8");
   const token = raw.trim();
   if (!token) {
-    throw new Error(`Vault Agent token file is empty: ${config.vault.tokenFile}`);
+    throw new Error(
+      `Vault Agent token file is empty: ${config.vault.tokenFile}`,
+    );
   }
   return token;
 }
@@ -23,10 +25,10 @@ async function readAgentToken() {
 async function vaultRequest(method, path, { token, body } = {}) {
   const url = `${config.vault.addr}/v1/${path}`;
   const headers = {
-    'X-Vault-Token': token,
-    'X-Vault-Namespace': config.vault.namespace,
+    "X-Vault-Token": token,
+    "X-Vault-Namespace": config.vault.namespace,
   };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (body !== undefined) headers["Content-Type"] = "application/json";
 
   const res = await fetch(url, {
     method,
@@ -38,8 +40,10 @@ async function vaultRequest(method, path, { token, body } = {}) {
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    const errors = data?.errors?.join('; ') || res.statusText;
-    const err = new Error(`Vault ${method} ${path} failed: ${res.status} ${errors}`);
+    const errors = data?.errors?.join("; ") || res.statusText;
+    const err = new Error(
+      `Vault ${method} ${path} failed: ${res.status} ${errors}`,
+    );
     err.status = res.status;
     err.vaultErrors = data?.errors;
     throw err;
@@ -80,7 +84,7 @@ async function vaultRequest(method, path, { token, body } = {}) {
  */
 export async function mintAgentTaggedChildToken(agentId, ttlSeconds) {
   const parentToken = await readAgentToken();
-  const data = await vaultRequest('POST', 'auth/token/create', {
+  const data = await vaultRequest("POST", "auth/token/create", {
     token: parentToken,
     body: {
       orphan: false,
@@ -107,9 +111,9 @@ export async function mintAgentTaggedChildToken(agentId, ttlSeconds) {
 // the role's default_ttl absorbs the few hundred ms between minting the
 // token and the `database/creds/*` read actually landing.
 const DB_ROLE_TOKEN_TTL_SECONDS = {
-  'factory-bad-role': 86400 + 30, // matches default_ttl 24h
-  'factory-good-role': 120 + 30, // matches default_ttl 2m
-  'factory-backend-role': 3600 + 30, // matches default_ttl 1h
+  "factory-bad-role": 86400 + 30, // matches default_ttl 24h
+  "factory-good-role": 120 + 30, // matches default_ttl 2m
+  "factory-backend-role": 3600 + 30, // matches default_ttl 1h
 };
 
 /**
@@ -123,10 +127,14 @@ const DB_ROLE_TOKEN_TTL_SECONDS = {
 export async function issueDatabaseCredential(role, agentId) {
   const ttlSeconds = DB_ROLE_TOKEN_TTL_SECONDS[role];
   if (!ttlSeconds) {
-    throw new Error(`issueDatabaseCredential: unknown role "${role}" — no child-token TTL mapped`);
+    throw new Error(
+      `issueDatabaseCredential: unknown role "${role}" — no child-token TTL mapped`,
+    );
   }
   const childToken = await mintAgentTaggedChildToken(agentId, ttlSeconds);
-  const data = await vaultRequest('GET', `database/creds/${role}`, { token: childToken });
+  const data = await vaultRequest("GET", `database/creds/${role}`, {
+    token: childToken,
+  });
   return {
     username: data.data.username,
     password: data.data.password,
@@ -142,7 +150,7 @@ export async function issueDatabaseCredential(role, agentId) {
  * broader, unused policy grant). */
 export async function revokeLease(leaseId) {
   const parentToken = await readAgentToken();
-  await vaultRequest('PUT', 'sys/leases/revoke', {
+  await vaultRequest("PUT", "sys/leases/revoke", {
     token: parentToken,
     body: { lease_id: leaseId },
   });

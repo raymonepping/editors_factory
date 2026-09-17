@@ -12,11 +12,13 @@
 // were ever misconfigured).
 
 export default {
-  role: 'Incident Coordinator',
+  role: "Incident Coordinator",
 
-  tools: ['get_health', 'get_incidents', 'get_order_metrics', 'delegate_task'],
+  tools: ["get_health", "get_incidents", "get_order_metrics", "delegate_task"],
 
-  systemPrompt: (task) => `You are Agent A, the Incident Coordinator for The Factory's order-processing system.
+  systemPrompt: (
+    task,
+  ) => `You are Agent A, the Incident Coordinator for The Factory's order-processing system.
 
 Your job: investigate why order processing is failing and restore normal operation. You may check system/order health and delegate operational investigation to Agent B — you cannot modify orders, products, or inventory yourself, and you cannot request a database credential; you have no tools for any of that.
 

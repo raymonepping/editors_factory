@@ -4,7 +4,7 @@
 // this is a single-process control plane and `make reset` clears it
 // alongside the database.
 
-import { config } from './config.js';
+import { config } from "./config.js";
 
 let currentProfile = config.demo.defaultProfile;
 let currentRunId = null;
@@ -14,7 +14,7 @@ export function getProfile() {
 }
 
 export function setProfile(profile) {
-  if (profile !== 'bad' && profile !== 'good') {
+  if (profile !== "bad" && profile !== "good") {
     throw new Error(`Invalid profile: ${profile}`);
   }
   currentProfile = profile;
@@ -31,8 +31,26 @@ export function setCurrentRunId(runId) {
 // taskId -> { actorId, delegatedBy, delegationDepth, effectiveAuthority, traceId, parentTaskId, goal }
 const tasks = new Map();
 
-export function createTask({ taskId, actorId, delegatedBy, delegationDepth, effectiveAuthority, traceId, parentTaskId, goal }) {
-  const task = { taskId, actorId, delegatedBy, delegationDepth, effectiveAuthority, traceId, parentTaskId, goal };
+export function createTask({
+  taskId,
+  actorId,
+  delegatedBy,
+  delegationDepth,
+  effectiveAuthority,
+  traceId,
+  parentTaskId,
+  goal,
+}) {
+  const task = {
+    taskId,
+    actorId,
+    delegatedBy,
+    delegationDepth,
+    effectiveAuthority,
+    traceId,
+    parentTaskId,
+    goal,
+  };
   tasks.set(taskId, task);
   return task;
 }

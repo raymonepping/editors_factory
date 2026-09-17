@@ -1,8 +1,8 @@
-import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
-import * as audit from '../audit.js';
-import * as state from '../state.js';
-import { effectiveAuthorityFor } from '../policy.js';
+import { Router } from "express";
+import { randomUUID } from "node:crypto";
+import * as audit from "../audit.js";
+import * as state from "../state.js";
+import { effectiveAuthorityFor } from "../policy.js";
 
 export const tasksRouter = Router();
 
@@ -10,7 +10,12 @@ export const tasksRouter = Router();
 // project's chain is a fixed 4-agent shape, not a general arbitrary-depth
 // system, so depth is looked up by identity rather than propagated
 // dynamically task-by-task.
-const DELEGATION_DEPTH = { 'agent-a': 1, 'agent-b': 2, 'agent-c': 3, 'agent-d': 0 };
+const DELEGATION_DEPTH = {
+  "agent-a": 1,
+  "agent-b": 2,
+  "agent-c": 3,
+  "agent-d": 0,
+};
 
 /**
  * The entry point for the human/frontend trigger — creates the first
@@ -19,16 +24,17 @@ const DELEGATION_DEPTH = { 'agent-a': 1, 'agent-b': 2, 'agent-c': 3, 'agent-d': 
  * to-agent delegation goes through POST /api/delegations instead, which
  * IS agent-authenticated.
  */
-tasksRouter.post('/agents/:agentId/tasks', async (req, res, next) => {
+tasksRouter.post("/agents/:agentId/tasks", async (req, res, next) => {
   try {
     const { agentId } = req.params;
-    if (agentId !== 'agent-a') {
+    if (agentId !== "agent-a") {
       return res.status(400).json({
-        error: 'Only agent-a accepts a direct (human-originated) task. Use POST /api/delegations for agent-to-agent delegation.',
+        error:
+          "Only agent-a accepts a direct (human-originated) task. Use POST /api/delegations for agent-to-agent delegation.",
       });
     }
     const { goal } = req.body || {};
-    if (!goal) return res.status(400).json({ error: 'goal is required' });
+    if (!goal) return res.status(400).json({ error: "goal is required" });
 
     let runId = state.getCurrentRunId();
     if (!runId) {
@@ -38,29 +44,55 @@ tasksRouter.post('/agents/:agentId/tasks', async (req, res, next) => {
 
     const traceId = randomUUID();
     const taskId = randomUUID();
-    const effectiveAuthority = effectiveAuthorityFor('agent-a', state.getProfile());
+    const effectiveAuthority = effectiveAuthorityFor(
+      "agent-a",
+      state.getProfile(),
+    );
 
     state.createTask({
-      taskId, actorId: 'agent-a', delegatedBy: 'human', delegationDepth: 1,
-      effectiveAuthority, traceId, parentTaskId: null, goal,
+      taskId,
+      actorId: "agent-a",
+      delegatedBy: "human",
+      delegationDepth: 1,
+      effectiveAuthority,
+      traceId,
+      parentTaskId: null,
+      goal,
     });
 
     await audit.recordAuditEvent({
-      runId, traceId, taskId, actorId: 'agent-a', delegatedBy: 'human',
-      delegationDepth: 1, requestedAuthority: null,
-      effectiveAuthority: effectiveAuthority.join(','), action: 'task.created',
-      result: 'ALLOW', target: 'agent-a',
+      runId,
+      traceId,
+      taskId,
+      actorId: "agent-a",
+      delegatedBy: "human",
+      delegationDepth: 1,
+      requestedAuthority: null,
+      effectiveAuthority: effectiveAuthority.join(","),
+      action: "task.created",
+      result: "ALLOW",
+      target: "agent-a",
     });
 
-    res.status(201).json({ taskId, traceId, actorId: 'agent-a', delegationDepth: 1, effectiveAuthority, goal, runId });
+    res
+      .status(201)
+      .json({
+        taskId,
+        traceId,
+        actorId: "agent-a",
+        delegationDepth: 1,
+        effectiveAuthority,
+        goal,
+        runId,
+      });
   } catch (err) {
     next(err);
   }
 });
 
-tasksRouter.get('/tasks/:taskId', (req, res) => {
+tasksRouter.get("/tasks/:taskId", (req, res) => {
   const task = state.getTask(req.params.taskId);
-  if (!task) return res.status(404).json({ error: 'not found' });
+  if (!task) return res.status(404).json({ error: "not found" });
   res.json(task);
 });
 

@@ -3,7 +3,7 @@
 // URL http://factory-ollama:11434, POST /api/chat, model from
 // $OLLAMA_MODEL — never hard-coded here, per that README's own rule).
 
-import { config } from './config.js';
+import { config } from "./config.js";
 
 /**
  * One turn of the conversation: sends the running message list plus the
@@ -15,8 +15,8 @@ import { config } from './config.js';
  */
 export async function chat({ messages, tools }) {
   const res = await fetch(`${config.ollama.addr}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: config.ollama.model,
       messages,
@@ -25,11 +25,11 @@ export async function chat({ messages, tools }) {
     }),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
+    const text = await res.text().catch(() => "");
     throw new Error(`Ollama /api/chat failed: ${res.status} ${text}`);
   }
   const data = await res.json();
-  const message = data.message || { role: 'assistant', content: '' };
+  const message = data.message || { role: "assistant", content: "" };
 
   // Ollama already parses tool-call arguments into an object per its own
   // /api/chat contract; normalize defensively in case a given model
@@ -37,11 +37,12 @@ export async function chat({ messages, tools }) {
   // Ollama tool-calling-capable models in general use).
   const toolCalls = (message.tool_calls || []).map((call) => {
     const rawArgs = call.function?.arguments;
-    const args = typeof rawArgs === 'string' ? safeParse(rawArgs) : (rawArgs || {});
+    const args =
+      typeof rawArgs === "string" ? safeParse(rawArgs) : rawArgs || {};
     return { name: call.function?.name, arguments: args };
   });
 
-  return { role: 'assistant', content: message.content || '', toolCalls };
+  return { role: "assistant", content: message.content || "", toolCalls };
 }
 
 function safeParse(text) {

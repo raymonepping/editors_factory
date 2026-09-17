@@ -16,11 +16,11 @@
 // mechanics an observer needs, matching how tools.js/runtime.js own the
 // mechanics identities/agent-a.js through agent-c.js build on.
 
-import { config } from './config.js';
-import { backendClient, subscribeEvents } from './backendClient.js';
-import { chat } from './ollamaClient.js';
-import { TOOLS } from './tools.js';
-import { beat } from './heartbeat.js';
+import { config } from "./config.js";
+import { backendClient, subscribeEvents } from "./backendClient.js";
+import { chat } from "./ollamaClient.js";
+import { TOOLS } from "./tools.js";
+import { beat } from "./heartbeat.js";
 
 /**
  * Starts Agent D's observer loop.
@@ -34,7 +34,9 @@ import { beat } from './heartbeat.js';
  *   Defaults to 15000ms (the 15-20s cadence prompts/agents/05_01 asks for).
  */
 export async function startObserverRuntime(identity, { signal } = {}) {
-  console.log(`[${config.identity}] observer runtime starting — role: ${identity.role}`);
+  console.log(
+    `[${config.identity}] observer runtime starting — role: ${identity.role}`,
+  );
   const heartbeatTimer = setInterval(beat, 5000);
   beat();
 
@@ -42,13 +44,19 @@ export async function startObserverRuntime(identity, { signal } = {}) {
     ? setInterval(identity.onTick, identity.tickIntervalMs || 15000)
     : null;
 
-  await subscribeEvents((event) => {
-    try {
-      identity.onEvent(event);
-    } catch (err) {
-      console.error(`[${config.identity}] onEvent classifier threw:`, err.message);
-    }
-  }, { signal });
+  await subscribeEvents(
+    (event) => {
+      try {
+        identity.onEvent(event);
+      } catch (err) {
+        console.error(
+          `[${config.identity}] onEvent classifier threw:`,
+          err.message,
+        );
+      }
+    },
+    { signal },
+  );
 
   clearInterval(heartbeatTimer);
   if (tickTimer) clearInterval(tickTimer);
@@ -64,8 +72,8 @@ export async function startObserverRuntime(identity, { signal } = {}) {
 export async function correlate({ systemPrompt, signalSummary }) {
   const result = await chat({
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: signalSummary },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: signalSummary },
     ],
     tools: [],
   });
@@ -74,10 +82,20 @@ export async function correlate({ systemPrompt, signalSummary }) {
 
 /** Writes a finding via the same backend endpoint every other
  * finding-writer uses (src/tools.js's create_finding). */
-export async function recordFinding({ severity, title, detail, correlatesWithEventId }) {
+export async function recordFinding({
+  severity,
+  title,
+  detail,
+  correlatesWithEventId,
+}) {
   return TOOLS.create_finding.run(
-    { severity, title, detail, correlates_with_event_id: correlatesWithEventId },
-    { identity: config.identity }
+    {
+      severity,
+      title,
+      detail,
+      correlates_with_event_id: correlatesWithEventId,
+    },
+    { identity: config.identity },
   );
 }
 

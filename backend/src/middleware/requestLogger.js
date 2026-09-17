@@ -2,9 +2,11 @@
 
 export function requestLogger(req, res, next) {
   const start = Date.now();
-  res.on('finish', () => {
+  res.on("finish", () => {
     const ms = Date.now() - start;
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${ms}ms actor=${req.actorId || '-'}`);
+    console.log(
+      `${req.method} ${req.path} ${res.statusCode} ${ms}ms actor=${req.actorId || "-"}`,
+    );
   });
   next();
 }
