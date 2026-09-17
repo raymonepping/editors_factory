@@ -28,11 +28,9 @@ export function agentAuth(req, res, next) {
 export function requireActor(...allowed) {
   return (req, res, next) => {
     if (!allowed.includes(req.actorId)) {
-      return res
-        .status(403)
-        .json({
-          error: `${req.actorId} is not permitted to call this endpoint`,
-        });
+      return res.status(403).json({
+        error: `${req.actorId} is not permitted to call this endpoint`,
+      });
     }
     next();
   };

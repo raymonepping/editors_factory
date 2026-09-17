@@ -74,17 +74,15 @@ tasksRouter.post("/agents/:agentId/tasks", async (req, res, next) => {
       target: "agent-a",
     });
 
-    res
-      .status(201)
-      .json({
-        taskId,
-        traceId,
-        actorId: "agent-a",
-        delegationDepth: 1,
-        effectiveAuthority,
-        goal,
-        runId,
-      });
+    res.status(201).json({
+      taskId,
+      traceId,
+      actorId: "agent-a",
+      delegationDepth: 1,
+      effectiveAuthority,
+      goal,
+      runId,
+    });
   } catch (err) {
     next(err);
   }
