@@ -54,5 +54,5 @@ watch(
   gap: 3px;
 }
 .metric.is-compact .metric-label { font-size: 9.5px; }
-.metric.is-compact .metric-value { font-size: 20px; }
+.metric.is-compact .metric-value { font-size: clamp(20px, 1.15vw, 27px); }
 </style>

@@ -110,7 +110,10 @@ async function onReset() {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  max-width: 1400px;
+  /* --dashboard-max-width (assets/css/main.css) — shared with
+   * FactoryFooter.vue's own .factory-footer so the two can never drift
+   * out of alignment. */
+  max-width: var(--dashboard-max-width);
   margin: 0 auto;
   padding: 28px 20px 0;
   gap: var(--gap-panel);
@@ -135,7 +138,7 @@ async function onReset() {
   filter: drop-shadow(0 0 10px rgb(237 186 71 / 0.25));
 }
 .dashboard-title {
-  font-size: 30px;
+  font-size: clamp(26px, 1.5vw, 38px);
   font-weight: 750;
   color: var(--color-text-primary);
   margin: 0;

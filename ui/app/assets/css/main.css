@@ -95,9 +95,17 @@
   --radius-pill: 999px;
   --border-width: 1px;
   --rail-width: 3px;
-  --gap-panel: 16px;
-  --pad-panel: 20px;
-  --pad-dense: 12px;
+  --gap-panel: clamp(16px, 0.85vw, 24px);
+  --pad-panel: clamp(20px, 1.1vw, 28px);
+  --pad-dense: clamp(12px, 0.6vw, 16px);
+
+  /* Shared by the main content shell (pages/index.vue) and the fixed
+   * footer (FactoryFooter.vue) so they can never drift apart — found
+   * live (Playwright at 1920/2560/3440/3840px): a flat 1400px cap left
+   * up to 1200px of dead space per side on anything past a laptop
+   * screen. The 2600px ceiling keeps ultra-wide displays from
+   * stretching panels into unreadably long line lengths. */
+  --dashboard-max-width: clamp(1400px, 88vw, 2960px);
 
   /* Typography (01_00 section 9) */
   --font-ui: Inter, "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;

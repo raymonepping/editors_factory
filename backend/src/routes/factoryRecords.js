@@ -15,7 +15,10 @@ const MAX_LIMIT = 50;
 
 factoryRecordsRouter.get("/factory-records", async (req, res, next) => {
   try {
-    const limit = Math.min(MAX_LIMIT, Math.max(1, Number(req.query.limit) || DEFAULT_LIMIT));
+    const limit = Math.min(
+      MAX_LIMIT,
+      Math.max(1, Number(req.query.limit) || DEFAULT_LIMIT),
+    );
     const offset = Math.max(0, Number(req.query.offset) || 0);
     const pool = getPool();
 

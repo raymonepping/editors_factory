@@ -142,7 +142,7 @@ const links = [
   right: 0;
   bottom: 0;
   z-index: 40;
-  max-width: 1400px;
+  max-width: var(--dashboard-max-width);
   margin: 0 auto;
   border-top: var(--border-width) solid var(--color-border-subtle);
   background: var(--color-bg-shell);

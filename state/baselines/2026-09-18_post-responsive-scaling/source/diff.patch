@@ -1,0 +1,90 @@
+diff --git a/backend/src/routes/factoryRecords.js b/backend/src/routes/factoryRecords.js
+index b9b5cb8..a3e1169 100644
+--- a/backend/src/routes/factoryRecords.js
++++ b/backend/src/routes/factoryRecords.js
+@@ -15,7 +15,10 @@ const MAX_LIMIT = 50;
+ 
+ factoryRecordsRouter.get("/factory-records", async (req, res, next) => {
+   try {
+-    const limit = Math.min(MAX_LIMIT, Math.max(1, Number(req.query.limit) || DEFAULT_LIMIT));
++    const limit = Math.min(
++      MAX_LIMIT,
++      Math.max(1, Number(req.query.limit) || DEFAULT_LIMIT),
++    );
+     const offset = Math.max(0, Number(req.query.offset) || 0);
+     const pool = getPool();
+ 
+diff --git a/ui/app/assets/css/main.css b/ui/app/assets/css/main.css
+index be74bbf..3e03eca 100644
+--- a/ui/app/assets/css/main.css
++++ b/ui/app/assets/css/main.css
+@@ -95,9 +95,17 @@
+   --radius-pill: 999px;
+   --border-width: 1px;
+   --rail-width: 3px;
+-  --gap-panel: 16px;
+-  --pad-panel: 20px;
+-  --pad-dense: 12px;
++  --gap-panel: clamp(16px, 0.85vw, 24px);
++  --pad-panel: clamp(20px, 1.1vw, 28px);
++  --pad-dense: clamp(12px, 0.6vw, 16px);
++
++  /* Shared by the main content shell (pages/index.vue) and the fixed
++   * footer (FactoryFooter.vue) so they can never drift apart — found
++   * live (Playwright at 1920/2560/3440/3840px): a flat 1400px cap left
++   * up to 1200px of dead space per side on anything past a laptop
++   * screen. The 2600px ceiling keeps ultra-wide displays from
++   * stretching panels into unreadably long line lengths. */
++  --dashboard-max-width: clamp(1400px, 88vw, 2960px);
+ 
+   /* Typography (01_00 section 9) */
+   --font-ui: Inter, "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+diff --git a/ui/app/components/FactoryFooter.vue b/ui/app/components/FactoryFooter.vue
+index 24c6cdb..6ccc129 100644
+--- a/ui/app/components/FactoryFooter.vue
++++ b/ui/app/components/FactoryFooter.vue
+@@ -142,7 +142,7 @@ const links = [
+   right: 0;
+   bottom: 0;
+   z-index: 40;
+-  max-width: 1400px;
++  max-width: var(--dashboard-max-width);
+   margin: 0 auto;
+   border-top: var(--border-width) solid var(--color-border-subtle);
+   background: var(--color-bg-shell);
+diff --git a/ui/app/components/FactoryMetric.vue b/ui/app/components/FactoryMetric.vue
+index ea6399c..ea069e4 100644
+--- a/ui/app/components/FactoryMetric.vue
++++ b/ui/app/components/FactoryMetric.vue
+@@ -54,5 +54,5 @@ watch(
+   gap: 3px;
+ }
+ .metric.is-compact .metric-label { font-size: 9.5px; }
+-.metric.is-compact .metric-value { font-size: 20px; }
++.metric.is-compact .metric-value { font-size: clamp(20px, 1.15vw, 27px); }
+ </style>
+diff --git a/ui/app/pages/index.vue b/ui/app/pages/index.vue
+index e1d60b4..28556ca 100644
+--- a/ui/app/pages/index.vue
++++ b/ui/app/pages/index.vue
+@@ -110,7 +110,10 @@ async function onReset() {
+   display: flex;
+   flex-direction: column;
+   min-height: 100vh;
+-  max-width: 1400px;
++  /* --dashboard-max-width (assets/css/main.css) — shared with
++   * FactoryFooter.vue's own .factory-footer so the two can never drift
++   * out of alignment. */
++  max-width: var(--dashboard-max-width);
+   margin: 0 auto;
+   padding: 28px 20px 0;
+   gap: var(--gap-panel);
+@@ -135,7 +138,7 @@ async function onReset() {
+   filter: drop-shadow(0 0 10px rgb(237 186 71 / 0.25));
+ }
+ .dashboard-title {
+-  font-size: 30px;
++  font-size: clamp(26px, 1.5vw, 38px);
+   font-weight: 750;
+   color: var(--color-text-primary);
+   margin: 0;
