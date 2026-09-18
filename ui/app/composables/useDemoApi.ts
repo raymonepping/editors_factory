@@ -10,6 +10,7 @@
 import type {
   AuthorityMap,
   DemoMode,
+  FactoryRecordsPage,
   FactoryState,
   Profile,
   Task,
@@ -71,6 +72,12 @@ export function useDemoApi() {
     })
   }
 
+  async function getFactoryRecords(limit = 5, offset = 0) {
+    return $fetch<FactoryRecordsPage>(`${base}/api/factory-records`, {
+      query: { limit, offset },
+    })
+  }
+
   return {
     base,
     FIXED_TRIGGER_PROMPT,
@@ -82,5 +89,6 @@ export function useDemoApi() {
     getFactoryState,
     getEventsHistory,
     getFindings,
+    getFactoryRecords,
   }
 }

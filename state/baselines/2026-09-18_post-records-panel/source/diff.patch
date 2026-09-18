@@ -1,0 +1,228 @@
+diff --git a/backend/src/index.js b/backend/src/index.js
+index 421b664..cd0bffd 100644
+--- a/backend/src/index.js
++++ b/backend/src/index.js
+@@ -12,6 +12,7 @@ import { actionsRouter } from "./routes/actions.js";
+ import { eventsRouter } from "./routes/events.js";
+ import { demoRouter } from "./routes/demo.js";
+ import { factoryStateRouter } from "./routes/factoryState.js";
++import { factoryRecordsRouter } from "./routes/factoryRecords.js";
+ import * as audit from "./audit.js";
+ import * as state from "./state.js";
+ 
+@@ -55,6 +56,7 @@ app.use("/tools", actionsRouter); // alias, per prompts/api/01_01_factory_schema
+ app.use("/api", eventsRouter);
+ app.use("/api", demoRouter);
+ app.use("/api", factoryStateRouter);
++app.use("/api", factoryRecordsRouter);
+ 
+ app.use(errorHandler);
+ 
+diff --git a/ui/app/components/FactoryFooter.vue b/ui/app/components/FactoryFooter.vue
+index 26d9181..24c6cdb 100644
+--- a/ui/app/components/FactoryFooter.vue
++++ b/ui/app/components/FactoryFooter.vue
+@@ -24,6 +24,25 @@ onMounted(() => {
+ })
+ onUnmounted(() => observer?.disconnect())
+ 
++// Folded by default — reclaims vertical space now that the footer is
++// permanently on screen (position: fixed). The ResizeObserver above
++// already reacts to the legend's own height change when it opens, so
++// the page's reserved bottom padding stays correct with no extra wiring.
++const legendOpen = ref(false)
++if (import.meta.client) {
++  try {
++    legendOpen.value = localStorage.getItem('factory-footer:legend') === '1'
++  } catch {
++    // Private browsing / storage disabled — stays folded.
++  }
++}
++function toggleLegend() {
++  legendOpen.value = !legendOpen.value
++  if (import.meta.client) {
++    try { localStorage.setItem('factory-footer:legend', legendOpen.value ? '1' : '0') } catch {}
++  }
++}
++
+ // Reinforces 01_00's own rule ("status never depends on color alone") —
+ // the footer legend is functional, not decorative: every state color used
+ // anywhere in the dashboard is named here once.
+@@ -64,12 +83,25 @@ const links = [
+   <footer ref="footerEl" class="factory-footer">
+     <div class="footer-rail" aria-hidden="true" />
+ 
+-    <div class="footer-legend">
+-      <span class="footer-legend-title">Signal key</span>
+-      <span v-for="item in legend" :key="item.label" class="footer-legend-item">
+-        <span class="footer-swatch" :style="{ background: item.swatch }" aria-hidden="true" />
+-        {{ item.label }}
+-      </span>
++    <div class="footer-legend" :class="{ 'is-open': legendOpen }">
++      <button
++        type="button"
++        class="footer-legend-toggle"
++        :aria-expanded="legendOpen"
++        aria-controls="footer-legend-body"
++        @click="toggleLegend"
++      >
++        <svg viewBox="0 0 12 12" class="footer-legend-chevron" aria-hidden="true">
++          <path d="M3 4.5 6 8l3-3.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
++        </svg>
++        Signal key
++      </button>
++      <div v-show="legendOpen" id="footer-legend-body" class="footer-legend-body">
++        <span v-for="item in legend" :key="item.label" class="footer-legend-item">
++          <span class="footer-swatch" :style="{ background: item.swatch }" aria-hidden="true" />
++          {{ item.label }}
++        </span>
++      </div>
+     </div>
+ 
+     <div class="footer-main">
+@@ -125,21 +157,41 @@ const links = [
+ }
+ 
+ .footer-legend {
+-  display: flex;
+-  flex-wrap: wrap;
+-  align-items: center;
+-  gap: 18px;
+-  padding: 14px 20px;
+   border-bottom: var(--border-width) solid var(--color-border-subtle);
+   font-size: 11px;
+   color: var(--color-text-muted);
+ }
+-.footer-legend-title {
++.footer-legend-toggle {
++  display: flex;
++  align-items: center;
++  gap: 6px;
++  width: 100%;
++  padding: 10px 20px;
++  border: none;
++  background: transparent;
++  color: var(--color-text-secondary);
++  font: inherit;
+   font-weight: 600;
+   letter-spacing: 0.05em;
+   text-transform: uppercase;
+-  color: var(--color-text-secondary);
+-  margin-right: 4px;
++  cursor: pointer;
++  text-align: left;
++}
++.footer-legend-toggle:hover { color: var(--color-accent-primary); }
++.footer-legend-chevron {
++  width: 10px;
++  height: 10px;
++  flex-shrink: 0;
++  transition: transform 160ms ease;
++}
++.footer-legend.is-open .footer-legend-chevron { transform: rotate(90deg); }
++
++.footer-legend-body {
++  display: flex;
++  flex-wrap: wrap;
++  align-items: center;
++  gap: 18px;
++  padding: 0 20px 14px;
+ }
+ .footer-legend-item {
+   display: inline-flex;
+diff --git a/ui/app/components/PanelShell.vue b/ui/app/components/PanelShell.vue
+index d50a4a2..f81e369 100644
+--- a/ui/app/components/PanelShell.vue
++++ b/ui/app/components/PanelShell.vue
+@@ -45,7 +45,7 @@ const bodyId = useId()
+         <h2 class="panel-title">{{ title }}</h2>
+         <slot name="badge" />
+       </div>
+-      <div class="panel-header-actions">
++      <div class="panel-header-actions" @click.stop>
+         <slot name="actions" />
+         <button
+           v-if="collapsible"
+diff --git a/ui/app/composables/useDemoApi.ts b/ui/app/composables/useDemoApi.ts
+index 044bf95..a1ab7f1 100644
+--- a/ui/app/composables/useDemoApi.ts
++++ b/ui/app/composables/useDemoApi.ts
+@@ -10,6 +10,7 @@
+ import type {
+   AuthorityMap,
+   DemoMode,
++  FactoryRecordsPage,
+   FactoryState,
+   Profile,
+   Task,
+@@ -71,6 +72,12 @@ export function useDemoApi() {
+     })
+   }
+ 
++  async function getFactoryRecords(limit = 5, offset = 0) {
++    return $fetch<FactoryRecordsPage>(`${base}/api/factory-records`, {
++      query: { limit, offset },
++    })
++  }
++
+   return {
+     base,
+     FIXED_TRIGGER_PROMPT,
+@@ -82,5 +89,6 @@ export function useDemoApi() {
+     getFactoryState,
+     getEventsHistory,
+     getFindings,
++    getFactoryRecords,
+   }
+ }
+diff --git a/ui/app/pages/index.vue b/ui/app/pages/index.vue
+index 2428cff..e1d60b4 100644
+--- a/ui/app/pages/index.vue
++++ b/ui/app/pages/index.vue
+@@ -86,6 +86,8 @@ async function onReset() {
+         @update:profile="onProfileChange"
+       />
+ 
++      <FactoryRecords />
++
+       <FactoryState :state="factoryState" />
+       <AgentChain :nodes="nodeStatus" />
+ 
+@@ -190,8 +192,9 @@ async function onReset() {
+ }
+ .dashboard-grid > :deep(section) { min-width: 0; }
+ 
+-/* Human request spans full width above everything else. */
+-.dashboard-grid > :first-child {
++/* Human request and Recent records both span full width, stacked above
++ * the two-column panel rows. */
++.dashboard-grid > :nth-child(-n+2) {
+   grid-column: 1 / -1;
+ }
+ .timeline-full { grid-column: 1 / -1; }
+diff --git a/ui/app/types/factory.ts b/ui/app/types/factory.ts
+index c9c2dbb..973829d 100644
+--- a/ui/app/types/factory.ts
++++ b/ui/app/types/factory.ts
+@@ -102,6 +102,21 @@ export interface FactoryState {
+   inventory: { lowStockCount: number; threshold: number }
+ }
+ 
++export interface OrderRecord {
++  id: number
++  customer_ref: string
++  status: string
++  created_at: string
++  updated_at: string
++}
++
++export interface FactoryRecordsPage {
++  records: OrderRecord[]
++  total: number
++  limit: number
++  offset: number
++}
++
+ export interface DemoMode {
+   profile: Profile
+   runId: string | null

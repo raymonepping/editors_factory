@@ -45,7 +45,7 @@ const bodyId = useId()
         <h2 class="panel-title">{{ title }}</h2>
         <slot name="badge" />
       </div>
-      <div class="panel-header-actions">
+      <div class="panel-header-actions" @click.stop>
         <slot name="actions" />
         <button
           v-if="collapsible"

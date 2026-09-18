@@ -24,6 +24,25 @@ onMounted(() => {
 })
 onUnmounted(() => observer?.disconnect())
 
+// Folded by default — reclaims vertical space now that the footer is
+// permanently on screen (position: fixed). The ResizeObserver above
+// already reacts to the legend's own height change when it opens, so
+// the page's reserved bottom padding stays correct with no extra wiring.
+const legendOpen = ref(false)
+if (import.meta.client) {
+  try {
+    legendOpen.value = localStorage.getItem('factory-footer:legend') === '1'
+  } catch {
+    // Private browsing / storage disabled — stays folded.
+  }
+}
+function toggleLegend() {
+  legendOpen.value = !legendOpen.value
+  if (import.meta.client) {
+    try { localStorage.setItem('factory-footer:legend', legendOpen.value ? '1' : '0') } catch {}
+  }
+}
+
 // Reinforces 01_00's own rule ("status never depends on color alone") —
 // the footer legend is functional, not decorative: every state color used
 // anywhere in the dashboard is named here once.
@@ -64,12 +83,25 @@ const links = [
   <footer ref="footerEl" class="factory-footer">
     <div class="footer-rail" aria-hidden="true" />
 
-    <div class="footer-legend">
-      <span class="footer-legend-title">Signal key</span>
-      <span v-for="item in legend" :key="item.label" class="footer-legend-item">
-        <span class="footer-swatch" :style="{ background: item.swatch }" aria-hidden="true" />
-        {{ item.label }}
-      </span>
+    <div class="footer-legend" :class="{ 'is-open': legendOpen }">
+      <button
+        type="button"
+        class="footer-legend-toggle"
+        :aria-expanded="legendOpen"
+        aria-controls="footer-legend-body"
+        @click="toggleLegend"
+      >
+        <svg viewBox="0 0 12 12" class="footer-legend-chevron" aria-hidden="true">
+          <path d="M3 4.5 6 8l3-3.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Signal key
+      </button>
+      <div v-show="legendOpen" id="footer-legend-body" class="footer-legend-body">
+        <span v-for="item in legend" :key="item.label" class="footer-legend-item">
+          <span class="footer-swatch" :style="{ background: item.swatch }" aria-hidden="true" />
+          {{ item.label }}
+        </span>
+      </div>
     </div>
 
     <div class="footer-main">
@@ -125,21 +157,41 @@ const links = [
 }
 
 .footer-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-  padding: 14px 20px;
   border-bottom: var(--border-width) solid var(--color-border-subtle);
   font-size: 11px;
   color: var(--color-text-muted);
 }
-.footer-legend-title {
+.footer-legend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--color-text-secondary);
-  margin-right: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.footer-legend-toggle:hover { color: var(--color-accent-primary); }
+.footer-legend-chevron {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+}
+.footer-legend.is-open .footer-legend-chevron { transform: rotate(90deg); }
+
+.footer-legend-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px 14px;
 }
 .footer-legend-item {
   display: inline-flex;

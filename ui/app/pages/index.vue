@@ -86,6 +86,8 @@ async function onReset() {
         @update:profile="onProfileChange"
       />
 
+      <FactoryRecords />
+
       <FactoryState :state="factoryState" />
       <AgentChain :nodes="nodeStatus" />
 
@@ -190,8 +192,9 @@ async function onReset() {
 }
 .dashboard-grid > :deep(section) { min-width: 0; }
 
-/* Human request spans full width above everything else. */
-.dashboard-grid > :first-child {
+/* Human request and Recent records both span full width, stacked above
+ * the two-column panel rows. */
+.dashboard-grid > :nth-child(-n+2) {
   grid-column: 1 / -1;
 }
 .timeline-full { grid-column: 1 / -1; }

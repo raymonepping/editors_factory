@@ -102,6 +102,21 @@ export interface FactoryState {
   inventory: { lowStockCount: number; threshold: number }
 }
 
+export interface OrderRecord {
+  id: number
+  customer_ref: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export interface FactoryRecordsPage {
+  records: OrderRecord[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface DemoMode {
   profile: Profile
   runId: string | null

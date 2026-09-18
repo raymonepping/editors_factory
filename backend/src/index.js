@@ -12,6 +12,7 @@ import { actionsRouter } from "./routes/actions.js";
 import { eventsRouter } from "./routes/events.js";
 import { demoRouter } from "./routes/demo.js";
 import { factoryStateRouter } from "./routes/factoryState.js";
+import { factoryRecordsRouter } from "./routes/factoryRecords.js";
 import * as audit from "./audit.js";
 import * as state from "./state.js";
 
@@ -55,6 +56,7 @@ app.use("/tools", actionsRouter); // alias, per prompts/api/01_01_factory_schema
 app.use("/api", eventsRouter);
 app.use("/api", demoRouter);
 app.use("/api", factoryStateRouter);
+app.use("/api", factoryRecordsRouter);
 
 app.use(errorHandler);
 
