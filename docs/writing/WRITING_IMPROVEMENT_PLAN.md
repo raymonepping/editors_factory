@@ -1,49 +1,34 @@
-# Writing Improvement Plan
+# Writing improvement plan
 
-Derived from `docs/writing/WRITING_AUDIT.md`.
+This plan records the work completed during the 2026-09-18 documentation pass and the remaining release-facing work.
 
-## Wave 1 — clear "reads like it was generated" patterns
+## Completed
 
-None found. No-ai-slop detect mode returned zero patterns across the
-full corpus (`docs/writing/BASELINE.md`). No Wave 1 work exists.
+- [x] Replace the root README with a current project overview and clear entry path.
+- [x] Add `docs/index.md` with guided and reference navigation.
+- [x] Document clean setup, Vault bootstrap, Terraform application, and service startup.
+- [x] Document components, networks, task flow, evidence, and deliberate limits.
+- [x] Document effective authority, credential brokerage, Sentinel, PostgreSQL grants, and reset boundaries.
+- [x] Provide repeatable BAD and GOOD profile procedures.
+- [x] Document routine operations and known failure modes found during implementation.
+- [x] Provide an API route reference with authentication boundaries.
+- [x] Preserve design evolution in a history that marks early material as historical.
+- [x] Expand the release checklist to cover source, runtime, security, and documentation checks.
+- [x] Refresh style and quality policies for the mature corpus.
 
-## Wave 2 — terminology and formatting consistency
+## Release blockers discovered during validation
 
-Not yet applicable. The corpus is four short boilerplate files with no
-terminology to reconcile. The terminology list in
-`docs/writing/config/STYLE.md` is written pre-emptively, for the real
-documentation that lands with `prompts/base_project/01_01_factory_stack.md`
-onward. Enforce it starting then, via
-`prompts/process/00_03_docs_quality_gate.md`.
+- [ ] Add backend tests or remove the broken `npm test` contract. `node --test test/` currently fails because `backend/test/` does not exist.
+- [ ] Add agent tests or remove the broken `npm test` contract. `node --test test/` currently fails because `agents/test/` does not exist.
+- [ ] Format `terraform/vault-database/main.tf` and `terraform/vault-platform/main.tf`; `terraform fmt -check -recursive terraform` currently fails.
+- [ ] Resolve the UI type-checker's `vue-router/volar/sfc-route-blocks` resolution error. The command currently exits zero despite printing the error.
 
-## Wave 3 — remaining tool findings
+These items require source or dependency changes outside this documentation task. The release checklist keeps them visible.
 
-All four real, actionable Vale findings (F1–F4 in `WRITING_AUDIT.md`)
-were fixed directly while establishing the toolchain itself (vocabulary
-additions and two evidenced rule disables). Fixing false positives is a
-precondition for a usable baseline, not deferred prose work. Nothing
-remains in this wave.
+## Future maintenance
 
-## Wave 4 — optional refinement
-
-Not started, per this prompt's own instruction not to start Wave 4
-merely because it exists, and because there is no Wave 1–3 backlog
-justifying it yet.
-
-## Explicitly not actioned by this plan
-
-`README.md`'s stale project description (F6 in `WRITING_AUDIT.md`) is a
-content-accuracy fix, not a style/prose-quality fix, and is already
-scoped to `prompts/base_project/01_01_factory_stack.md` (deliverable 5).
-Fixing it here would duplicate that prompt's own deliverable and risk the
-two diverging.
-
-## Net effect of this pass
-
-This pass's real output is the toolchain itself (Vale + no-ai-slop,
-configured and evidenced) and `docs/writing/config/STYLE.md`, the
-contract the project's actual documentation will be held to once it
-exists. There was no meaningful prose to improve yet. Re-run
-`prompts/process/00_02_docs_style_toolchain.md` (or at minimum this
-plan's Phase 7/8) once `prompts/base_project/01_01_factory_stack.md` and
-later prompts have produced real README/component documentation.
+- Update the API reference when a route or authentication boundary changes.
+- Update setup instructions when provisioning becomes a single supported command.
+- Add a Factory-specific runtime verification script; do not adapt the retained arcanium script by search-and-replace.
+- Refresh screenshots only if the project begins shipping them as documentation.
+- Rerun the full documentation gate before each release.

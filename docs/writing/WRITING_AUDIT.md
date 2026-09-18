@@ -1,126 +1,46 @@
-# Writing Audit
+# Writing audit
 
-Corpus: `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
-`docs/release-checklist.md`. Perspectives: Vale, no-ai-slop (detect mode),
-manual read for the earned-caveat/accuracy trait. See
-`docs/writing/BASELINE.md` for raw tool output.
+This audit covers the root `README.md` and first-party Markdown under `docs/`. It uses the style contract and the project-local `no-ai-slop` editorial rules.
 
-## Findings
+## Findings before editing
 
-### F1 — `Vale.Spelling` false positives on project vocabulary
+### Missing reader journey
 
-```text
-Evidence:    README.md:1:3 'editors_factory', README.md:5:20 'scaffolded'
-Source:      Vale.Spelling
-Impact:      noise on every future Vale run against this file
-Risk:        none. These are real project terms
-Recommendation: add to docs/writing/config/styles/config/vocabularies/Factory/accept.txt
-Decision:    FIXED. Added during this pass (see .vale.ini / vocab file)
-Severity:    P2
-```
+The repository had no documentation index and no ordered path from installation to architecture, demonstration, and operation. The root README linked mainly to internal records.
 
-### F2 — Vale scanning its own vendored style-package content
+### Process records presented as product documentation
 
-```text
-Evidence:    docs/writing/config/styles/alex/README.md:1:11, flagged by
-             Vale.Spelling for the word "alex" (the package's own name)
-Source:      config-scope bug, discovered running the Phase 7 full audit
-Impact:      false findings on third-party vendored content, not this
-             project's documentation
-Risk:        none. No project content involved
-Recommendation: exclude docs/writing/config/styles/** from linting
-Decision:    FIXED. Added [docs/writing/config/styles/**] BasedOnStyles=
-             override to .vale.ini during this pass
-Severity:    P2
-```
+Prompts, state captures, and security working files contained valuable facts, but an operator had to reconstruct the system from them. Those records also serve different purposes and use different levels of detail.
 
-### F3 — `write-good.E-Prime` flags ordinary technical passive voice
+### Historical drift
 
-```text
-Evidence:    README.md:5:16 "was scaffolded", CHANGELOG.md:3:42
-             "be documented", CHANGELOG.md:5:12 "is based"
-Source:      write-good.E-Prime
-Impact:      E-Prime bans every form of "to be" outright, far too strict
-             a linguistic discipline for this corpus's register.
-             Confirmed against Arcanium's own identical finding and
-             identical disable decision in its .vale.ini
-Risk:        none of the three instances are genuine AI-writing tells
-Recommendation: disable write-good.E-Prime
-Decision:    FIXED. Disabled in .vale.ini with inline justification,
-             this pass
-Severity:    P2
-```
+The `input/` material preserved the evolution of the idea. Some details no longer described the implementation, including earlier agent counts, a TypeScript backend assumption, direct Agent C database access, and earlier model names. User-facing prose needed a source-precedence rule.
 
-### F4 — `alex.ProfanityUnlikely` false positive on "hook"
+### Incomplete release criteria
 
-```text
-Evidence:    CONTRIBUTING.md:26:18 "The pre-commit hook will block..."
-Source:      alex.ProfanityUnlikely
-Impact:      "hook" here is unambiguously a Git hook (the sentence names
-             Gitleaks and pre-commit explicitly)
-Risk:        none
-Recommendation: disable alex.ProfanityUnlikely
-Decision:    FIXED. Disabled in .vale.ini with inline justification,
-             this pass
-Severity:    P2
-```
+The original release checklist covered versioning and publishing. It did not cover secret hygiene, Compose and Terraform validation, tests, the two security profiles, reset, evidence, or documentation.
 
-### F5 — `CHANGELOG.md` passive-voice boilerplate (unfixed, deliberately)
+### Stale writing policy
 
-```text
-Evidence:    CHANGELOG.md:3 "will be documented", CHANGELOG.md:5
-             "is based on [Keep a Changelog] ... and this project
-             adheres to [Semantic Versioning]"
-Source:      write-good.Passive (still enabled: genuine passive voice,
-             not an E-Prime false positive)
-Impact:      minor. Recognizable, standard Keep a Changelog preamble
-             text used verbatim across a huge number of open-source
-             projects
-Risk:        rewriting it into active voice would make this file look
-             like a custom changelog format instead of the immediately
-             recognizable standard one. Recognizability has more value
-             here than an active-voice rule
-Recommendation: leave as-is
-Decision:    REJECTED (deliberately kept). Matches an external,
-             widely-recognized convention verbatim; see STYLE.md
-Severity:    P3
-```
+The style and quality policies described a four-file scaffold. Freshness and cross-reference checks were optional even though the project now has a completed runtime and user interface.
 
-### F6 — `README.md`'s project description is stale, not a style issue
+## Editorial decisions
 
-```text
-Evidence:    README.md:3 "Automation scripts and utilities for
-              shell-based workflows." This predates the project's actual
-              purpose (see security/README.md, prompts/base_project/)
-Source:      manual read, not flagged by either tool (neither Vale nor
-             no-ai-slop check factual accuracy)
-Impact:      a reader opening README.md first gets a materially wrong
-             description of what this project is
-Risk:        HIGH if left permanently, but this is a content fix, not a
-             style fix. Replacing it is explicitly owned by
-             prompts/base_project/01_01_factory_stack.md, deliverable 5
-             ("replace the placeholder scaffold description with a real
-             project description")
-Recommendation: do not fix here; execute
-             prompts/base_project/01_01_factory_stack.md next, which
-             already scopes this exact change
-Decision:    DEFERRED. Out of scope for a style pass; tracked, not lost
-Severity:    P0 (content), explicitly not remediated by this prompt
-```
+- Keep the root README short and direct readers into `docs/index.md`.
+- Separate operator procedures, system explanation, API details, troubleshooting, and project history.
+- Use current source and state captures for facts; use `input/` only for rationale and evolution.
+- Name observed implementation constraints when they change an operator action.
+- Treat model language and tool selection as variable; treat policy decisions, grants, and database effects as the acceptance evidence.
+- Preserve BAD and GOOD as meaningful profile names without adding rhetorical oppositions elsewhere.
 
-## no-ai-slop detect-mode findings
+## Changes made
 
-Zero named patterns found across all four files. The corpus is plain,
-unedited scaffold boilerplate with no AI-generated prose in it to
-begin with, so an empty finding set here is an honest result, not a
-skipped or trivial check.
+The pass added an index and eight focused guides, rewrote the root README and release checklist, and refreshed every writing-policy artifact. Cross-links now form a complete path from setup through release.
 
-## Summary
+Technical statements were checked against the Makefile, Compose files, environment template, API routes, policy code, Terraform, database migrations, agent definitions, current state capture, and a healthy running stack.
 
-```text
-P0: 1  (F6 — content accuracy, explicitly deferred to prompts/base_project/01_01)
-P1: 0
-P2: 4  (F1-F4 — all fixed this pass, tooling/vocabulary only)
-P3: 1  (F5 — reviewed, deliberately kept)
-P4: 0
-```
+## Pattern audit
+
+The final prose avoids marketing claims, fake quotations, generic importance statements, rhetorical questions, vague attribution, decorative conclusions, and repetitive summaries. Terms flagged in the style contract appear only as quoted negative examples where needed.
+
+Passive voice remains in places where the controlled object matters more than the actor, such as a request being denied or a credential being issued. Vale warnings for those sentences require review but do not imply an accuracy problem.

@@ -111,3 +111,10 @@ Arcanium's
 arcanium
 alex
 [Mm]arkdownlint
+[Aa]uditable
+[Oo]verbroad
+[Oo]verprivileged
+[Uu]ntrusted
+[Ww]orktrees?
+[Aa]gentic
+[Cc]ybersecurity

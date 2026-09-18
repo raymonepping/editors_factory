@@ -1,77 +1,46 @@
-# Documentation Writing Baseline
+# Documentation baseline
 
-Captured while executing
-`prompts/process/00_02_docs_style_toolchain.md`, 2026-09-17.
+Captured before the 2026-09-18 documentation pass required by `prompts/process/00_02_docs_style_toolchain.md`.
 
-## Files inventoried
+## Repository state
 
-Shipped/user-facing documentation corpus (excludes `prompts/`, which is
-process/build instructions, not shipped documentation. See
-`prompts/process/00_02_docs_style_toolchain.md` §1 and the note in
-`DOCS_TOOLCHAIN_REPORT.md` about this project's `prompts/` not being
-git-ignored the way Arcanium's was):
+| Item | Baseline |
+| --- | --- |
+| Commit | `7f00b40` |
+| Current state capture | `2026-09-18_post-responsive-scaling` |
+| Root README files | 1 |
+| Markdown files under `docs/` | 10, including two vendored Vale package READMEs |
+| Documentation index | Missing |
+| Operator guides | Missing |
+| Existing release document | Short tag-and-publish checklist |
 
-```text
-README.md
-CHANGELOG.md
-CONTRIBUTING.md
-docs/release-checklist.md
-```
+The worktree was clean at the start of this documentation pass. Earlier UI and API work had reached the current commit before editing began.
 
-4 files. `docs/writing/` itself (this toolchain's own output) and
-`sanity_check.md` (a generated ignore-file validation report, not
-authored documentation) are excluded from the corpus being audited.
+## Existing documentation condition
 
-## Existing style tooling
+The root README described the intended architecture and a few Make targets. It did not explain clean installation, Vault and Terraform provisioning, the completed four-agent flow, the API, live operations, or troubleshooting.
 
-```text
-PRESENT / NOT PRESENT: NOT PRESENT
-```
+The only release-facing file under `docs/` was `release-checklist.md`. The other first-party files were writing-tool reports created when the repository still contained scaffold documentation. Their scope notes and conclusions no longer matched the mature project.
 
-No `.vale.ini`, no `.markdownlint.json`, no spell-checker or link-checker
-config existed before this prompt ran.
+Useful implementation records existed under `security/`, `prompts/`, `state/`, component READMEs, and source comments. Historical files under `input/` explained design intent but also contained superseded details.
 
-## Existing voice
+## Tool baseline
 
-This is not an established product's documentation corpus with a real,
-accumulated voice to preserve. It is `generate_project.sh` scaffold
-boilerplate, largely unedited since project creation. `README.md` still
-describes the project as "Automation scripts and utilities for
-shell-based workflows," which predates the actual project purpose
-defined in `security/README.md` and `prompts/base_project/`.
-`CHANGELOG.md` and `CONTRIBUTING.md` are unmodified Keep a Changelog /
-Conventional Commits boilerplate. `docs/release-checklist.md` is a plain
-generated checklist.
+| Check | Result |
+| --- | --- |
+| Vale | 3.21.0 installed |
+| Vale styles | Project-local `write-good` and `alex` present |
+| Factory vocabulary | Present |
+| Project-local editorial skill | `.agents/skills/no-ai-slop` present |
+| Initial focused Vale run | 3 warnings across root README and release checklist |
+| Initial full first-party run | 54 warnings, no errors or suggestions |
 
-In other words, no distinctive "hard-won" voice yet exists to protect
-from an overzealous style pass. The opposite risk applies here: so
-little real content exists that `STYLE.md` (Phase 6) has to be written as a
-forward-looking contract for documentation this project has not written
-yet (the real user-facing docs will land with
-`prompts/base_project/01_01_factory_stack.md` onward), not purely
-extracted from existing prose. This is recorded explicitly rather than
-inventing a voice that does not exist.
+The full count excludes vendored style package prose from editorial decisions. Warnings mainly came from passive voice and wordiness rules in the generated writing reports.
 
-## Baseline tool run (raw counts, before any fix)
+## Baseline risks
 
-Vale, initial run (before disabling any rule):
-
-```text
-3 errors, 4 warnings, 3 suggestions in 6 files
-```
-
-- 2 `Vale.Spelling` errors: `editors_factory`, `scaffolded` (both
-  legitimate project vocabulary, not misspellings).
-- 1 `Vale.Spelling` error: a false hit inside the synced `alex` style
-  package's own vendored `README.md` (a config-scope bug, fixed by
-  excluding `docs/writing/config/styles/**` from linting. See
-  `.vale.ini`).
-- 2 `write-good.E-Prime` suggestions and 2 `write-good.Passive` warnings
-  on ordinary technical passive constructions ("was scaffolded", "is
-  based on ... and this project adheres to ...").
-- 1 `alex.ProfanityUnlikely` warning on "hook" (a Git hook, per
-  `CONTRIBUTING.md`'s own security section).
-
-no-ai-slop, detect mode, full corpus (4 files): **0 named patterns
-found.** The corpus is plain boilerplate with no AI-generated prose to
-begin with. An honest "nothing to detect" result, not a skipped check.
+- No `docs/index.md` exposed a reader path.
+- Setup details were distributed across Makefile comments, prompts, Terraform outputs, and `.env.example`.
+- Early design notes could mislead readers about the backend language, model, agent count, and credential path.
+- The release checklist did not validate the running security demonstration.
+- Writing policies still said the project had no mature documentation.

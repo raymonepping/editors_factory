@@ -1,58 +1,65 @@
 # The Factory
 
-A local, disposable demonstration of delegated authority in autonomous
-AI agents. A chain of Ollama-backed agents (Agent A, an incident
-coordinator; Agent B, an operations investigator; Agent C, data
-remediation) investigates a synthetic factory order-processing problem.
-Depending on the active security profile, Agent C either causes real,
-contained damage to a local PostgreSQL database (BAD profile, an
-over-broad Vault-issued credential) or is stopped by policy and database
-grants before it can (GOOD profile, a narrowly scoped, short-lived
-credential). Agent D is a separate, independent lane that continuously
-observes A/B/C and raises a live 🟢/🟠/🔴 risk state.
+The Factory is a local security demonstration of authority propagation through an autonomous agent chain. The same task runs under two profiles:
 
-Nothing is simulated. Ollama does the reasoning, Vault issues real
-dynamic PostgreSQL credentials, and Agent C runs real SQL against a real,
-isolated PostgreSQL instance. The only fake thing is the factory itself.
+- **BAD** gives the remediation agent a fixed, overprivileged authority ceiling.
+- **GOOD** limits that agent to the actions needed for recovery.
 
-> **Break the factory. Learn from it. Reset. Repeat. No regrets.**
+Both profiles use the same agents, API routes, and database tools. The difference is enforced authority: application policy, Vault policy, short-lived database credentials, and PostgreSQL grants. Every delegation, decision, credential lease, finding, and database change is recorded for inspection.
 
-## Architecture
+> Discovery creates evidence. It does not create authority.
 
-See [`security/README.md`](security/README.md) for the full identity,
-access, trust, observability, containment, and revocation model this
-demo proves, and [`security/threat-model.md`](security/threat-model.md)
-for what it deliberately does and does not attempt to prove.
+## Start here
 
-The project is built from a numbered set of prompts under
-[`prompts/`](prompts/) — each one specifies a slice of the stack in the
-order it gets built. Start with
-[`prompts/base_project/01_01_factory_stack.md`](prompts/base_project/01_01_factory_stack.md).
+Read the [documentation index](docs/index.md) for the guided path. New operators should begin with [Getting started](docs/getting-started.md), then use the [Demo guide](docs/demo-guide.md).
 
-## Running it
-
-```bash
-make network      # create the shared Podman networks
-make up            # bring up every stack that has been implemented so far
-make demo-bad      # trigger the demo against the BAD profile
-make reset          # restore PostgreSQL, Vault leases, and demo state to baseline
-make demo-good     # trigger the same demo against the GOOD profile
+```sh
+make help
+make check
+make status
 ```
 
-`make status` shows what's currently running. `make down` tears
-everything down. See the [`Makefile`](Makefile) for the full command
-list (`make help`).
+The dashboard runs at `http://localhost:3000` and the API at `http://localhost:3001` after the stack is configured and started.
 
-## Project layout
+## What runs locally
 
-```text
-compose/     Podman Compose files, one stack per subdirectory
-scripts/     Operational scripts (Vault bootstrap/unseal/backup, Podman checks, ...)
-prompts/     The numbered build/process instructions this project is built from
-security/    The durable authority/threat model this project implements
-state/       Reproducible, evidence-based project baselines (see state/README.md)
-docs/        Generated documentation quality-gate evidence and style contract
+The project uses Podman Compose to run:
+
+- a three-node Vault Enterprise cluster with a separate transit seal;
+- Vault Agent with AppRole auto-authentication;
+- PostgreSQL with Vault-issued dynamic credentials;
+- Ollama with `qwen3:4b-instruct` by default;
+- four isolated Node.js agent containers;
+- an Express orchestration and policy API;
+- a Nuxt dashboard with a live event stream.
+
+Vault Enterprise license files and values are required. No cloud model provider is needed.
+
+## Common commands
+
+```sh
+make up          # Start implemented stacks in dependency order
+make status      # Show containers and shared networks
+make demo-bad    # Run the overprivileged profile
+make reset       # Revoke leases and restore the demo baseline
+make demo-good   # Run the bounded profile
+make down        # Stop all stacks in reverse order
 ```
+
+First-time provisioning has additional Vault and Terraform steps. Follow [Getting started](docs/getting-started.md) before running `make up` on a clean checkout.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Security model](docs/security-model.md)
+- [Demo guide](docs/demo-guide.md)
+- [Operations](docs/operations.md)
+- [API reference](docs/api-reference.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Project history](docs/project-history.md)
+- [Release checklist](docs/release-checklist.md)
+
+The implementation prompts in `prompts/`, historical design material in `input/`, and captured milestones in `state/` remain engineering records. The files under `docs/` describe the current product.
 
 ## License
 

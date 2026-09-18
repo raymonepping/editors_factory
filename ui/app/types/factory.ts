@@ -142,8 +142,12 @@ export interface Task {
 // stream (see useEventStream.ts's own comment on the derivation and its
 // known limits: the backend has no explicit "task complete" signal, so
 // `done` for agent-c is a heuristic over observed authority_decisions/
-// database_changes, not a literal backend state).
-export type AgentNodeStatus = 'idle' | 'reasoning' | 'acting' | 'delegated' | 'done'
+// database_changes, not a literal backend state). Agent A and B have no
+// separate "delegated" state distinct from `done` — agents/src/runtime.js's
+// own runLoop() returns immediately after a successful delegate_task call,
+// so by the time the task.delegated audit event reaches the dashboard, the
+// delegating agent's own involvement has already fully ended.
+export type AgentNodeStatus = 'idle' | 'reasoning' | 'acting' | 'done'
 
 export const DESTRUCTIVE_ACTIONS = new Set([
   'orders.delete',

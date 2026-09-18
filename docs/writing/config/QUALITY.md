@@ -1,73 +1,61 @@
-# Documentation Quality Gate Policy
+# Documentation quality gate policy
 
-Durable policy for `prompts/process/00_03_docs_quality_gate.md`. Created
-on first run, 2026-09-17, against `docs/writing/config/STYLE.md` as it
-stood at that time. Update only when the corpus's real requirements
-change, not to make a failing run pass.
+This policy governs release-facing Markdown in the root `README.md` and `docs/`. It was refreshed on 2026-09-18 for the completed documentation corpus.
 
-## Required gates
+## Blocking gates
 
-```text
-GATE 1   Structural integrity            REQUIRED, blocking
-GATE 2   Link and reference integrity    REQUIRED, blocking
-GATE 3   Vale compliance                 REQUIRED, blocking on errors only
-                                          (Vale "warning"/"suggestion"
-                                          severity is advisory — this
-                                          corpus's precise, technical
-                                          register triggers write-good's
-                                          passive-voice opinion often and
-                                          legitimately; see STYLE.md)
-GATE 4   AI-writing-pattern audit        REQUIRED, blocking only on a
-                                          named pattern actually present
-                                          in user-facing prose (P0/P1-
-                                          equivalent)
-GATE 5   Technical accuracy spot-check   REQUIRED, blocking
-GATE 6   STYLE.md compliance             REQUIRED, non-blocking
-GATE 7   Terminology/formatting          REQUIRED, non-blocking
-         consistency
-GATE 8   Readability                     REQUIRED, non-blocking
-                                          (no automated tool configured;
-                                          manual judgment against
-                                          STYLE.md's "portability test")
-```
+| Gate | Requirement |
+| --- | --- |
+| Structural integrity | One H1, ordered headings, closed fences, no malformed tables |
+| Link integrity | Every relative file link and heading fragment resolves |
+| Vale | No errors; warnings are reviewed against technical intent |
+| AI-pattern audit | No unresolved high-impact pattern from the project-local `no-ai-slop` skill |
+| Technical accuracy | Commands, paths, ports, identities, and behavior match current source |
+| Freshness | No known statement is contradicted by the latest baseline or current configuration |
+| Cross-reference completeness | Root README and `docs/index.md` expose every release-facing guide |
 
-## Optional gates
+A blocking failure produces a `BLOCKED` release decision.
 
-```text
-GATE 9   Freshness                       NOT required — this project has
-                                          no meaningful "staleness" signal
-                                          yet (no deploy/release history)
-GATE 10  Cross-reference completeness    NOT required yet — most
-                                          features described in
-                                          prompts/ do not exist as real,
-                                          documented components yet
-```
+## Advisory gates
 
-## Scope note (revisit when it stops being true)
+| Gate | Requirement |
+| --- | --- |
+| Style contract | Prose follows `STYLE.md`; justified deviations are recorded |
+| Terminology | Preferred terms remain consistent across the corpus |
+| Readability | Procedures are scannable and sentences preserve technical meaning |
+| Vale warnings | Remaining warnings are reviewed and accepted or corrected |
 
-The corpus this gate evaluates is currently just `README.md`, four
-original scaffold files, and this toolchain's own generated reports under
-`docs/writing/`. `prompts/` and `security/` are explicitly out of scope —
-process/design artifacts, not shipped documentation — by the same
-convention `prompts/process/00_02_docs_style_toolchain.md` established,
-even though (unlike `arcanium`) `prompts/` is not git-ignored in this
-repository. Revisit this scope note once
-`prompts/base_project/01_01_factory_stack.md` and later prompts produce
-real component READMEs — the corpus will grow substantially and Gates
-7/9/10 will start to matter in practice.
+Advisory findings do not block release unless they conceal an incorrect or unsafe instruction.
 
-## Vale configuration this policy assumes
+## Scope
 
-```text
-.vale.ini at repo root
-StylesPath = docs/writing/config/styles
-Packages = write-good, alex
-Disabled: write-good.E-Prime, alex.ProfanityUnlikely, alex.Ablist
-  (each with inline justification in .vale.ini — see
-  docs/writing/WRITING_AUDIT.md for the evidence behind the first two,
-  and docs/writing/DOCS_QUALITY_GATE.md for the third)
-```
+Included:
 
-## Viewport/browser matrix, performance targets
+- root `README.md`;
+- operator and reference guides directly under `docs/`;
+- documentation-process records under `docs/writing/`.
 
-Not applicable — this is documentation, not a rendered application.
+Excluded from prose-quality counts, but used for accuracy checks:
+
+- `prompts/` and `input/`;
+- `state/` and `security/`;
+- source comments;
+- vendored Vale package documentation under `docs/writing/config/styles/`.
+
+Component READMEs outside `docs/` remain implementation references. Their links and technical claims should be checked when a release changes that component.
+
+## Vale configuration
+
+The repository uses `.vale.ini`, project-local styles under `docs/writing/config/styles`, the `write-good` and `alex` packages, and the Factory vocabulary. Disabled rules must retain an inline reason in `.vale.ini`.
+
+Vale warnings are advisory because passive constructions can be precise in security documentation. Every warning still requires review; severity is not permission to ignore it.
+
+## Evidence
+
+Each documentation pass records:
+
+- the pre-edit corpus and tool versions in `BASELINE.md`;
+- editorial findings in `WRITING_AUDIT.md`;
+- completed and deferred work in `WRITING_IMPROVEMENT_PLAN.md`;
+- toolchain state in `DOCS_TOOLCHAIN_REPORT.md`;
+- final commands, results, exceptions, and release decision in `DOCS_QUALITY_GATE.md`.

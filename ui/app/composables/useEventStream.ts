@@ -105,7 +105,10 @@ function applyEntry(entry: TimelineEntry, { fromHistory = false } = {}) {
       nodeStatus['agent-a'] = 'reasoning'
     } else if (entry.action === 'task.delegated') {
       if (entry.delegated_by && CHAIN_ACTORS.includes(entry.delegated_by as ChainActor)) {
-        nodeStatus[entry.delegated_by as ChainActor] = 'delegated'
+        // The delegating agent's runLoop already returned by this point
+        // (agents/src/runtime.js) — this event IS its completion signal,
+        // not a handoff still in progress.
+        nodeStatus[entry.delegated_by as ChainActor] = 'done'
       }
       if (CHAIN_ACTORS.includes(entry.actor_id as ChainActor)) {
         nodeStatus[entry.actor_id as ChainActor] = 'reasoning'

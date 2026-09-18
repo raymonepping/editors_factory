@@ -1,130 +1,77 @@
-# Documentation Style Contract
+# Documentation style contract
 
-Derived while executing
-`prompts/process/00_02_docs_style_toolchain.md`, 2026-09-17. Governs
-every documentation edit made in this pass and in
-`prompts/process/00_03_docs_quality_gate.md`.
-
-## A note on how this was derived
-
-Most documentation-style contracts extract a voice from an existing,
-mature corpus. This project's shipped documentation corpus is currently
-four short, unedited scaffold files (see `docs/writing/BASELINE.md`). No
-accumulated voice exists yet to extract. This contract is written
-instead as the standard the project's *real* documentation (landing with
-`prompts/base_project/01_01_factory_stack.md` onward, and later component
-READMEs) must meet, informed by:
-
-- the technical register already established in `security/` and
-  `prompts/` (precise, evidence-based, no marketing language). Those are
-  process artifacts, not shipped docs, but their register is the best
-  available signal for this project's intended voice;
-- the sibling project `arcanium`'s own `docs/writing/config/STYLE.md`,
-  which covers a directly comparable HashiCorp infrastructure/security
-  project and reached conclusions worth reusing where they transfer.
-
-When real user-facing documentation is written for this project, revisit
-this file and tighten it against real evidence rather than treating it
-as permanently fixed.
+This contract governs the root `README.md` and Markdown under `docs/`. It was refreshed on 2026-09-18 after the operator documentation was completed.
 
 ## Voice
 
-Precise, technical, written for someone who will actually run the
-commands. No marketing language, no unearned superlatives, no hype. When
-this project's docs are at their best (matching the register already
-used in `security/authority-model.md` and `security/threat-model.md`),
-they state a fact, then say why it matters operationally, not the other
-way around.
+Write precise technical prose for someone who will run the commands. State the observable fact, then its operational consequence. Avoid marketing language, vague claims, and decorative conclusions.
+
+Preserve a found-live caveat when it prevents a real failure. Name the component, condition, and remedy. Do not soften a confirmed defect into a generic warning.
 
 ## Audience
 
-Engineers building, operating, or evaluating The Factory demo: people who
-will run `make up`, `make demo-bad`, and `make reset`, and who need to
-trust that a described command, path, or behavior is exactly correct,
-not approximately correct.
+The primary reader is an engineer operating, reviewing, or demonstrating The Factory on a local workstation. Assume familiarity with shells, containers, HTTP, and infrastructure configuration. Explain project-specific security mechanics.
 
-## Principles
+## Source precedence
 
-- Precision over polish. A correct, slightly plain sentence beats a
-  polished, imprecise one.
-- A caveat earned by a real constraint (a Vault entitlement gap, a known
-  Podman race, a TTL that matters) is not hedging. Keep it. Filler
-  hedging ("it's worth noting that," "in general") is not earned. Cut it.
-- Show the mechanism, not just the conclusion. Prefer "PostgreSQL rejects
-  the statement because `factory-good-role` was never granted `DELETE`"
-  over "the action is blocked for security reasons."
-- Technical accuracy is never traded for a smoother sentence.
-- Real numbers, names, and commands beat abstractions. This project's own
-  design conversations already model this well ("250 rows deleted," not
-  "significant data loss").
+Resolve technical conflicts in this order:
+
+1. current source, Compose files, Terraform, and Makefile;
+2. the latest baseline named by `state/CURRENT`;
+3. records under `security/` and implementation prompts;
+4. historical material under `input/`.
+
+Do not copy an early proposal into user-facing documentation without checking the implementation.
+
+## Writing principles
+
+- Prefer a concrete command, path, endpoint, or identity to a broad description.
+- Explain the enforcement mechanism behind a security outcome.
+- Separate supported behavior from deliberate demo limitations.
+- Distinguish model variability from deterministic policy and database outcomes.
+- Keep procedures in execution order and state when a command changes data.
+- Use the smallest amount of prose that preserves accuracy.
 
 ## Terminology
 
-Keep these consistent across every file, derived from `security/` and
-`prompts/`, which have already had to settle on one term each:
+Use these terms consistently:
 
-```text
-"BAD profile" / "GOOD profile"     — not "bad mode"/"good mode" in prose
-                                      headings, though "mode" is fine
-                                      inline (both appear already; do not
-                                      introduce a third synonym)
-"delegation depth"                 — not "hop count" or "chain depth"
-"effective authority"              — not "actual permissions"
-"authority envelope"               — not "permission set" or "scope"
-"credential lease" / "lease"       — not "token" (Vault's own leases are
-                                      not the same thing as a bearer
-                                      token; do not conflate them)
-"make reset"                       — always this exact command form when
-                                      referring to the reset flow in prose
-```
+| Preferred term | Avoid |
+| --- | --- |
+| BAD profile, GOOD profile | third synonyms for the profiles |
+| delegation depth | hop count, chain depth |
+| effective authority | actual permissions |
+| authority envelope | permission set, scope when authority is meant |
+| authority ceiling | maximum permissions |
+| credential lease, lease | token when referring to a database lease |
+| Agent A, Agent B, Agent C, Agent D | coordinator/investigator alone after first use |
+| Factory API | backend when addressing operators |
+| `make reset` | reset script or reset flow without the command |
 
-## Formatting conventions
+Use lowercase actor IDs such as `agent-c` only for API identities and code values. Use `factory-bad-role`, `factory-good-role`, and `factory-backend-role` exactly.
 
-Observed already in `security/` and `prompts/` and worth carrying into
-shipped docs:
+## Formatting
 
-- One H1 per file.
-- Fenced code blocks tagged with a language where the content is a real
-  command (`bash`) or an example structure (`text`). This corpus already
-  uses `text` fences for illustrative, non-executable diagrams; keep that
-  distinction rather than tagging everything `bash`.
-- A caveat/gotcha gets its own short paragraph starting with the concrete
-  fact, not a blockquote admonition. This project has not established a
-  blockquote-warning convention yet; do not invent one prematurely.
-- Tables for anything with more than two comparable rows of structured
-  data (see `security/authority-model.md`'s authority matrices); prose
-  for a single comparison.
+- Use one H1 per file and do not skip heading levels.
+- Tag executable shell fences with `sh`, JSON with `json`, HTTP examples with `http`, and diagrams or literal output with `text`.
+- Use tables for three or more repeated fields or direct comparisons.
+- Put commands in copyable blocks. Do not include a shell prompt character.
+- Use relative Markdown links between repository documents.
+- Keep warnings as concrete prose near the affected step.
+- Use sentence case for headings.
 
-## Anti-patterns (banned)
+## Patterns to remove
 
-From the `no-ai-slop` skill's own named patterns
-(`.agents/skills/no-ai-slop/SKILL.md`), the ones most relevant to this
-project's technical/security register. Watch for these specifically once
-real prose documentation is written:
+The project-local `no-ai-slop` skill supplies the editorial audit. Remove throat-clearing, importance claims, vague attribution, faux quotations, decorative binary contrasts, repeated summaries, fake-profound endings, and mechanical section rhythms.
 
-- Importance puffery ("stands as a testament," "plays a vital role").
-  This project's whole argument depends on concrete, checkable claims;
-  puffery undermines exactly that credibility.
-- Weasel attribution ("industry reports suggest"). Every claim in this
-  project's docs should be traceable to a specific script, endpoint, or
-  observed behavior.
-- Fake-profound kickers and summary-recap endings. End a doc on the last
-  concrete instruction or fact, not a restated theme.
-- Binary contrasts and colon reveals as rhetorical flourishes. This
-  corpus's real binary contrast (BAD vs. GOOD) is a genuine, load-bearing
-  technical distinction, not a rhetorical device; do not dilute it by
-  adding decorative ones elsewhere.
+The BAD versus GOOD comparison is a real technical contrast. Describe its mechanism and evidence without turning unrelated prose into repeated “not this, but that” constructions.
 
-## What this project's documentation is NOT
+Avoid inflated verbs such as “leverage,” “utilize,” “facilitate,” and “empower” when a plain verb is accurate.
 
-- Not a marketing page. The project's own credibility argument (real
-  damage, real containment, real audit trail) is undercut by hype
-  language.
-- Not written in the narrative/conversational style of `input/*.md` (the
-  design-conversation transcripts). Those are process history; shipped
-  documentation is reference material, not a retelling of how the design
-  was reached.
-- Not uniformly formal either. `security/README.md`'s tagline ("Break the
-  factory. Learn from it. Reset. Repeat. No regrets.") is a deliberate,
-  approved exception, not license to add more slogans
-  elsewhere.
+## Approved exceptions
+
+Short project lines already established in the design may appear once where they carry meaning:
+
+> Discovery creates evidence. It does not create authority.
+
+The longer “Break the factory” line belongs to project history or presentation material, not every guide.

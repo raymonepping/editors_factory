@@ -15,12 +15,11 @@ const STATUS_LABEL: Record<AgentNodeStatus, string> = {
   idle: 'Idle',
   reasoning: 'Reasoning',
   acting: 'Acting',
-  delegated: 'Delegated',
   done: 'Done',
 }
 
 function pathActive(fromStatus: AgentNodeStatus) {
-  return fromStatus === 'delegated' || fromStatus === 'done'
+  return fromStatus === 'done'
 }
 </script>
 
@@ -105,12 +104,6 @@ function pathActive(fromStatus: AgentNodeStatus) {
 @media (prefers-reduced-motion: reduce) {
   .station.is-acting { animation: none; }
 }
-
-.station.is-delegated {
-  border-color: var(--color-border-active);
-  color: var(--factory-warm-white);
-}
-.station.is-delegated .station-pill { color: var(--color-accent-primary); }
 
 .station.is-done {
   border-color: var(--color-border-info);
