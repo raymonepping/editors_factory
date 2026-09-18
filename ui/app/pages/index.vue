@@ -180,7 +180,13 @@ async function onReset() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--gap-panel);
-  padding-bottom: 28px;
+  /* The footer is position:fixed (FactoryFooter.vue's own comment) and
+   * so reserves no space in normal flow on its own — this padding is
+   * that reserved space, kept in sync with the footer's REAL rendered
+   * height via the --footer-height custom property FactoryFooter.vue
+   * measures live, not a guessed constant that would drift the moment
+   * the footer's content wraps differently (e.g. its mobile layout). */
+  padding-bottom: calc(var(--footer-height, 160px) + 24px);
 }
 .dashboard-grid > :deep(section) { min-width: 0; }
 

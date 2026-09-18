@@ -1,0 +1,81 @@
+diff --git a/ui/app/components/FactoryFooter.vue b/ui/app/components/FactoryFooter.vue
+index 01119ad..26d9181 100644
+--- a/ui/app/components/FactoryFooter.vue
++++ b/ui/app/components/FactoryFooter.vue
+@@ -1,6 +1,29 @@
+ <script setup lang="ts">
+ const year = new Date().getFullYear()
+ 
++// Fixed to the viewport bottom (always visible, even scrolled to the
++// top of a tall page — `position: sticky` only pins an element once its
++// own natural position would otherwise scroll past, it can't pull an
++// off-screen footer into view early, so `fixed` is the correct tool
++// here). Fixed elements are removed from normal flow, so the page's own
++// content needs bottom padding reserved for exactly the footer's real
++// rendered height — measured live via ResizeObserver rather than a
++// guessed pixel value, since the footer's height itself changes at the
++// mobile breakpoint (the signature row stacks to two lines).
++const footerEl = useTemplateRef<HTMLElement>('footerEl')
++let observer: ResizeObserver | null = null
++
++onMounted(() => {
++  if (!footerEl.value) return
++  const apply = () => {
++    document.documentElement.style.setProperty('--footer-height', `${footerEl.value?.offsetHeight ?? 0}px`)
++  }
++  apply()
++  observer = new ResizeObserver(apply)
++  observer.observe(footerEl.value)
++})
++onUnmounted(() => observer?.disconnect())
++
+ // Reinforces 01_00's own rule ("status never depends on color alone") —
+ // the footer legend is functional, not decorative: every state color used
+ // anywhere in the dashboard is named here once.
+@@ -38,7 +61,7 @@ const links = [
+ </script>
+ 
+ <template>
+-  <footer class="factory-footer">
++  <footer ref="footerEl" class="factory-footer">
+     <div class="footer-rail" aria-hidden="true" />
+ 
+     <div class="footer-legend">
+@@ -82,10 +105,16 @@ const links = [
+ 
+ <style scoped>
+ .factory-footer {
+-  margin-top: 8px;
++  position: fixed;
++  left: 0;
++  right: 0;
++  bottom: 0;
++  z-index: 40;
++  max-width: 1400px;
++  margin: 0 auto;
+   border-top: var(--border-width) solid var(--color-border-subtle);
+   background: var(--color-bg-shell);
+-  position: relative;
++  box-shadow: 0 -16px 28px rgb(0 0 0 / 0.4);
+   overflow: hidden;
+ }
+ 
+diff --git a/ui/app/pages/index.vue b/ui/app/pages/index.vue
+index b2657b3..2428cff 100644
+--- a/ui/app/pages/index.vue
++++ b/ui/app/pages/index.vue
+@@ -180,7 +180,13 @@ async function onReset() {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: var(--gap-panel);
+-  padding-bottom: 28px;
++  /* The footer is position:fixed (FactoryFooter.vue's own comment) and
++   * so reserves no space in normal flow on its own — this padding is
++   * that reserved space, kept in sync with the footer's REAL rendered
++   * height via the --footer-height custom property FactoryFooter.vue
++   * measures live, not a guessed constant that would drift the moment
++   * the footer's content wraps differently (e.g. its mobile layout). */
++  padding-bottom: calc(var(--footer-height, 160px) + 24px);
+ }
+ .dashboard-grid > :deep(section) { min-width: 0; }
+ 

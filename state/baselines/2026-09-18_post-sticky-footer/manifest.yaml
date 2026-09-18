@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-18_post-sticky-footer"
+  purpose: "Small follow-up per direct user request: FactoryFooter.vue is now position:fixed to the viewport bottom (always visible, even scrolled to the top of a page taller than the viewport) instead of sitting at the natural end of scrollable content. position:sticky was considered and rejected in a code comment — sticky only pins an element once its own natural position would otherwise scroll past, it cannot pull an already-off-screen footer into view early, which is exactly what always-visible requires; fixed is the correct tool. Fixed elements are removed from normal flow, so ui/app/pages/index.vue's .dashboard-grid reserves matching space via padding-bottom: calc(var(--footer-height) + 24px) — --footer-height is measured live by a ResizeObserver in FactoryFooter.vue itself (onMounted + observe), not a guessed constant, specifically because the footer's own rendered height changes at the mobile breakpoint (the signature row stacks to two lines there). Validated for real against the actual rebuilt container (scripts/ui-rebuild.sh): typecheck and build clean, then live Playwright checks at 1920x1080, 1280x800, and 390x844 — confirmed at every size that (1) the footer is visible immediately on page load without scrolling, (2) it stays pinned to the viewport bottom while scrolling through content above it, and (3) scrolling all the way to the true end of the document (the Event Timeline panel, the last element) shows it fully clear of the footer with clean spacing, not clipped or overlapped, at every tested viewport including mobile where the footer is tallest."
+  captured_at: "2026-09-18T06:20:23Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-18_post-dashboard-redesign"
+  git:
+    commit: "89bc5cd62e935ef47a679e77a1561837b1847a16"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
