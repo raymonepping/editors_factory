@@ -56,7 +56,9 @@ eventsRouter.get("/events/history", async (req, res, next) => {
        ORDER BY ts`,
       [runId],
     );
-    res.json(rows.map((r) => ({ type: r.type, timestamp: r.ts, ...r.payload })));
+    res.json(
+      rows.map((r) => ({ type: r.type, timestamp: r.ts, ...r.payload })),
+    );
   } catch (err) {
     next(err);
   }

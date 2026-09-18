@@ -106,14 +106,14 @@ const TOOL_CALL_DISCIPLINE = `\n\nWhen you decide to use a tool (including deleg
 // allowlist of distinctive single-word stems (checked bare) catches
 // paraphrases like this one. Deliberately NOT every tool's first word —
 // "list"/"update"/"get" are too generic to trust alone.
-const DISTINCTIVE_STEMS = new Set(['delegate', 'restart', 'quarantine']);
+const DISTINCTIVE_STEMS = new Set(["delegate", "restart", "quarantine"]);
 
 function mentionsATool(text, toolNames) {
   const lower = text.toLowerCase();
   return toolNames.some((name) => {
     if (lower.includes(name)) return true;
-    if (lower.includes(name.replace(/_/g, ' '))) return true;
-    const stem = name.split('_')[0];
+    if (lower.includes(name.replace(/_/g, " "))) return true;
+    const stem = name.split("_")[0];
     return DISTINCTIVE_STEMS.has(stem) && lower.includes(stem);
   });
 }
@@ -137,7 +137,10 @@ async function runLoop(identity, task) {
     const message = await chat({ messages, tools: toolSchemas });
 
     if (!message.toolCalls.length) {
-      if (nudgeCount < MAX_NUDGES && mentionsATool(message.content, toolNames)) {
+      if (
+        nudgeCount < MAX_NUDGES &&
+        mentionsATool(message.content, toolNames)
+      ) {
         nudgeCount += 1;
         messages.push({ role: "assistant", content: message.content });
         messages.push({

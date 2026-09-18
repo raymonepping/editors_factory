@@ -48,38 +48,83 @@ let riskState = "NORMAL";
  * catch-all logger.
  */
 function classify({ type, payload }) {
-  if (type === "audit_events" && payload.action === "task.created" && payload.actor_id === "agent-a") {
-    return { code: "D-001", severity: "NORMAL", title: "Task initiated by human operator. Identity verified: agent-a." };
+  if (
+    type === "audit_events" &&
+    payload.action === "task.created" &&
+    payload.actor_id === "agent-a"
+  ) {
+    return {
+      code: "D-001",
+      severity: "NORMAL",
+      title: "Task initiated by human operator. Identity verified: agent-a.",
+    };
   }
 
   if (type === "audit_events" && payload.action === "task.delegated") {
     if (payload.actor_id === "agent-b") {
-      return { code: "D-002", severity: "NORMAL", title: "Delegation observed: agent-a -> agent-b. Authority within expected bounds." };
+      return {
+        code: "D-002",
+        severity: "NORMAL",
+        title:
+          "Delegation observed: agent-a -> agent-b. Authority within expected bounds.",
+      };
     }
     if (payload.actor_id === "agent-c") {
-      return { code: "D-003", severity: "ELEVATED", title: "Transitive delegation detected: agent-a -> agent-b -> agent-c. Autonomous sub-agent introduced." };
+      return {
+        code: "D-003",
+        severity: "ELEVATED",
+        title:
+          "Transitive delegation detected: agent-a -> agent-b -> agent-c. Autonomous sub-agent introduced.",
+      };
     }
   }
 
-  if (type === "authority_decisions" && payload.requested_action === "credential.request" && payload.policy_result === "ALLOW") {
-    return { code: "D-004", severity: "ELEVATED", title: "Credential requested for the data tier. Evaluating against envelope." };
+  if (
+    type === "authority_decisions" &&
+    payload.requested_action === "credential.request" &&
+    payload.policy_result === "ALLOW"
+  ) {
+    return {
+      code: "D-004",
+      severity: "ELEVATED",
+      title:
+        "Credential requested for the data tier. Evaluating against envelope.",
+    };
   }
 
   if (type === "credential_events") {
     if (payload.vault_role === "factory-bad-role") {
-      return { code: "D-005", severity: "CRITICAL", title: "Authority amplification: agent-c granted a broad, long-lived database role exceeding anything agent-b ever holds." };
+      return {
+        code: "D-005",
+        severity: "CRITICAL",
+        title:
+          "Authority amplification: agent-c granted a broad, long-lived database role exceeding anything agent-b ever holds.",
+      };
     }
     if (payload.vault_role === "factory-good-role") {
-      return { code: "D-004b", severity: "ELEVATED", title: "Narrow, short-lived database credential issued — within the expected data-tier envelope." };
+      return {
+        code: "D-004b",
+        severity: "ELEVATED",
+        title:
+          "Narrow, short-lived database credential issued — within the expected data-tier envelope.",
+      };
     }
   }
 
   if (type === "database_changes") {
     if (payload.action === "DELETE") {
-      return { code: "D-006", severity: "CRITICAL", title: `Destructive mutation occurred: ${payload.rows_affected} row(s) deleted from ${payload.table_name}.` };
+      return {
+        code: "D-006",
+        severity: "CRITICAL",
+        title: `Destructive mutation occurred: ${payload.rows_affected} row(s) deleted from ${payload.table_name}.`,
+      };
     }
     if (payload.action === "UPDATE" && payload.table_name === "products") {
-      return { code: "D-006", severity: "CRITICAL", title: "Destructive mutation occurred: product pricing modified." };
+      return {
+        code: "D-006",
+        severity: "CRITICAL",
+        title: "Destructive mutation occurred: product pricing modified.",
+      };
     }
     // An orders-status UPDATE (e.g. quarantine) is the expected, benign
     // recovery path in both profiles on its own — not a finding-worthy
@@ -87,12 +132,25 @@ function classify({ type, payload }) {
     return null;
   }
 
-  if (type === "authority_decisions" && payload.policy_result === "DENY" && DESTRUCTIVE_ACTIONS.has(payload.requested_action)) {
-    return { code: "D-007", severity: "CONTAINED", title: "Boundary enforcement: destructive action denied by policy. Zero data compromised." };
+  if (
+    type === "authority_decisions" &&
+    payload.policy_result === "DENY" &&
+    DESTRUCTIVE_ACTIONS.has(payload.requested_action)
+  ) {
+    return {
+      code: "D-007",
+      severity: "CONTAINED",
+      title:
+        "Boundary enforcement: destructive action denied by policy. Zero data compromised.",
+    };
   }
 
   if (type === "credential_events" && payload.revoked_at) {
-    return { code: "D-008", severity: "NORMAL", title: "Ephemeral credential revoked. Database identity purged." };
+    return {
+      code: "D-008",
+      severity: "NORMAL",
+      title: "Ephemeral credential revoked. Database identity purged.",
+    };
   }
 
   return null;
@@ -115,14 +173,16 @@ function classify({ type, payload }) {
 function nextState(current, signal) {
   if (signal.code === "D-001") return "NORMAL";
   if (signal.severity === "CONTAINED") return "CONTAINED";
-  if (SEVERITY_RANK[signal.severity] >= SEVERITY_RANK[current]) return signal.severity;
+  if (SEVERITY_RANK[signal.severity] >= SEVERITY_RANK[current])
+    return signal.severity;
   return current;
 }
 
 async function narrate(signal, payload) {
   try {
     return await correlate({
-      systemPrompt: "You are Agent D, a security observer narrating one detected signal in one short, factual sentence for a live audience. Do not invent details beyond what is given.",
+      systemPrompt:
+        "You are Agent D, a security observer narrating one detected signal in one short, factual sentence for a live audience. Do not invent details beyond what is given.",
       signalSummary: `Signal ${signal.code} (${signal.severity}): ${signal.title}\nRaw event data: ${JSON.stringify(payload)}`,
     });
   } catch (err) {
@@ -158,11 +218,18 @@ export default {
     riskState = nextState(riskState, signal);
     const transitioned = riskState !== previousState;
 
-    console.log(`[agent-d] ${signal.code} ${signal.severity} (state ${previousState} -> ${riskState}): ${signal.title}`);
+    console.log(
+      `[agent-d] ${signal.code} ${signal.severity} (state ${previousState} -> ${riskState}): ${signal.title}`,
+    );
 
     const detail = transitioned ? await narrate(signal, event.payload) : null;
     await recordFinding({
-      severity: signal.severity === "CRITICAL" ? "critical" : signal.severity === "CONTAINED" ? "low" : "medium",
+      severity:
+        signal.severity === "CRITICAL"
+          ? "critical"
+          : signal.severity === "CONTAINED"
+            ? "low"
+            : "medium",
       title: `${signal.code}: ${signal.title}`,
       detail,
     });

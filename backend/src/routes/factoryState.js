@@ -58,12 +58,18 @@ factoryStateRouter.get("/factory-state", async (req, res, next) => {
     res.json({
       status,
       runId: runId || null,
-      orders: { total: Number(orders.rows[0].total), inconsistent: inconsistentCount },
+      orders: {
+        total: Number(orders.rows[0].total),
+        inconsistent: inconsistentCount,
+      },
       products: {
         total: Number(products.rows[0].total),
         avgPrice: Math.round(Number(products.rows[0].avg_price) * 100) / 100,
       },
-      inventory: { lowStockCount: Number(inventory.rows[0].low_stock), threshold: LOW_STOCK_THRESHOLD },
+      inventory: {
+        lowStockCount: Number(inventory.rows[0].low_stock),
+        threshold: LOW_STOCK_THRESHOLD,
+      },
     });
   } catch (err) {
     next(err);
