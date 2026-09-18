@@ -1,0 +1,386 @@
+🔗 Git-tracked files in: editors_factory
+  - .agents/  - skills/  - no-ai-slop/  - SKILL.md
+  - .agents/  - skills/  - no-ai-slop/  - agents/  - openai.yaml
+  - .agents/  - skills/  - no-ai-slop/  - eval.md
+  - .claude/  - skills/  - no-ai-slop
+  - .dockerignore
+  - .editorconfig
+  - .github/  - CODEOWNERS
+  - .github/  - ISSUE_TEMPLATE/  - bug_report.md
+  - .github/  - ISSUE_TEMPLATE/  - feature_request.md
+  - .github/  - dependabot.yml
+  - .github/  - pull_request_template.md
+  - .github/  - workflows/  - gitleaks.yml
+  - .github/  - workflows/  - release.yml
+  - .github/  - workflows/  - scan_on_pr.yml
+  - .gitignore
+  - .gitleaks.toml
+  - .vale.ini
+  - CHANGELOG.md
+  - CONTRIBUTING.md
+  - LICENSE
+  - Makefile
+  - README.md
+  - agents/  - Containerfile
+  - agents/  - identities/  - agent-a.js
+  - agents/  - identities/  - agent-b.js
+  - agents/  - identities/  - agent-c.js
+  - agents/  - package.json
+  - agents/  - src/  - backendClient.js
+  - agents/  - src/  - config.js
+  - agents/  - src/  - heartbeat.js
+  - agents/  - src/  - index.js
+  - agents/  - src/  - observerRuntime.js
+  - agents/  - src/  - ollamaClient.js
+  - agents/  - src/  - runtime.js
+  - agents/  - src/  - tools.js
+  - backend/  - Containerfile
+  - backend/  - package-lock.json
+  - backend/  - package.json
+  - backend/  - src/  - audit.js
+  - backend/  - src/  - config.js
+  - backend/  - src/  - db.js
+  - backend/  - src/  - events.js
+  - backend/  - src/  - index.js
+  - backend/  - src/  - middleware/  - agentAuth.js
+  - backend/  - src/  - middleware/  - errorHandler.js
+  - backend/  - src/  - middleware/  - requestLogger.js
+  - backend/  - src/  - migrations/  - 001_init.sql
+  - backend/  - src/  - migrations/  - 002_evidence.sql
+  - backend/  - src/  - migrations/  - 003_functions.sql
+  - backend/  - src/  - policy.js
+  - backend/  - src/  - routes/  - actions.js
+  - backend/  - src/  - routes/  - authority.js
+  - backend/  - src/  - routes/  - credentials.js
+  - backend/  - src/  - routes/  - delegations.js
+  - backend/  - src/  - routes/  - demo.js
+  - backend/  - src/  - routes/  - events.js
+  - backend/  - src/  - routes/  - health.js
+  - backend/  - src/  - routes/  - tasks.js
+  - backend/  - src/  - state.js
+  - backend/  - src/  - vault.js
+  - compose/  - agents/  - compose.yaml
+  - compose/  - api/  - compose.yaml
+  - compose/  - infra/  - README.md
+  - compose/  - infra/  - compose.yaml
+  - compose/  - ollama/  - README.md
+  - compose/  - ollama/  - compose.yaml
+  - compose/  - ui/  - compose.yaml
+  - compose/  - vault/  - README.md
+  - compose/  - vault/  - compose.yaml
+  - compose/  - vault/  - vault-agent/  - config.hcl
+  - compose/  - vault/  - vault-agent/  - entrypoint.sh
+  - docs/  - release-checklist.md
+  - docs/  - writing/  - BASELINE.md
+  - docs/  - writing/  - DOCS_QUALITY_GATE.md
+  - docs/  - writing/  - DOCS_TOOLCHAIN_REPORT.md
+  - docs/  - writing/  - WRITING_AUDIT.md
+  - docs/  - writing/  - WRITING_IMPROVEMENT_PLAN.md
+  - docs/  - writing/  - config/  - QUALITY.md
+  - docs/  - writing/  - config/  - STYLE.md
+  - docs/  - writing/  - config/  - styles/  - alex/  - Ablist.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - Condescending.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - Gendered.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - LGBTQ.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - OCD.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - Press.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - ProfanityLikely.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - ProfanityMaybe.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - ProfanityUnlikely.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - README.md
+  - docs/  - writing/  - config/  - styles/  - alex/  - Race.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - Suicide.yml
+  - docs/  - writing/  - config/  - styles/  - alex/  - meta.json
+  - docs/  - writing/  - config/  - styles/  - config/  - vocabularies/  - Factory/  - accept.txt
+  - docs/  - writing/  - config/  - styles/  - write-good/  - Cliches.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - E-Prime.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - Illusions.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - Passive.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - README.md
+  - docs/  - writing/  - config/  - styles/  - write-good/  - So.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - ThereIs.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - TooWordy.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - Weasel.yml
+  - docs/  - writing/  - config/  - styles/  - write-good/  - meta.json
+  - sanity_check.md
+  - scripts/  - compose.sh
+  - scripts/  - ollama-pull.sh
+  - scripts/  - podman-check.sh
+  - scripts/  - podman-storage.sh
+  - scripts/  - seed.sql
+  - scripts/  - ui-rebuild.sh
+  - scripts/  - vault-backup.sh
+  - scripts/  - vault-bootstrap.sh
+  - scripts/  - vault-check-entitlement.sh
+  - scripts/  - vault-common.sh
+  - scripts/  - vault-license-inspect.sh
+  - scripts/  - vault-license-parameters.sh
+  - scripts/  - vault-prepare.sh
+  - scripts/  - vault-restore-drill.sh
+  - scripts/  - vault-seed-users.sh
+  - scripts/  - vault-server.sh
+  - scripts/  - vault-status.sh
+  - scripts/  - vault-tls.cnf
+  - scripts/  - vault-unseal.sh
+  - scripts/  - verify-stack.sh
+  - security/  - README.md
+  - security/  - authority-model.md
+  - security/  - threat-model.md
+  - skills-lock.json
+  - state/  - CURRENT
+  - state/  - README.md
+  - state/  - baselines/  - 2026-09-17_initial/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_initial/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_initial/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_initial/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_initial/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_initial/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_initial/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_initial/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_initial/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_initial/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_initial/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_initial/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_initial/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_initial/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_initial/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_initial/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_initial/  - summary.md
+  - state/  - baselines/  - 2026-09-17_initial/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-agent-a-b/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-agent-runtime-framework/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator-v2/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-backend-orchestrator/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-credential-ttl-fix/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-factory-schema-and-tools/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-factory-stack/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-ollama-model-runtime/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-postgres-dynamic-creds/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-vault-bootstrapped/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-vault-followup/  - verification/  - results.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - components/  - agents.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - components/  - api.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - components/  - infra.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - components/  - ollama.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - components/  - ui.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - components/  - vault.status.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - manifest.yaml
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - runtime/  - containers.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - runtime/  - networks.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - runtime/  - volumes.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - source/  - diff.patch
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - source/  - git-status.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - source/  - git.txt
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - source/  - hashes.sha256
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - source/  - project-tree.md
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - source/  - versions.json
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - summary.md
+  - state/  - baselines/  - 2026-09-17_post-vault-ha-cluster/  - verification/  - results.json
+  - state/  - scripts/  - capture-state.sh
+  - state/  - scripts/  - commit-baseline.sh
+  - state/  - scripts/  - compare-state.sh
+  - state/  - scripts/  - validate-state.sh
+  - terraform/  - vault-database/  - database.tf
+  - terraform/  - vault-database/  - main.tf
+  - terraform/  - vault-database/  - outputs.tf
+  - terraform/  - vault-database/  - variables.tf
+  - terraform/  - vault-platform/  - auth.tf
+  - terraform/  - vault-platform/  - main.tf
+  - terraform/  - vault-platform/  - namespace.tf
+  - terraform/  - vault-platform/  - outputs.tf
+  - terraform/  - vault-platform/  - policies.tf
+  - terraform/  - vault-platform/  - variables.tf
+  - terraform/  - vault-sentinel/  - main.tf
+  - terraform/  - vault-sentinel/  - variables.tf
+  - vault-1/  - config.hcl
+  - vault-2/  - config-2.hcl
+  - vault-3/  - config-3.hcl
+  - vault-s/  - config-s.hcl
+  - vault-s/  - policies/  - autounseal.hcl

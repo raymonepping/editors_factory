@@ -124,10 +124,17 @@ export async function recordCredentialEvent({
 }
 
 export async function markCredentialRevoked(leaseId) {
-  await getPool().query(
-    `UPDATE credential_events SET revoked_at = now() WHERE lease_id = $1`,
+  // Found live executing prompts/agents/05_01_agent_d_detection.md:
+  // this update had no publishEvent call, so a revoked credential was
+  // invisible to the live SSE stream entirely — Agent D's D-008 signal
+  // (CREDENTIAL_REVOKED) had no event to react to. RETURNING * + the
+  // same publishEvent('credential_events', row) every other write to
+  // this table already does.
+  const { rows } = await getPool().query(
+    `UPDATE credential_events SET revoked_at = now() WHERE lease_id = $1 RETURNING *`,
     [leaseId],
   );
+  if (rows[0]) publishEvent("credential_events", rows[0]);
 }
 
 export async function getUnrevokedLeases(runId) {

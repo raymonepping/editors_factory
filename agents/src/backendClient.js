@@ -94,6 +94,22 @@ export const backendClient = {
  * Node's fetch() gives a Web ReadableStream body; SSE frames are
  * `event: <type>\ndata: <json>\n\n` (no library needed for this simple,
  * single-backend-controlled format — see src/events.js).
+ *
+ * `onEvent`'s return value IS awaited before the next frame is
+ * processed — found live building observerRuntime.js: Agent D's
+ * finding-per-event writes went out of chronological order because its
+ * own Tier-2 Ollama narration calls raced each other (Ollama serves one
+ * inference at a time — OLLAMA_NUM_PARALLEL=1 — so whichever event's
+ * narration finished the Ollama queue first got recorded first,
+ * regardless of real event order), which directly breaks the "detection
+ * precedes damage" chronological claim the demo depends on. Awaiting
+ * here makes that a caller's choice: runtime.js's own onEvent wrapper
+ * already fires handleTask(...).catch(...) without returning its
+ * promise (a deliberate, unrelated fire-and-forget — one task must not
+ * block detecting another agent's events), so awaiting a synchronously-
+ * returning callback there is a no-op; observerRuntime.js's onEvent
+ * wrapper instead returns the full classify+narrate+record promise, so
+ * awaiting it here is what actually serializes Agent D's processing.
  */
 export async function subscribeEvents(onEvent, { signal } = {}) {
   const reconnectDelayMs = 2000;
@@ -129,7 +145,7 @@ export async function subscribeEvents(onEvent, { signal } = {}) {
           } catch {
             continue;
           }
-          onEvent({ type, payload });
+          await onEvent({ type, payload });
         }
       }
     } catch (err) {

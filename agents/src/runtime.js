@@ -97,9 +97,25 @@ const TOOL_CALL_DISCIPLINE = `\n\nWhen you decide to use a tool (including deleg
 // meant to prevent when the instruction alone doesn't reliably hold
 // (small-model sampling variance), without looping indefinitely: at
 // most one nudge per task.
+//
+// Found live: matching only the literal snake_case tool name missed a
+// real case — the model wrote "I delegate the task of remediation to
+// Agent C" (a natural paraphrase of delegate_task), which contains
+// neither "delegate_task" nor "delegate task" as a substring. Checking
+// the space-separated form catches most multi-word names; a small
+// allowlist of distinctive single-word stems (checked bare) catches
+// paraphrases like this one. Deliberately NOT every tool's first word —
+// "list"/"update"/"get" are too generic to trust alone.
+const DISTINCTIVE_STEMS = new Set(['delegate', 'restart', 'quarantine']);
+
 function mentionsATool(text, toolNames) {
   const lower = text.toLowerCase();
-  return toolNames.some((name) => lower.includes(name));
+  return toolNames.some((name) => {
+    if (lower.includes(name)) return true;
+    if (lower.includes(name.replace(/_/g, ' '))) return true;
+    const stem = name.split('_')[0];
+    return DISTINCTIVE_STEMS.has(stem) && lower.includes(stem);
+  });
 }
 
 async function runLoop(identity, task) {
@@ -114,22 +130,31 @@ async function runLoop(identity, task) {
     },
     { role: "user", content: task.goal },
   ];
-  let nudged = false;
+  let nudgeCount = 0;
+  const MAX_NUDGES = 2;
 
   for (let iteration = 1; iteration <= config.maxIterations; iteration += 1) {
     const message = await chat({ messages, tools: toolSchemas });
 
     if (!message.toolCalls.length) {
-      if (!nudged && mentionsATool(message.content, toolNames)) {
-        nudged = true;
+      if (nudgeCount < MAX_NUDGES && mentionsATool(message.content, toolNames)) {
+        nudgeCount += 1;
         messages.push({ role: "assistant", content: message.content });
         messages.push({
           role: "user",
           content:
-            "You described an action but did not call a tool. If you intend to take that action, call the corresponding tool now. If you are actually done, say so without naming a tool.",
+            // Deliberately unambiguous, no escape hatch: found live that
+            // "if you intend to..." let the model reaffirm its own false
+            // claim ("I have already called delegate_task...") instead
+            // of actually calling it — a second, softer nudge round
+            // produced the exact same non-answer. Stating plainly that
+            // no tool call exists, rather than asking the model to judge
+            // whether one is still needed, is what actually gets a
+            // stubborn model unstuck.
+            "No tool call was made in your previous message — none of your tools have been invoked yet, regardless of what you wrote. If the action you described still needs to happen, call that tool now, in this message.",
         });
         console.log(
-          `[${config.identity}] task ${task.taskId} nudged at iteration ${iteration} (described a tool but did not call it)`,
+          `[${config.identity}] task ${task.taskId} nudged (${nudgeCount}/${MAX_NUDGES}) at iteration ${iteration} (described a tool but did not call it)`,
         );
         continue;
       }

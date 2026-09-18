@@ -1,13 +1,33 @@
-# Nuxt frontend — the factory dashboard. Service definition lands with
-# prompts/frontend/01_01_factory_dashboard_ui.md. This file currently
-# only establishes network membership.
+# Nuxt frontend — the factory dashboard.
+# prompts/frontend/01_01_factory_dashboard_ui.md.
+#
+# The browser connects directly to factory-api's published port (see
+# ui/README.md's own "Architecture" section) — this service only needs
+# factory-control for the build/runtime container itself to exist
+# alongside the rest of the stack, not for any server-side call to
+# factory-api (there isn't one).
 
 networks:
   default:
     name: factory-control
     external: true
 
-services: {}
-  # ui — see prompts/frontend/01_01_factory_dashboard_ui.md.
-  # Container name: factory-ui. DNS hostname: ui. Published at
-  # http://localhost:3000/. Rebuilt via scripts/ui-rebuild.sh.
+services:
+  ui:
+    build:
+      context: ../../ui
+      dockerfile: Containerfile
+    image: factory-ui:local
+    container_name: factory-ui
+    hostname: ui
+    environment:
+      NUXT_PUBLIC_API_BASE: "http://localhost:${API_PORT:-3001}"
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

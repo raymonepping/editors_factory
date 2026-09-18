@@ -1,0 +1,4 @@
+ M agents/identities/agent-b.js
+ M agents/identities/agent-c.js
+ M agents/src/runtime.js
+?? state/.capture-2026-09-17_post-agent-c.tmp/

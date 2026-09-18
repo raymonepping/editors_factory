@@ -45,9 +45,14 @@ export async function startObserverRuntime(identity, { signal } = {}) {
     : null;
 
   await subscribeEvents(
-    (event) => {
+    // Awaited by subscribeEvents itself (backendClient.js's own
+    // comment) — returning identity.onEvent's promise here is what
+    // makes Agent D process one event fully (including its Tier-2
+    // narration) before the next, keeping findings in real
+    // chronological order.
+    async (event) => {
       try {
-        identity.onEvent(event);
+        await identity.onEvent(event);
       } catch (err) {
         console.error(
           `[${config.identity}] onEvent classifier threw:`,
