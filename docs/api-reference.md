@@ -6,13 +6,25 @@ This reference describes the local demo contract. It is not an internet-facing A
 
 ## Authentication
 
-Agent endpoints require:
+### Machine (Agent) Authentication
+Agent endpoints require a static per-agent bearer token:
 
 ```http
 Authorization: Bearer <per-agent-token>
 ```
 
-The API maps each token to one actor. Human triggers and dashboard telemetry are unauthenticated on localhost. Do not publish the API port beyond a trusted host.
+The API maps each bearer token to one actor identity (`agent-a`, `agent-b`, `agent-c`, `agent-d`).
+
+### Human Authentication & Sessions
+Human control operations (`POST /api/agents/agent-a/tasks`, `PUT /api/demo/mode`, `POST /api/demo/reset`) and UI dashboard access are protected by session cookies (`factory_session`) backed by OpenLDAP and Keycloak OIDC. Two RBAC roles are enforced:
+- `factory-operator`: full control (run tasks, switch demo mode, reset database);
+- `factory-viewer`: read-only dashboard access.
+
+OIDC authentication endpoints are exposed under `/api/v1/auth/`:
+- `GET /api/v1/auth/login`: initiates PKCE login redirect to Keycloak;
+- `GET /api/v1/auth/callback`: handles OIDC code exchange and creates session;
+- `GET /api/v1/auth/me`: returns current authenticated user and role;
+- `POST /api/v1/auth/logout`: invalidates server session and clears cookies.
 
 ## Health and demo control
 

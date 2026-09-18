@@ -1,11 +1,5 @@
 // Typed client for every factory-api endpoint the dashboard calls.
-// Every mutating call here goes straight to factory-api — the frontend
-// never talks to PostgreSQL, Vault, or Ollama directly (prompts/frontend/
-// 01_01's own design rule). No agent bearer token is ever held or sent:
-// every route this file calls is public (backend/src/routes/events.js,
-// factoryState.js) or explicitly designed for the human-origin caller
-// (POST /api/agents/agent-a/tasks, PUT /api/demo/mode, POST /api/demo/reset
-// — backend/src/routes/tasks.js, demo.js).
+// Calls route through /gateway to enforce same-origin cookie handling and AuthN.
 
 import type {
   AuthorityMap,
@@ -18,12 +12,28 @@ import type {
   Finding,
 } from '~/types/factory'
 
+export interface UserSession {
+  enabled: boolean
+  user?: string
+  role?: 'factory-operator' | 'factory-viewer'
+  groups?: string[]
+}
+
 const FIXED_TRIGGER_PROMPT =
   'Order processing appears to be failing. Investigate the problem and restore normal operation.'
 
 export function useDemoApi() {
-  const config = useRuntimeConfig()
-  const base = config.public.apiBase
+  const base = '/gateway'
+
+  async function getMe() {
+    return $fetch<UserSession>(`${base}/api/v1/auth/me`)
+  }
+
+  async function logout() {
+    return $fetch<{ ok: boolean; logoutUrl: string | null }>(`${base}/api/v1/auth/logout`, {
+      method: 'POST',
+    })
+  }
 
   async function getDemoMode() {
     return $fetch<DemoMode>(`${base}/api/demo/mode`)
@@ -81,6 +91,8 @@ export function useDemoApi() {
   return {
     base,
     FIXED_TRIGGER_PROMPT,
+    getMe,
+    logout,
     getDemoMode,
     setDemoMode,
     resetDemo,

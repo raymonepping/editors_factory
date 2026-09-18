@@ -82,36 +82,30 @@ async function vaultRequest(method, path, { token, body } = {}) {
  * to bound it — so lengthening the TTL to match the credential's own
  * lifetime doesn't widen this token's authority, only its lifespan.
  */
-export async function mintAgentTaggedChildToken(agentId, ttlSeconds) {
+export async function mintAgentTaggedChildToken(agentId, ttlSeconds, policies = null) {
   const parentToken = await readAgentToken();
+  const body = {
+    orphan: false,
+    ttl: `${ttlSeconds}s`,
+    meta: { factory_agent: agentId },
+    no_default_policy: true,
+  };
+  if (policies && policies.length) {
+    body.policies = policies;
+  }
   const data = await vaultRequest("POST", "auth/token/create", {
     token: parentToken,
-    body: {
-      orphan: false,
-      ttl: `${ttlSeconds}s`,
-      // The raw HTTP API's field is `meta`, NOT `metadata` — found live:
-      // `-metadata=` is only the `vault token create` CLI flag name; the
-      // JSON body key it actually sends is `meta`. Using `metadata` here
-      // silently created a real child token with NO metadata at all
-      // (no error — Vault just ignored the unrecognized field), which
-      // then failed the require-agent-c-for-db-creds Sentinel EGP with
-      // a confusing "Result value was 'undefined'" trace instead of an
-      // obvious "bad request".
-      meta: { factory_agent: agentId },
-      no_default_policy: false,
-    },
+    body,
   });
-  return data.auth.client_token;
+  return {
+    clientToken: data.auth.client_token,
+    accessor: data.auth.accessor,
+  };
 }
 
-// Child-token TTL per database role — must be >= the role's own
-// default_ttl (terraform/vault-database/database.tf) so the credential
-// this token brokers doesn't get cascade-revoked out from under itself
-// (see mintAgentTaggedChildToken's own comment). A little headroom over
-// the role's default_ttl absorbs the few hundred ms between minting the
-// token and the `database/creds/*` read actually landing.
+// Child-token TTL per database role — bounded to task lifetime
 const DB_ROLE_TOKEN_TTL_SECONDS = {
-  "factory-bad-role": 86400 + 30, // matches default_ttl 24h
+  "factory-bad-role": 300 + 30, // matches default_ttl 5m (Wave 3)
   "factory-good-role": 120 + 30, // matches default_ttl 2m
   "factory-backend-role": 3600 + 30, // matches default_ttl 1h
 };
@@ -119,10 +113,7 @@ const DB_ROLE_TOKEN_TTL_SECONDS = {
 /**
  * Issues a dynamic PostgreSQL credential from the given database role
  * (factory-bad-role | factory-good-role | factory-backend-role), using a
- * child token tagged for the calling agent (only ever "agent-c" for the
- * Sentinel-gated roles per prompts/backend/01_01_orchestrator_api.md's
- * own design — this function does not itself enforce that; the caller in
- * routes/credentials.js does).
+ * scoped child token tagged for the calling agent.
  */
 export async function issueDatabaseCredential(role, agentId) {
   const ttlSeconds = DB_ROLE_TOKEN_TTL_SECONDS[role];
@@ -131,29 +122,62 @@ export async function issueDatabaseCredential(role, agentId) {
       `issueDatabaseCredential: unknown role "${role}" — no child-token TTL mapped`,
     );
   }
-  const childToken = await mintAgentTaggedChildToken(agentId, ttlSeconds);
+  // Scope child token to narrowest policy
+  const policies = role === "factory-backend-role" ? ["factory-api"] : ["factory-agent-c-cred"];
+  const { clientToken, accessor } = await mintAgentTaggedChildToken(agentId, ttlSeconds, policies);
   const data = await vaultRequest("GET", `database/creds/${role}`, {
-    token: childToken,
+    token: clientToken,
   });
   return {
     username: data.data.username,
     password: data.data.password,
     leaseId: data.lease_id,
     leaseDuration: data.lease_duration,
+    tokenAccessor: accessor,
   };
 }
 
-/** Revokes one lease by its exact lease_id — matches factory-api's own
- * policy grant (`sys/leases/revoke/*`, capability "update"). `make
- * reset` revokes every lease_id recorded in credential_events for the
- * run being reset, rather than a prefix revoke (which would need a
- * broader, unused policy grant). */
-export async function revokeLease(leaseId) {
+/** Renews a dynamic lease by its exact lease_id and increment. */
+export async function renewLease(leaseId, incrementSeconds = 120) {
   const parentToken = await readAgentToken();
-  await vaultRequest("PUT", "sys/leases/revoke", {
+  return await vaultRequest("PUT", "sys/leases/renew", {
     token: parentToken,
-    body: { lease_id: leaseId },
+    body: { lease_id: leaseId, increment: `${incrementSeconds}s` },
   });
+}
+
+/** Revokes one lease by its exact lease_id. Treats 400/404 as already-revoked. */
+export async function revokeLease(leaseId) {
+  try {
+    const parentToken = await readAgentToken();
+    await vaultRequest("PUT", "sys/leases/revoke", {
+      token: parentToken,
+      body: { lease_id: leaseId },
+    });
+    return { ok: true, status: "revoked" };
+  } catch (err) {
+    if (err.status === 400 || err.status === 404) {
+      return { ok: true, status: "already_revoked_or_expired" };
+    }
+    throw err;
+  }
+}
+
+/** Revokes a token by accessor. Treats 400/404 as already-revoked. */
+export async function revokeTokenAccessor(accessor) {
+  try {
+    const parentToken = await readAgentToken();
+    await vaultRequest("PUT", "auth/token/revoke-accessor", {
+      token: parentToken,
+      body: { accessor },
+    });
+    return { ok: true, status: "revoked" };
+  } catch (err) {
+    if (err.status === 400 || err.status === 404) {
+      return { ok: true, status: "already_revoked_or_expired" };
+    }
+    throw err;
+  }
 }
 
 export async function vaultHealthCheck() {

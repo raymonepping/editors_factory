@@ -62,11 +62,10 @@ check_known_secret_file() {
     *) continue ;;
     esac
     key=${line%%=*}
-    # OLLAMA_MODEL is a public model identifier that the runtime baseline
-    # intentionally records. Keep all credential-bearing .env values under
-    # exact-value checking; exempt only this documented non-secret key.
+    # Public non-secret environment variables that appear legitimately in
+    # URLs, compose configurations, diffs, or container runtime specs.
     case "$key" in
-    OLLAMA_MODEL) continue ;;
+    OLLAMA_MODEL | FACTORY_OIDC_ISSUER | FACTORY_OIDC_INTERNAL_URL | FACTORY_OIDC_PUBLIC_URL | FACTORY_OIDC_CLIENT_ID | FACTORY_BASE_URL | FACTORY_API_CALLBACK_URL | KC_HOSTNAME | KEYCLOAK_ISSUER_URL | KEYCLOAK_PUBLIC_ISSUER_URL) continue ;;
     esac
     value=${line#*=}
     value=${value%\"}

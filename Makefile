@@ -2,12 +2,13 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-STACKS       := vault infra ollama api agents ui
+STACKS       := vault infra identity ollama api agents ui
 PROJECT_ROOT := $(shell pwd)
 API_PORT     ?= 3001
 
 .PHONY: help check status storage ps images volumes compose-config \
 	network up down reset demo-bad demo-good \
+	identity-bootstrap identity-up identity-down identity-logs \
 	$(addsuffix -up,$(STACKS)) $(addsuffix -down,$(STACKS)) \
 	$(addsuffix -logs,$(STACKS)) ui-build vault-status vault-unseal
 
@@ -63,7 +64,7 @@ $(1)-logs: ## Follow $(1) logs
 	@./scripts/compose.sh "$(1)" logs -f
 endef
 
-$(foreach stack,$(filter-out vault ollama ui,$(STACKS)),$(eval $(call STACK_TARGETS,$(stack))))
+$(foreach stack,$(filter-out vault ollama ui identity,$(STACKS)),$(eval $(call STACK_TARGETS,$(stack))))
 
 infra-migrate: ## Apply backend/src/migrations/*.sql to factory-postgres (idempotent, ordered)
 	@for f in backend/src/migrations/*.sql; do \
@@ -77,12 +78,6 @@ infra-seed: ## Apply scripts/seed.sql to factory-postgres (idempotent — safe t
 		-d "$$(grep '^POSTGRES_DB=' .env | cut -d= -f2-)" -v ON_ERROR_STOP=1 < scripts/seed.sql
 
 infra-configure-vault: ## Apply terraform/vault-database (Database secrets engine + roles)
-	@# Deliberately do NOT `set -a; . ./.env` here: .env carries
-	@# VAULT_NAMESPACE=factory (for the backend's future use), and every
-	@# resource in this module already sets namespace = "factory"
-	@# explicitly. Exporting VAULT_NAMESPACE too double-scopes the
-	@# provider on top of that ("Namespace: factory/factory", 403) —
-	@# found live. Pull only the three POSTGRES_* values needed.
 	@POSTGRES_USER=$$(grep '^POSTGRES_USER=' .env | cut -d= -f2-); \
 	POSTGRES_PASSWORD=$$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2-); \
 	POSTGRES_DB=$$(grep '^POSTGRES_DB=' .env | cut -d= -f2-); \
@@ -94,21 +89,28 @@ infra-configure-vault: ## Apply terraform/vault-database (Database secrets engin
 		-var="postgres_password=$$POSTGRES_PASSWORD" \
 		-var="postgres_db=$$POSTGRES_DB"
 
+identity-up: ## Start OpenLDAP and Keycloak identity services
+	@./scripts/compose.sh identity config --quiet
+	@$(MAKE) --no-print-directory network
+	@./scripts/compose.sh identity up -d
+
+identity-down: ## Stop the identity stack
+	@./scripts/compose.sh identity down
+
+identity-logs: ## Follow identity logs
+	@./scripts/compose.sh identity logs -f
+
+identity-bootstrap: identity-up ## Run one-shot OpenLDAP seed and Keycloak realm configuration
+	@./scripts/compose.sh identity --profile init run --rm ldap-bootstrap
+	@./scripts/compose.sh identity --profile init run --rm keycloak-bootstrap
+	@chmod +x compose/identity/keycloak/verify_keycloak.sh
+	@./compose/identity/keycloak/verify_keycloak.sh
+
 vault-up: ## Start the Vault HA cluster and bootstrap it (idempotent)
 	@./scripts/compose.sh vault config --quiet
 	@$(MAKE) --no-print-directory network
 	@./scripts/vault-prepare.sh
 	@./scripts/vault-bootstrap.sh
-	@# vault-bootstrap.sh brings up vault-s first, creates the transit
-	@# auto-unseal token, THEN brings up vault-1/2/3 itself — found live:
-	@# an extra `compose.sh vault up -d` here (bringing up all four nodes
-	@# at once, before the transit-token file exists) makes Podman
-	@# auto-create .secrets/vault/transit-token as an empty DIRECTORY
-	@# (the bind-mount source didn't exist yet), which then makes
-	@# vault-bootstrap.sh's own `[ -s transit-token ]` check true for the
-	@# wrong reason and crashes on `cat` a few lines later — and leaves
-	@# vault-1/2/3 crash-looping on 403s in the meantime, since they never
-	@# got a real token. Do not add a separate `up -d` call here.
 
 vault-down: ## Stop the Vault HA cluster
 	@./scripts/compose.sh vault down
@@ -167,13 +169,6 @@ down: ## Tear down every stack, in reverse dependency order
 
 reset: ## Restore PostgreSQL data, Vault leases, and demo/audit state to baseline
 	@echo "Resetting The Factory to baseline..."
-	@# Two separately-scoped steps, not one — see
-	@# backend/src/routes/demo.js's own comment for why: the backend's
-	@# factory-backend-role credential is deliberately NOT privileged to
-	@# mutate products/orders/inventory (only Agent C's factory-bad-role/
-	@# factory-good-role ever does that), so it can only reset what it
-	@# owns (Vault leases + evidence tables). The product/order catalog
-	@# reset uses the Postgres superuser instead, same as first seeding.
 	@if curl -fsS -m 10 -X POST "http://localhost:$(API_PORT)/api/demo/reset" >/dev/null 2>&1; then \
 		echo "Evidence tables + Vault leases reset (POST /api/demo/reset)."; \
 	else \

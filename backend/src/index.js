@@ -3,6 +3,8 @@ import { validateConfigOnBoot, config } from "./config.js";
 import { initDbPool } from "./db.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { authRouter, requireHumanSession } from "./auth/index.js";
+import { cleanupRunCredentials } from "./services/revocation.js";
 import { healthRouter } from "./routes/health.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { delegationsRouter } from "./routes/delegations.js";
@@ -22,30 +24,23 @@ const app = express();
 app.use(express.json());
 app.use(requestLogger);
 
-// CORS — added for prompts/frontend/01_01_factory_dashboard_ui.md: that
-// prompt's own design explicitly has the BROWSER connect directly to
-// factory-api's published port for its SSE stream (compose/ui/compose.yaml's
-// own deliverable text: "via a published port for the browser's own SSE
-// connection"), not through a server-side proxy. The Nuxt dev/prod server
-// and factory-api run on different ports on localhost, which the browser
-// treats as different origins. No cookies/session/credentials are ever
-// involved (this UI has no login — prompts/frontend/01_01's own non-goal),
-// so a permissive GET/POST/PUT policy with no credentials mode is the
-// simplest correct fit for a local, single-operator demo tool — every
-// endpoint the UI calls is either already public or was made public
-// specifically for dashboard consumption (routes/events.js, routes/
-// factoryState.js), never an agent-authenticated tool-call route.
+// CORS for browser requests
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.setHeader(
     "Access-Control-Allow-Methods",
     "GET, POST, PUT, DELETE, PATCH, OPTIONS",
   );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
+// Auth router (OIDC Login / Callback / Me / Logout)
+app.use("/api/v1/auth", authRouter);
+
+// Domain and API routes
 app.use("/api", healthRouter);
 app.use("/api", tasksRouter);
 app.use("/api", delegationsRouter);
@@ -66,6 +61,10 @@ async function main() {
 
   const existingRun = await audit.getActiveRun();
   if (existingRun) {
+    // Wave 2: Startup discovers an active run from previous container lifecycle —
+    // clean up any abandoned Vault leases before resuming
+    console.log(`[factory-api] recovered active run ${existingRun.run_id}, cleaning up abandoned leases...`);
+    await cleanupRunCredentials(existingRun.run_id, "startup_recovery");
     state.setCurrentRunId(existingRun.run_id);
     state.setProfile(existingRun.profile);
   } else {
@@ -75,7 +74,7 @@ async function main() {
 
   app.listen(config.port, () => {
     console.log(
-      `[factory-api] listening on :${config.port}, profile=${state.getProfile()}`,
+      `[factory-api] listening on :${config.port}, profile=${state.getProfile()}, authEnabled=${config.auth.enabled}`,
     );
   });
 }

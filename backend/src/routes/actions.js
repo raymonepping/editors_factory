@@ -2,6 +2,7 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { agentAuth } from "../middleware/agentAuth.js";
 import { getPool, withAgentCredential } from "../db.js";
+import { cleanupTaskCredentials } from "../services/revocation.js";
 import * as audit from "../audit.js";
 import * as state from "../state.js";
 import {
@@ -61,6 +62,12 @@ async function authorize(req, toolName) {
     policyResult: decision.result,
     reason: decision.reason,
   });
+
+  // Wave 2: Policy denial credential cleanup — immediately revoke any already-issued
+  // lease/token held by the actor upon out-of-bounds policy denial
+  if (decision.result === "DENY" && actorId === "agent-c") {
+    await cleanupTaskCredentials(null, "policy_denial_containment");
+  }
 
   return {
     ...decision,

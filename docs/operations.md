@@ -30,6 +30,8 @@ make compose-config
 | --- | --- |
 | Dashboard | `http://localhost:3000` |
 | Factory API | `http://localhost:3001` |
+| Keycloak OIDC Broker | `http://localhost:8088` |
+| phpLDAPadmin | `http://localhost:8085` |
 | Ollama | `http://localhost:11434` |
 | PostgreSQL | `127.0.0.1:5432` |
 | Vault active entry point | `https://127.0.0.1:18200` |

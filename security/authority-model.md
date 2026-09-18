@@ -38,11 +38,15 @@ agent-d            Continuous Detection — independent lane, observes all
                     delegation chain, never gains database access.
 ```
 
-**Rule: an agent cannot delegate authority it does not itself hold.**
-The backend enforces this by intersecting the delegating agent's own
-effective authority with whatever envelope it requests for the delegate
-— it never lets an envelope grow across a hop
-(`prompts/backend/01_01_orchestrator_api.md`).
+**Rule: authority is bounded by fixed recipient ceilings and profile policy.**
+In the **GOOD** profile, the backend determines effective authority by
+intersecting the requested envelope with the recipient's fixed capability
+ceiling (`prompts/backend/01_01_orchestrator_api.md`). The delegator initiates
+the request, but the recipient's fixed profile ceiling strictly limits what
+capabilities can be granted. In the **BAD** profile, the backend intentionally
+bypasses recipient ceiling intersection for Agent C, granting it an unsafe,
+over-broad capability ceiling (`factory-bad-role`) to visibly demonstrate
+delegated privilege amplification in a contained demo environment.
 
 ## Authority matrix — BAD profile
 
@@ -224,10 +228,15 @@ NO ~/.ssh, ~/.aws, ~/.kube
 NO Podman/Docker socket
 NO production Vault, no real credentials, no real customer data
 NO shell tool, no arbitrary-SQL tool
-NO outbound internet egress beyond factory-control
-NO direct PostgreSQL or Vault access — only via the backend
+NO direct PostgreSQL or Vault access for agents — only via the backend broker
   (prompts/backend/01_01_orchestrator_api.md)
 ```
+
+**Network boundaries and egress limits**:
+- Model inference is 100% local via `factory-ollama` on `factory-control`.
+- Agent containers receive no PostgreSQL passwords, no direct DB tools, and no Vault access.
+- In this local developer demo, outbound internet egress is not blocked at the container firewall level (allowing local package pulls/updates during build/setup), but no workflow step requires or uses external connectivity during demo execution.
+- Host ports bind strictly to `127.0.0.1`.
 
 Worst possible outcome of a bug or a misbehaving model: **the demo
 destroys the demo's own synthetic factory database.** Nothing outside

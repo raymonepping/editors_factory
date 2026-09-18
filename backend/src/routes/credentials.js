@@ -53,6 +53,7 @@ credentialsRouter.post("/credentials", agentAuth, async (req, res, next) => {
       ...credential,
       role,
       actorId,
+      tokenAccessor: credential.tokenAccessor,
       issuedAt: Date.now(),
     });
 

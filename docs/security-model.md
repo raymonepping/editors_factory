@@ -88,4 +88,4 @@ The API is intentionally unable to reset product and order tables with its own c
 
 ## Known scope limits
 
-This local demonstration does not provide user authentication for dashboard telemetry, transport security for localhost API traffic, bearer-token rotation, general delegation graphs, or production secret distribution. Do not expose its ports to an untrusted network.
+This local demonstration implements human authentication and RBAC via Keycloak OIDC/OpenLDAP for the web UI and control plane, but does not provide transport encryption (TLS) for localhost container-to-container traffic, bearer-token rotation for machine agents, general multi-hop delegation graphs, or strict host-level container network egress filtering. Model inference is strictly local to Ollama. Do not expose its published ports to an untrusted network.

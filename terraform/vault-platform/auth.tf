@@ -15,7 +15,7 @@ resource "vault_approle_auth_backend_role" "factory_api" {
   namespace      = vault_namespace.factory.path
   backend        = vault_auth_backend.approle.path
   role_name      = "factory-api"
-  token_policies = [vault_policy.factory_api.name]
+  token_policies = [vault_policy.factory_api.name, vault_policy.factory_agent_c_cred.name]
   token_ttl      = 3600  # 1h — independent of the DB dynamic-cred TTLs
   token_max_ttl  = 14400 # 4h
 }

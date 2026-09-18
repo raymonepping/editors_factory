@@ -1,0 +1,57 @@
+# The Factory demo identity fixture — OpenLDAP (identity store).
+#
+# Structure: ou=people + ou=groups under dc=factory,dc=local.
+# Groups use groupOfNames (Keycloak's LDAP group mapper reads the member attribute).
+# Roles:
+#   - factory-operator (Raymon, Barend) -> Can start demo, switch profiles, trigger reset, and view telemetry.
+#   - factory-viewer   (Claire)         -> Can view dashboard state, event history, authority, credentials, and telemetry.
+
+dn: ou=people,dc=factory,dc=local
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=factory,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+# ── People ───────────────────────────────────────────────────────────────
+
+dn: uid=raymon,ou=people,dc=factory,dc=local
+objectClass: inetOrgPerson
+uid: raymon
+cn: Raymon Epping
+sn: Epping
+givenName: Raymon
+mail: raymon@factory.local
+userPassword: Factory-raymon-2026
+
+dn: uid=barend,ou=people,dc=factory,dc=local
+objectClass: inetOrgPerson
+uid: barend
+cn: Barend Demo
+sn: Baarssen
+givenName: Barend
+mail: barend@factory.local
+userPassword: Factory-barend-2026
+
+dn: uid=claire,ou=people,dc=factory,dc=local
+objectClass: inetOrgPerson
+uid: claire
+cn: Claire Viewer
+sn: Variola
+givenName: Claire
+mail: claire@factory.local
+userPassword: Factory-claire-2026
+
+# ── Groups ───────────────────────────────────────────────────────────────
+
+dn: cn=factory-operator,ou=groups,dc=factory,dc=local
+objectClass: groupOfNames
+cn: factory-operator
+member: uid=raymon,ou=people,dc=factory,dc=local
+member: uid=barend,ou=people,dc=factory,dc=local
+
+dn: cn=factory-viewer,ou=groups,dc=factory,dc=local
+objectClass: groupOfNames
+cn: factory-viewer
+member: uid=claire,ou=people,dc=factory,dc=local

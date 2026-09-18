@@ -1,0 +1,29 @@
+ M Makefile
+ M backend/package.json
+ M backend/src/config.js
+ M backend/src/db.js
+ M backend/src/index.js
+ M backend/src/routes/demo.js
+ M backend/src/routes/tasks.js
+ M compose/api/compose.yaml
+ M compose/ui/compose.yaml
+ M docs/api-reference.md
+ M docs/operations.md
+ M docs/security-model.md
+ M docs/writing/config/styles/config/vocabularies/Factory/accept.txt
+ M scripts/compose.sh
+ M security/authority-model.md
+ M security/threat-model.md
+ M state/scripts/validate-state.sh
+ M terraform/vault-database/database.tf
+ M ui/app/composables/useDemoApi.ts
+ M ui/app/pages/index.vue
+ M ui/nuxt.config.ts
+?? backend/src/auth/
+?? backend/src/migrations/004_sessions.sql
+?? compose/identity/
+?? docs/validation/
+?? state/.capture-2026-09-18_pre-phase-2-lifecycle.tmp/
+?? ui/app/middleware/
+?? ui/app/pages/login.vue
+?? ui/server/

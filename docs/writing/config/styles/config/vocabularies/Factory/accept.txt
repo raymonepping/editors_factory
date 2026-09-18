@@ -118,3 +118,17 @@ alex
 [Ww]orktrees?
 [Aa]gentic
 [Cc]ybersecurity
+phpLDAPadmin
+OpenLDAP
+Raymon
+Epping
+Barend
+Claire
+JWTs?
+OIDC
+RBAC
+EGPs?
+backend's
+jailbreaking
+firewalled
+inspectable

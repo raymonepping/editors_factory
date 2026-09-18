@@ -36,6 +36,14 @@ services:
       AGENT_B_TOKEN: "${AGENT_B_TOKEN}"
       AGENT_C_TOKEN: "${AGENT_C_TOKEN}"
       AGENT_D_TOKEN: "${AGENT_D_TOKEN}"
+      FACTORY_AUTH_ENABLED: "${FACTORY_AUTH_ENABLED:-true}"
+      FACTORY_OIDC_ENABLED: "${FACTORY_OIDC_ENABLED:-true}"
+      KEYCLOAK_ISSUER_URL: "${KEYCLOAK_ISSUER_URL:-http://keycloak:8080/realms/factory}"
+      KEYCLOAK_PUBLIC_ISSUER_URL: "${KEYCLOAK_PUBLIC_ISSUER_URL:-http://localhost:8088/realms/factory}"
+      FACTORY_OIDC_CLIENT_ID: "${FACTORY_OIDC_CLIENT_ID:-factory-api}"
+      FACTORY_OIDC_CLIENT_SECRET: "${FACTORY_OIDC_CLIENT_SECRET}"
+      FACTORY_BASE_URL: "${FACTORY_BASE_URL:-http://localhost:3000}"
+      FACTORY_API_CALLBACK_URL: "${FACTORY_API_CALLBACK_URL:-http://localhost:3000/gateway/api/v1/auth/callback}"
     volumes:
       - ../../vault-tls:/vault/tls:ro
       - vault-agent-secrets:/vault/secrets:ro

@@ -13,8 +13,28 @@ function optional(name, fallback) {
   return process.env[name] || fallback;
 }
 
+const authEnabled = optional("FACTORY_AUTH_ENABLED", "true") === "true";
+
 export const config = {
   port: Number(optional("PORT", "3001")),
+
+  auth: {
+    enabled: authEnabled,
+  },
+
+  oidc: {
+    enabled: authEnabled,
+    issuer: optional("FACTORY_OIDC_ISSUER", "http://localhost:8088/realms/factory"),
+    internalUrl: optional("FACTORY_OIDC_INTERNAL_URL", "http://keycloak:8080"),
+    publicUrl: optional("FACTORY_OIDC_PUBLIC_URL", "http://localhost:8088"),
+    clientId: optional("FACTORY_OIDC_CLIENT_ID", "factory-api"),
+    clientSecret: optional("FACTORY_OIDC_CLIENT_SECRET", "factory-client-secret-2026"),
+    callbackUrl: optional(
+      "FACTORY_API_CALLBACK_URL",
+      "http://localhost:3000/gateway/api/v1/auth/callback"
+    ),
+    baseUrl: optional("FACTORY_BASE_URL", "http://localhost:3000"),
+  },
 
   vault: {
     addr: optional("VAULT_ADDR", "https://vault-1:8200"),
@@ -33,11 +53,7 @@ export const config = {
   },
 
   // Per-agent bearer tokens for agent -> backend calls (input/05.md: every
-  // agent has its own service identity, never a shared API key). Simple,
-  // static, local-demo-appropriate — see
-  // prompts/backend/01_01_orchestrator_api.md's "Identity and
-  // authentication" section for why this is deliberately simpler than
-  // Vault AppRole for this particular hop.
+  // agent has its own service identity, never a shared API key).
   agentTokens: {
     "agent-a": required("AGENT_A_TOKEN"),
     "agent-b": required("AGENT_B_TOKEN"),
@@ -47,8 +63,5 @@ export const config = {
 };
 
 export function validateConfigOnBoot() {
-  // Touching config above already throws on anything required and
-  // missing; this function exists as an explicit, named startup step so
-  // index.js's intent is readable at a glance.
   return config;
 }

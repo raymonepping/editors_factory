@@ -37,9 +37,9 @@ to be documented directly rather than left implicit:
   select a tool it was never given — the tool schema itself is the
   boundary (`prompts/agents/0*`), not a system-prompt instruction the
   model could be talked out of.
-- **No agent holds a credential to talk anyone out of.** There is
-  nothing for a successfully-manipulated Agent C to leak or misuse
-  directly — it never holds a Vault token or a database password; see
+- **No agent holds a credential to talk anyone out of.** An attacker
+  cannot manipulate Agent C to leak or misuse a database password directly,
+  because Agent C never holds a Vault token or database credentials; see
   `security/authority-model.md`'s "Why agents do not hold Vault
   credentials directly."
 - **Authority is intersected server-side, not asserted by the agent.**
@@ -48,9 +48,9 @@ to be documented directly rather than left implicit:
   (`prompts/backend/01_01_orchestrator_api.md`).
 - **Vault Sentinel adds a layer the agent's own output never reaches.**
   `require-agent-c-for-db-creds` (`prompts/base_project/02_02_vault_follow_up.md`)
-  is evaluated on the backend's own outgoing request, not on anything an
-  agent said — no amount of convincing Agent C changes what header the
-  backend actually sends.
+  is evaluated on the backend's short-lived child token metadata (`token.metadata["factory_agent"] == "agent-c"`),
+  not on anything an agent said — no amount of convincing Agent C changes the child-token
+  metadata minted by the backend broker.
 
 A successfully "convinced" Agent C still cannot exceed its actual
 granted authority, because that authority is never a function of what
@@ -70,12 +70,13 @@ inventory/suppliers data, seeded deterministically)
 ```
 
 Nothing else — not the host machine, not any other project on the same
-machine, not any real credential, not any network beyond
-`factory-control`/`factory-vault-internal`. If a future prompt proposes
-giving any agent container broader access than this (a host mount, a
-socket, outbound internet, a non-`factory-*` Vault credential), that
-proposal must be rejected or explicitly re-scoped through this document
-before implementation.
+machine, not any real credential, not any database outside the synthetic
+factory schema. Model inference runs 100% locally on Ollama. While general
+outbound internet egress is not firewalled at the host network driver level in
+this local setup, no agent workload requires external connectivity. If a
+future prompt proposes giving any agent container host-level mounts, sockets, or
+non-`factory-*` Vault credentials, that proposal must be rejected or explicitly
+re-scoped through this document before implementation.
 
 ## Secrets hygiene for this repository
 

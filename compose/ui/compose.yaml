@@ -1,11 +1,5 @@
 # Nuxt frontend — the factory dashboard.
 # prompts/frontend/01_01_factory_dashboard_ui.md.
-#
-# The browser connects directly to factory-api's published port (see
-# ui/README.md's own "Architecture" section) — this service only needs
-# factory-control for the build/runtime container itself to exist
-# alongside the rest of the stack, not for any server-side call to
-# factory-api (there isn't one).
 
 networks:
   default:
@@ -21,6 +15,8 @@ services:
     container_name: factory-ui
     hostname: ui
     environment:
+      FACTORY_API_INTERNAL_URL: "http://api:3001"
+      NUXT_FACTORY_API_INTERNAL: "http://api:3001"
       NUXT_PUBLIC_API_BASE: "http://localhost:${API_PORT:-3001}"
     ports:
       - "127.0.0.1:3000:3000"

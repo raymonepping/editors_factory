@@ -55,8 +55,8 @@ resource "vault_database_secret_backend_role" "factory_bad_role" {
     "REASSIGN OWNED BY \"{{name}}\" TO \"${var.postgres_user}\";\nDROP OWNED BY \"{{name}}\";\nDROP ROLE IF EXISTS \"{{name}}\";",
   ]
 
-  default_ttl = "86400" # 24h
-  max_ttl     = "86400" # 24h
+  default_ttl = "300"   # 5m (Wave 3: replace 24h lifetime with short-lived, task-bounded TTL)
+  max_ttl     = "1800"  # 30m
 }
 
 # GOOD profile — SELECT everywhere, status-only order updates via a
@@ -143,7 +143,7 @@ resource "vault_database_secret_backend_role" "factory_backend_role" {
   # See factory_bad_role's own comment above for why this is one
   # multi-statement array element, not one element per statement.
   creation_statements = [
-    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT INSERT, UPDATE, DELETE ON demo_runs, audit_events, delegations, authority_decisions, credential_events, database_changes, findings TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
+    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT INSERT, UPDATE, DELETE ON demo_runs, audit_events, delegations, authority_decisions, credential_events, database_changes, findings, sessions TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
   ]
 
   revocation_statements = [

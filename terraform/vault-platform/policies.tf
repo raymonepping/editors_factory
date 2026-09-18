@@ -28,15 +28,6 @@ resource "vault_policy" "factory_api" {
       capabilities = ["read"]
     }
 
-    # Found live: src/vault.js's revokeLease() calls the bare
-    # `PUT sys/leases/revoke` endpoint with lease_id in the request body
-    # (the standard, documented form) — that path does NOT match a
-    # "sys/leases/revoke/*" glob (no trailing path segment to match
-    # against), so the wildcard-only grant below denied every revoke
-    # with a 403 despite looking identical in the policy source. Both
-    # forms granted now: the exact bare path this code actually calls,
-    # and the wildcard form in case a future revoke-by-path-suffix call
-    # is ever added.
     path "sys/leases/revoke" {
       capabilities = ["update"]
     }
@@ -45,18 +36,37 @@ resource "vault_policy" "factory_api" {
       capabilities = ["update"]
     }
 
+    path "sys/leases/renew" {
+      capabilities = ["update"]
+    }
+
+    path "auth/token/revoke" {
+      capabilities = ["update"]
+    }
+
+    path "auth/token/revoke-accessor" {
+      capabilities = ["update"]
+    }
+
     # Required so factory-api can mint the short-lived, factory_agent=agent-c
-    # -tagged child token that prompts/backend/01_01_orchestrator_api.md's
-    # credential-broker flow uses for database/creds/* reads — the
-    # require-agent-c-for-db-creds Sentinel EGP checks token.metadata,
-    # which is set at token-creation time, not per-request (Sentinel's
-    # request object has no HTTP-header access — see
-    # terraform/vault-sentinel/main.tf's own comment for what was tried
-    # and ruled out first). A child token created this way inherits
-    # factory-api's own policies by default — this grant does not widen
-    # what the child token can do, only lets factory-api create it.
+    # -tagged child token scoped to specific role policies.
     path "auth/token/create" {
       capabilities = ["create", "update"]
+    }
+  EOT
+}
+
+# Narrow child-token policy for Agent C credential issuance
+resource "vault_policy" "factory_agent_c_cred" {
+  namespace = vault_namespace.factory.path
+  name      = "factory-agent-c-cred"
+  policy    = <<-EOT
+    path "database/creds/factory-bad-role" {
+      capabilities = ["read"]
+    }
+
+    path "database/creds/factory-good-role" {
+      capabilities = ["read"]
     }
   EOT
 }

@@ -1,0 +1,134 @@
+# Identity stack: OpenLDAP (identity store) + Keycloak (OIDC broker).
+#
+# Adapted from Arcanium's identity architecture (compose/identity/compose.yaml):
+#   - Factory-specific LDAP fixture (dc=factory,dc=local)
+#   - Keycloak issues ONE confidential client only (factory-api)
+#   - Dual-hostname Keycloak config (public vs internal)
+#   - LDAP federation with group mapper for factory-operator / factory-viewer
+#
+# factory-api connects to Keycloak over factory-control (http://keycloak:8080)
+# for server-to-server token exchange, JWKS, and userinfo.
+
+networks:
+  default:
+    name: factory-control
+    external: true
+
+services:
+  openldap:
+    image: docker.io/osixia/openldap:1.5.0
+    container_name: factory-openldap
+    hostname: openldap
+    environment:
+      LDAP_ORGANISATION: "The Factory"
+      LDAP_DOMAIN: "factory.local"
+      LDAP_BASE_DN: "dc=factory,dc=local"
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}"
+      LDAP_TLS: "false"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, KILL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+    networks: [default]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-D", "cn=admin,dc=factory,dc=local", "-w", "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}", "-b", "dc=factory,dc=local", "-s", "base"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  ldap-bootstrap:
+    image: docker.io/osixia/openldap:1.5.0
+    container_name: factory-ldap-bootstrap
+    profiles: ["init"]
+    environment:
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}"
+      LDAP_BASE_DN: "dc=factory,dc=local"
+      LDAP_HOST: "openldap"
+    entrypoint: ["/bootstrap/setup_ldap.sh"]
+    volumes:
+      - ./ldap:/bootstrap:ro
+    networks: [default]
+    depends_on:
+      openldap:
+        condition: service_healthy
+
+  ldap-admin:
+    image: docker.io/osixia/phpldapadmin:0.9.0
+    container_name: factory-ldap-admin
+    hostname: ldap-admin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS: "false"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE, CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, KILL]
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:8085:80"
+    networks: [default]
+    depends_on:
+      openldap:
+        condition: service_healthy
+    restart: unless-stopped
+
+  keycloak:
+    image: docker.io/keycloak/keycloak:26.6.4
+    container_name: factory-keycloak
+    hostname: keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-factory-keycloak-admin-2026}"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: "${KC_HOSTNAME:-localhost:8088}"
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY_HEADERS: "xforwarded"
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:8088:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    networks: [default]
+    depends_on:
+      openldap:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/master/.well-known/openid-configuration HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  keycloak-bootstrap:
+    image: docker.io/keycloak/keycloak:26.6.4
+    container_name: factory-keycloak-bootstrap
+    profiles: ["init"]
+    entrypoint: ["/bin/bash", "/bootstrap/setup_keycloak.sh"]
+    environment:
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-factory-keycloak-admin-2026}"
+      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}"
+      KC_INTERNAL_URL: "http://keycloak:8080"
+      FACTORY_OIDC_CLIENT_SECRET: "${FACTORY_OIDC_CLIENT_SECRET:-}"
+      FACTORY_BASE_URL: "${FACTORY_BASE_URL:-http://localhost:3000}"
+      FACTORY_API_CALLBACK_URL: "${FACTORY_API_CALLBACK_URL:-http://localhost:3000/gateway/api/v1/auth/callback}"
+    volumes:
+      - ./keycloak:/bootstrap:ro
+    networks: [default]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+volumes:
+  ldap-data:
+    name: factory-identity_ldap-data
+  ldap-config:
+    name: factory-identity_ldap-config
+  keycloak-data:
+    name: factory-identity_keycloak-data

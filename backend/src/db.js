@@ -87,6 +87,11 @@ export function getPool() {
   return pool;
 }
 
+export async function query(text, params) {
+  const p = getPool();
+  return p.query(text, params);
+}
+
 export function getPoolCredentialInfo() {
   return poolCredential
     ? { username: poolCredential.username, leaseId: poolCredential.leaseId }

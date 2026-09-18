@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Profile } from '~/types/factory'
+import type { UserSession } from '~/composables/useDemoApi'
 
 const {
   connected,
@@ -18,11 +19,33 @@ const {
   resetLocalState,
 } = useEventStream()
 
-const { setDemoMode, resetDemo, runDemo, FIXED_TRIGGER_PROMPT } = useDemoApi()
+const { setDemoMode, resetDemo, runDemo, FIXED_TRIGGER_PROMPT, getMe, logout } = useDemoApi()
 
 const running = ref(false)
 const switching = ref(false)
 const showAgentD = ref(true)
+const session = ref<UserSession | null>(null)
+
+onMounted(async () => {
+  try {
+    session.value = await getMe()
+  } catch {
+    // handled by middleware
+  }
+})
+
+async function handleSignOut() {
+  try {
+    const res = await logout()
+    if (res.logoutUrl) {
+      window.location.href = res.logoutUrl
+    } else {
+      window.location.href = '/login'
+    }
+  } catch {
+    window.location.href = '/login'
+  }
+}
 
 async function onProfileChange(profile: Profile) {
   switching.value = true
@@ -69,10 +92,21 @@ async function onReset() {
           {{ connected ? 'Live' : 'Connecting…' }}
         </span>
       </div>
-      <label class="agent-d-toggle">
-        <input type="checkbox" v-model="showAgentD" />
-        <span>Enable autonomous vulnerability discovery</span>
-      </label>
+
+      <div class="header-actions">
+        <label class="agent-d-toggle">
+          <input type="checkbox" v-model="showAgentD" />
+          <span>Vulnerability discovery (Agent D)</span>
+        </label>
+
+        <div v-if="session?.user" class="user-badge">
+          <span class="user-name">{{ session.user }}</span>
+          <span class="role-tag" :class="session.role === 'factory-operator' ? 'role-operator' : 'role-viewer'">
+            {{ session.role }}
+          </span>
+          <button class="logout-btn" @click="handleSignOut" title="Sign out">Sign out</button>
+        </div>
+      </div>
     </header>
 
     <main class="dashboard-grid">
@@ -110,9 +144,6 @@ async function onReset() {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  /* --dashboard-max-width (assets/css/main.css) — shared with
-   * FactoryFooter.vue's own .factory-footer so the two can never drift
-   * out of alignment. */
   max-width: var(--dashboard-max-width);
   margin: 0 auto;
   padding: 28px 20px 0;
@@ -152,6 +183,59 @@ async function onReset() {
   letter-spacing: 0.02em;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.user-name {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.role-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.role-operator {
+  background: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+.role-viewer {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+.logout-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.logout-btn:hover {
+  color: var(--color-accent-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .connection-pill { margin-left: 4px; }
 .connection-dot {
   width: 6px;
@@ -185,18 +269,10 @@ async function onReset() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--gap-panel);
-  /* The footer is position:fixed (FactoryFooter.vue's own comment) and
-   * so reserves no space in normal flow on its own — this padding is
-   * that reserved space, kept in sync with the footer's REAL rendered
-   * height via the --footer-height custom property FactoryFooter.vue
-   * measures live, not a guessed constant that would drift the moment
-   * the footer's content wraps differently (e.g. its mobile layout). */
   padding-bottom: calc(var(--footer-height, 160px) + 24px);
 }
 .dashboard-grid > :deep(section) { min-width: 0; }
 
-/* Human request and Recent records both span full width, stacked above
- * the two-column panel rows. */
 .dashboard-grid > :nth-child(-n+2) {
   grid-column: 1 / -1;
 }
