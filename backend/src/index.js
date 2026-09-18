@@ -31,7 +31,10 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Methods",
     "GET, POST, PUT, DELETE, PATCH, OPTIONS",
   );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Cookie",
+  );
   res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -63,7 +66,9 @@ async function main() {
   if (existingRun) {
     // Wave 2: Startup discovers an active run from previous container lifecycle —
     // clean up any abandoned Vault leases before resuming
-    console.log(`[factory-api] recovered active run ${existingRun.run_id}, cleaning up abandoned leases...`);
+    console.log(
+      `[factory-api] recovered active run ${existingRun.run_id}, cleaning up abandoned leases...`,
+    );
     await cleanupRunCredentials(existingRun.run_id, "startup_recovery");
     state.setCurrentRunId(existingRun.run_id);
     state.setProfile(existingRun.profile);

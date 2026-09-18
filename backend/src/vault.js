@@ -82,7 +82,11 @@ async function vaultRequest(method, path, { token, body } = {}) {
  * to bound it — so lengthening the TTL to match the credential's own
  * lifetime doesn't widen this token's authority, only its lifespan.
  */
-export async function mintAgentTaggedChildToken(agentId, ttlSeconds, policies = null) {
+export async function mintAgentTaggedChildToken(
+  agentId,
+  ttlSeconds,
+  policies = null,
+) {
   const parentToken = await readAgentToken();
   const body = {
     orphan: false,
@@ -123,8 +127,15 @@ export async function issueDatabaseCredential(role, agentId) {
     );
   }
   // Scope child token to narrowest policy
-  const policies = role === "factory-backend-role" ? ["factory-api"] : ["factory-agent-c-cred"];
-  const { clientToken, accessor } = await mintAgentTaggedChildToken(agentId, ttlSeconds, policies);
+  const policies =
+    role === "factory-backend-role"
+      ? ["factory-api"]
+      : ["factory-agent-c-cred"];
+  const { clientToken, accessor } = await mintAgentTaggedChildToken(
+    agentId,
+    ttlSeconds,
+    policies,
+  );
   const data = await vaultRequest("GET", `database/creds/${role}`, {
     token: clientToken,
   });

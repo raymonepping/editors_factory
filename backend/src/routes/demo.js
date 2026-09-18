@@ -20,7 +20,9 @@ demoRouter.put(
     try {
       const { profile } = req.body || {};
       if (profile !== "bad" && profile !== "good") {
-        return res.status(400).json({ error: 'profile must be "bad" or "good"' });
+        return res
+          .status(400)
+          .json({ error: 'profile must be "bad" or "good"' });
       }
       const previous = await audit.getActiveRun();
       if (previous) {
@@ -38,7 +40,7 @@ demoRouter.put(
     } catch (err) {
       next(err);
     }
-  }
+  },
 );
 
 demoRouter.post(
@@ -78,5 +80,5 @@ demoRouter.post(
     } catch (err) {
       next(err);
     }
-  }
+  },
 );

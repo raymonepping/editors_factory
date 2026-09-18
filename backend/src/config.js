@@ -24,14 +24,20 @@ export const config = {
 
   oidc: {
     enabled: authEnabled,
-    issuer: optional("FACTORY_OIDC_ISSUER", "http://localhost:8088/realms/factory"),
+    issuer: optional(
+      "FACTORY_OIDC_ISSUER",
+      "http://localhost:8088/realms/factory",
+    ),
     internalUrl: optional("FACTORY_OIDC_INTERNAL_URL", "http://keycloak:8080"),
     publicUrl: optional("FACTORY_OIDC_PUBLIC_URL", "http://localhost:8088"),
     clientId: optional("FACTORY_OIDC_CLIENT_ID", "factory-api"),
-    clientSecret: optional("FACTORY_OIDC_CLIENT_SECRET", "factory-client-secret-2026"),
+    clientSecret: optional(
+      "FACTORY_OIDC_CLIENT_SECRET",
+      "factory-client-secret-2026",
+    ),
     callbackUrl: optional(
       "FACTORY_API_CALLBACK_URL",
-      "http://localhost:3000/gateway/api/v1/auth/callback"
+      "http://localhost:3000/gateway/api/v1/auth/callback",
     ),
     baseUrl: optional("FACTORY_BASE_URL", "http://localhost:3000"),
   },

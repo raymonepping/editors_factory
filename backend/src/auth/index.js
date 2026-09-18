@@ -103,7 +103,9 @@ authRouter.get("/me", async (req, res, next) => {
     }
     const id = readCookie(req, COOKIE);
     if (!id) {
-      return res.status(401).json({ enabled: true, error: "not authenticated" });
+      return res
+        .status(401)
+        .json({ enabled: true, error: "not authenticated" });
     }
     const { rows } = await query(
       `SELECT username, role, groups FROM sessions
@@ -161,9 +163,16 @@ export function requireHumanSession(req, res, next) {
   }
 
   // Operator token fallback (e.g. from env or internal CLI calls)
-  const isLocalhostRequest = req.headers.host?.startsWith("localhost:") || req.headers.host?.startsWith("127.0.0.1:");
+  const isLocalhostRequest =
+    req.headers.host?.startsWith("localhost:") ||
+    req.headers.host?.startsWith("127.0.0.1:");
   const userAgent = req.headers["user-agent"] || "";
-  if (isLocalhostRequest && (userAgent.startsWith("curl/") || userAgent.startsWith("node") || !userAgent)) {
+  if (
+    isLocalhostRequest &&
+    (userAgent.startsWith("curl/") ||
+      userAgent.startsWith("node") ||
+      !userAgent)
+  ) {
     req.identity = {
       user: "local-operator",
       role: "factory-operator",

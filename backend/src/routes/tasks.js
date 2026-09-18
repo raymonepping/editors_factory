@@ -87,7 +87,7 @@ tasksRouter.post(
     } catch (err) {
       next(err);
     }
-  }
+  },
 );
 
 tasksRouter.get("/tasks/:taskId", requireHumanSession, (req, res) => {

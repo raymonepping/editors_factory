@@ -20,7 +20,7 @@ test_user() {
   local pass="$2"
   local expected_role="$3"
   echo -n "Testing authentication for user '${user}' (${expected_role})... "
-  
+
   # Search OpenLDAP directly first
   podman exec factory-openldap ldapsearch -x -H ldap://localhost -D "cn=admin,dc=factory,dc=local" -w factory-admin-secret -b "uid=${user},ou=people,dc=factory,dc=local" -s base >/dev/null 2>&1 || {
     echo "FAILED (not found in OpenLDAP)"

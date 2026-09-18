@@ -12,10 +12,15 @@ export async function revokeCredentialLease(leaseId, reason = "task_cleanup") {
   try {
     const res = await revokeLease(leaseId);
     await audit.markCredentialRevoked(leaseId);
-    console.log(`[revocation] lease ${leaseId} revoked successfully (reason: ${reason})`);
+    console.log(
+      `[revocation] lease ${leaseId} revoked successfully (reason: ${reason})`,
+    );
     return res;
   } catch (err) {
-    console.error(`[revocation] failed to revoke lease ${leaseId}:`, err.message);
+    console.error(
+      `[revocation] failed to revoke lease ${leaseId}:`,
+      err.message,
+    );
     return { ok: false, error: err.message };
   }
 }
