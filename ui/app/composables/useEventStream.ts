@@ -12,6 +12,7 @@ import { DESTRUCTIVE_ACTIONS } from '~/types/factory'
 import type {
   AgentNodeStatus,
   AuthorityMap,
+  CredentialEvent,
   DemoMode,
   FactoryState,
   Finding,
@@ -62,6 +63,13 @@ const nodeStatus = reactive<Record<ChainActor, AgentNodeStatus>>({
 // amplification ... unmistakable at the precise event that causes it".
 const amplificationEventId = ref<string | null>(null)
 
+// Every credential_events row seen this run, keyed by id — the same row
+// arrives twice (issued, then again once markCredentialRevoked's own
+// publishEvent fires — backend/src/audit.js), so this is a map-by-id, not
+// an append-only list, to avoid a stale "issued" duplicate sitting next
+// to its own later "revoked" update. Powers CredentialLedger.vue.
+const credentialEvents = reactive(new Map<string, CredentialEvent>())
+
 let source: EventSource | null = null
 let doneTimer: ReturnType<typeof setTimeout> | null = null
 let initialized = false
@@ -72,6 +80,7 @@ function resetChainState() {
   nodeStatus['agent-c'] = 'idle'
   amplificationEventId.value = null
   riskState.value = 'NORMAL'
+  credentialEvents.clear()
 }
 
 // Agent-c has no explicit "I'm finished" signal (the agent runtime logs
@@ -112,9 +121,12 @@ function applyEntry(entry: TimelineEntry, { fromHistory = false } = {}) {
     if (actor === 'agent-c') armDoneTimer()
   }
 
-  if (entry.type === 'credential_events' && entry.vault_role === 'factory-bad-role' && !entry.revoked_at) {
-    amplificationEventId.value = entry.credential_event_id
-    if (nodeStatus['agent-c'] !== 'done') nodeStatus['agent-c'] = 'acting'
+  if (entry.type === 'credential_events') {
+    credentialEvents.set(entry.credential_event_id, entry)
+    if (entry.vault_role === 'factory-bad-role' && !entry.revoked_at) {
+      amplificationEventId.value = entry.credential_event_id
+      if (nodeStatus['agent-c'] !== 'done') nodeStatus['agent-c'] = 'acting'
+    }
   }
 
   if (entry.type === 'database_changes') {
@@ -205,6 +217,12 @@ export function useEventStream() {
     // browser tab (e.g. navigating within a future multi-page build).
   })
 
+  const credentialLedger = computed(() =>
+    [...credentialEvents.values()].sort(
+      (a, b) => new Date(a.issued_at).getTime() - new Date(b.issued_at).getTime(),
+    ),
+  )
+
   return {
     connected,
     timeline,
@@ -215,6 +233,7 @@ export function useEventStream() {
     riskState,
     nodeStatus,
     amplificationEventId,
+    credentialLedger,
     refreshAuthority,
     refreshFactoryState,
     setDemoModeLocal: (mode: DemoMode) => { demoMode.value = mode },

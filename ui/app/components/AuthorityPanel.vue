@@ -20,13 +20,21 @@ function entriesFor(id: ActorId) {
 </script>
 
 <template>
-  <section class="panel" aria-labelledby="authority-title">
-    <div class="panel-header">
-      <h2 id="authority-title" class="panel-title">Effective authority</h2>
-      <span v-if="authority" class="text-xs" style="color: var(--color-text-muted)">
-        profile: {{ authority.profile.toUpperCase() }}
+  <PanelShell title="Effective authority" collapsible storage-key="authority" :alarm="amplified">
+    <template #badge>
+      <span
+        v-if="amplified"
+        class="state-pill"
+        style="color: var(--color-state-critical); border-color: var(--color-state-critical)"
+      >
+        Amplified
       </span>
-    </div>
+    </template>
+    <template #actions>
+      <span v-if="authority" class="text-xs" style="color: var(--color-text-muted)">
+        {{ authority.profile.toUpperCase() }}
+      </span>
+    </template>
     <div class="authority-grid">
       <div v-for="actor in actors" :key="actor.id" class="authority-col">
         <span class="authority-actor">{{ actor.label }}</span>
@@ -46,7 +54,7 @@ function entriesFor(id: ActorId) {
         </ul>
       </div>
     </div>
-  </section>
+  </PanelShell>
 </template>
 
 <style scoped>

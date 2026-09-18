@@ -21,13 +21,19 @@ const lastScan = computed(() => {
 </script>
 
 <template>
-  <section class="panel agent-d-panel" aria-labelledby="agent-d-title">
-    <div class="panel-header">
-      <h2 id="agent-d-title" class="panel-title">Agent D — inspection &amp; containment</h2>
-      <span class="state-pill" :style="{ color: RISK_STYLE[riskState].color }">
+  <PanelShell
+    title="Agent D — Inspection &amp; Containment"
+    collapsible
+    storage-key="agent-d"
+    :default-open="false"
+    :alarm="riskState === 'CRITICAL'"
+    class="agent-d-panel"
+  >
+    <template #badge>
+      <span class="state-pill" :style="{ color: RISK_STYLE[riskState].color, borderColor: RISK_STYLE[riskState].color }">
         {{ RISK_STYLE[riskState].label }}
       </span>
-    </div>
+    </template>
     <div class="agent-d-summary">
       <div>
         <span class="summary-label">Last scan</span>
@@ -45,7 +51,7 @@ const lastScan = computed(() => {
       </li>
       <li v-if="!recent.length" class="finding-empty">No findings yet.</li>
     </ul>
-  </section>
+  </PanelShell>
 </template>
 
 <style scoped>

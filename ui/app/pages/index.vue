@@ -11,6 +11,7 @@ const {
   riskState,
   nodeStatus,
   amplificationEventId,
+  credentialLedger,
   refreshAuthority,
   refreshFactoryState,
   setDemoModeLocal,
@@ -54,8 +55,17 @@ async function onReset() {
   <div class="dashboard">
     <header class="dashboard-header">
       <div class="dashboard-title-group">
-        <h1 class="dashboard-title">The Factory</h1>
-        <span class="state-pill" :style="{ color: connected ? 'var(--color-state-healthy)' : 'var(--color-state-neutral)' }">
+        <svg class="dashboard-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="6" fill="var(--color-bg-shell)" stroke="var(--color-border-active)" stroke-width="1" />
+          <path d="M6 22 L6 16 L12 16 L12 19 L20 19 L20 13 L26 13 L26 22 Z" fill="var(--color-accent-primary)" />
+          <circle cx="23" cy="10" r="2.4" fill="var(--factory-gold-glow)" />
+        </svg>
+        <div>
+          <h1 class="dashboard-title">The Factory</h1>
+          <p class="dashboard-subtitle">Delegated-authority control room</p>
+        </div>
+        <span class="state-pill connection-pill" :class="connected ? 'tone-ok' : 'tone-neutral'">
+          <span class="connection-dot" :class="{ 'is-live': connected }" aria-hidden="true" />
           {{ connected ? 'Live' : 'Connecting…' }}
         </span>
       </div>
@@ -76,20 +86,20 @@ async function onReset() {
         @update:profile="onProfileChange"
       />
 
+      <FactoryState :state="factoryState" />
       <AgentChain :nodes="nodeStatus" />
 
       <AuthorityPanel :authority="authorityMap" :amplified="!!amplificationEventId" />
+      <CredentialLedger :ledger="credentialLedger" />
 
-      <FactoryState :state="factoryState" />
-
-      <AgentDLane v-if="showAgentD" :risk-state="riskState" :findings="findings" />
-
-      <EventTimeline :entries="timeline" />
+      <template v-if="showAgentD">
+        <AgentDLane :risk-state="riskState" :findings="findings" />
+        <EventTimeline :entries="timeline" />
+      </template>
+      <EventTimeline v-else :entries="timeline" class="timeline-full" />
     </main>
 
-    <footer class="dashboard-footer">
-      <p>Break the factory. Learn from it. Reset. Repeat. No regrets.</p>
-    </footer>
+    <FactoryFooter />
   </div>
 </template>
 
@@ -100,7 +110,7 @@ async function onReset() {
   min-height: 100vh;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px 20px 40px;
+  padding: 28px 20px 0;
   gap: var(--gap-panel);
 }
 
@@ -114,15 +124,49 @@ async function onReset() {
 .dashboard-title-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+}
+.dashboard-mark {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgb(237 186 71 / 0.25));
 }
 .dashboard-title {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 30px;
+  font-weight: 750;
   color: var(--color-text-primary);
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
 }
+.dashboard-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.connection-pill { margin-left: 4px; }
+.connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.connection-dot.is-live {
+  animation: dot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgb(111 146 120 / 0); }
+  50% { box-shadow: 0 0 6px rgb(111 146 120 / 0.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connection-dot.is-live { animation: none; }
+}
+.tone-ok { color: var(--color-state-healthy); border-color: var(--color-state-healthy); }
+.tone-neutral { color: var(--color-state-neutral); border-color: var(--color-state-neutral); }
 
 .agent-d-toggle {
   display: flex;
@@ -136,20 +180,15 @@ async function onReset() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--gap-panel);
+  padding-bottom: 28px;
 }
 .dashboard-grid > :deep(section) { min-width: 0; }
 
-/* Human request spans full width above the chain. */
+/* Human request spans full width above everything else. */
 .dashboard-grid > :first-child {
   grid-column: 1 / -1;
 }
-
-.dashboard-footer {
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  padding-top: 12px;
-}
+.timeline-full { grid-column: 1 / -1; }
 
 @media (max-width: 900px) {
   .dashboard-grid { grid-template-columns: 1fr; }

@@ -53,11 +53,10 @@ function timeOf(e: TimelineEntry): string {
 </script>
 
 <template>
-  <section class="panel timeline-panel" aria-labelledby="timeline-title">
-    <div class="panel-header">
-      <h2 id="timeline-title" class="panel-title">Event timeline</h2>
+  <PanelShell title="Event timeline" collapsible storage-key="timeline" :default-open="false" class="timeline-panel">
+    <template #actions>
       <span class="text-xs" style="color: var(--color-text-muted)">{{ entries.length }} events</span>
-    </div>
+    </template>
     <div class="timeline-scroll" role="log" aria-live="polite">
       <table class="timeline-table">
         <thead class="visually-hidden">
@@ -79,7 +78,7 @@ function timeOf(e: TimelineEntry): string {
         </tbody>
       </table>
     </div>
-  </section>
+  </PanelShell>
 </template>
 
 <style scoped>

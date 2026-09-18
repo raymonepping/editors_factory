@@ -102,6 +102,16 @@
   /* Typography (01_00 section 9) */
   --font-ui: Inter, "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* An original, abstract industrial skyline silhouette — rectangular
+   * volumes, two chimneys with a small warning-beacon dot, a gantry
+   * crane profile — inspired by 01_00's reference images' *composition*
+   * (broad low-opacity bands, silhouette against atmosphere) without
+   * reproducing either image's actual artwork (01_00's own "do not
+   * reproduce ... the exact skyline, robots, buildings, or illustrated
+   * scene"). Tiles horizontally at 900px via .factory-atmosphere::after.
+   */
+  --factory-skyline-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='260' viewBox='0 0 900 260'%3E%3Cg fill='%230b0908'%3E%3Crect x='0' y='150' width='90' height='110'/%3E%3Crect x='90' y='120' width='60' height='140'/%3E%3Crect x='150' y='170' width='40' height='90'/%3E%3Crect x='190' y='100' width='30' height='160'/%3E%3Crect x='205' y='70' width='10' height='40'/%3E%3Ccircle cx='210' cy='66' r='4'/%3E%3Crect x='230' y='160' width='120' height='100'/%3E%3Crect x='260' y='60' width='16' height='110'/%3E%3Crect x='300' y='60' width='16' height='110'/%3E%3Cpath d='M255 60 h70 v14 h-70 z'/%3E%3Crect x='350' y='140' width='70' height='120'/%3E%3Crect x='420' y='185' width='160' height='75'/%3E%3Crect x='460' y='110' width='24' height='80'/%3E%3Crect x='510' y='95' width='10' height='95'/%3E%3Ccircle cx='515' cy='90' r='4'/%3E%3Crect x='580' y='150' width='50' height='110'/%3E%3Crect x='630' y='175' width='110' height='85'/%3E%3Crect x='660' y='80' width='14' height='100'/%3E%3Crect x='700' y='80' width='14' height='100'/%3E%3Cpath d='M655 80 h65 v12 h-65 z'/%3E%3Crect x='740' y='195' width='90' height='65'/%3E%3Crect x='770' y='130' width='20' height='70'/%3E%3Crect x='830' y='160' width='70' height='100'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -125,16 +135,41 @@ body {
   font-feature-settings: "tnum" 1; /* tabular numbers for metrics/timestamps */
 }
 
-/* Restrained layered atmosphere (01_00 section 13) — decorative only,
- * hidden from assistive technology, never competes with content. */
+/* Layered atmosphere (01_00 section 13) — decorative only, hidden from
+ * assistive technology, never competes with content. Found live: the
+ * first pass (a single faint radial + linear gradient) read as "flat
+ * dark background" rather than "factory at dusk" — 01_00's own reference
+ * images (image.png, image_2.png) both lean on broad overlapping bands
+ * plus a low-opacity skyline silhouette (section 7's explicit
+ * allowance), not a single soft glow. This adds a second, cooler
+ * radial (blue-violet, upper-left) to read as two light sources instead
+ * of one, a very low-opacity rust band low in the frame (section 13's
+ * own "rust-800 to rust-600 at low opacity"), and an abstract skyline
+ * silhouette anchored to the bottom edge — all strictly behind content,
+ * all far below any threshold that would touch text contrast.
+ */
 .factory-atmosphere {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 72% 18%, rgb(237 186 71 / 0.08), transparent 30%),
+    radial-gradient(ellipse 60% 40% at 78% 12%, rgb(237 186 71 / 0.12), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 10% 8%, rgb(113 106 139 / 0.14), transparent 60%),
+    linear-gradient(0deg, rgb(160 63 40 / 0.10), transparent 22%),
     linear-gradient(155deg, var(--factory-blue-900) 0%, var(--factory-ink) 45%, var(--factory-black) 100%);
+}
+.factory-atmosphere::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 34vh;
+  min-height: 220px;
+  background-image: var(--factory-skyline-svg);
+  background-repeat: repeat-x;
+  background-position: bottom;
+  background-size: 900px auto;
+  opacity: 0.55;
 }
 
 /* ── Shared panel/control primitives (01_00 section 8, 11) ── */

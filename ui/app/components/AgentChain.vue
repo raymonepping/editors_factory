@@ -25,10 +25,7 @@ function pathActive(fromStatus: AgentNodeStatus) {
 </script>
 
 <template>
-  <section class="panel" aria-labelledby="agent-chain-title">
-    <div class="panel-header">
-      <h2 id="agent-chain-title" class="panel-title">Agent chain</h2>
-    </div>
+  <PanelShell title="Agent chain" class="agent-chain-panel">
     <div class="chain-row">
       <template v-for="(station, i) in stations" :key="station.id">
         <div class="station" :class="`is-${nodes[station.id]}`">
@@ -43,19 +40,22 @@ function pathActive(fromStatus: AgentNodeStatus) {
           aria-hidden="true"
         >
           <span class="connector-line" />
+          <span v-if="pathActive(nodes[station.id])" class="connector-spark" />
         </div>
       </template>
     </div>
-  </section>
+  </PanelShell>
 </template>
 
 <style scoped>
+.agent-chain-panel { display: flex; flex-direction: column; }
 .chain-row {
   display: flex;
   align-items: stretch;
   gap: 4px;
   padding: var(--pad-panel);
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .station {
@@ -94,8 +94,17 @@ function pathActive(fromStatus: AgentNodeStatus) {
   border-color: var(--color-border-active);
   box-shadow: var(--glow-active);
   color: var(--factory-warm-white);
+  animation: station-breathe 2.2s ease-in-out infinite;
 }
 .station.is-acting .station-pill { color: var(--color-accent-primary); }
+
+@keyframes station-breathe {
+  0%, 100% { box-shadow: var(--glow-active); }
+  50% { box-shadow: 0 0 26px rgb(237 186 71 / 0.42); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .station.is-acting { animation: none; }
+}
 
 .station.is-delegated {
   border-color: var(--color-border-active);
@@ -110,6 +119,7 @@ function pathActive(fromStatus: AgentNodeStatus) {
 .station.is-done .station-pill { color: var(--color-state-contained); }
 
 .connector {
+  position: relative;
   flex: 0 0 32px;
   display: flex;
   align-items: center;
@@ -126,9 +136,33 @@ function pathActive(fromStatus: AgentNodeStatus) {
   box-shadow: var(--glow-active);
 }
 
+/* One moving highlight travels the real direction of work — 01_00
+ * section 12's own rule ("one moving highlight is enough... duration
+ * reflects sequence clearly rather than simulating physical speed"). */
+.connector-spark {
+  position: absolute;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--factory-gold-glow);
+  box-shadow: 0 0 8px var(--factory-gold-glow);
+  animation: connector-travel 1.4s ease-in-out infinite;
+}
+@keyframes connector-travel {
+  0% { left: 0; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: calc(100% - 6px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connector-spark { display: none; }
+}
+
 @media (max-width: 720px) {
   .chain-row { flex-direction: column; }
   .connector { flex: 0 0 20px; }
   .connector-line { width: 2px; height: 100%; }
+  .connector-spark { animation: none; display: none; }
 }
 </style>

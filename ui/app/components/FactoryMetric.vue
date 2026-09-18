@@ -3,6 +3,7 @@ const props = defineProps<{
   label: string
   value: string | number
   warn?: boolean
+  compact?: boolean
 }>()
 
 const flashing = ref(false)
@@ -17,7 +18,7 @@ watch(
 </script>
 
 <template>
-  <div class="metric" :class="{ 'is-warn': warn, 'is-flash': flashing }">
+  <div class="metric" :class="{ 'is-warn': warn, 'is-flash': flashing, 'is-compact': compact }">
     <span class="metric-label">{{ label }}</span>
     <span class="metric-value mono">{{ value }}</span>
   </div>
@@ -46,4 +47,12 @@ watch(
 }
 .metric.is-warn .metric-value { color: var(--color-state-warning); }
 .metric.is-flash .metric-value { color: var(--color-accent-primary); }
+
+.metric.is-compact {
+  padding: 10px 12px;
+  justify-content: center;
+  gap: 3px;
+}
+.metric.is-compact .metric-label { font-size: 9.5px; }
+.metric.is-compact .metric-value { font-size: 20px; }
 </style>

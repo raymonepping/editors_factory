@@ -15,48 +15,47 @@ const STATUS_STYLE: Record<FactoryState['status'], { color: string; label: strin
 </script>
 
 <template>
-  <section class="panel" aria-labelledby="factory-state-title">
-    <div class="panel-header">
-      <h2 id="factory-state-title" class="panel-title">Factory state</h2>
+  <PanelShell title="Factory state" :alarm="state?.status === 'FAILED'" class="factory-state-panel">
+    <template #badge>
       <span
         v-if="state"
         class="state-pill"
-        :style="{ color: STATUS_STYLE[state.status].color }"
+        :style="{ color: STATUS_STYLE[state.status].color, borderColor: STATUS_STYLE[state.status].color }"
       >
         {{ STATUS_STYLE[state.status].label }}
       </span>
-    </div>
+    </template>
     <div class="metric-grid">
-      <FactoryMetric label="Orders" :value="state?.orders.total ?? '—'" />
+      <FactoryMetric label="Orders" :value="state?.orders.total ?? '—'" compact />
       <FactoryMetric
         label="Inconsistent"
         :value="state?.orders.inconsistent ?? '—'"
         :warn="!!state && state.orders.inconsistent > 0"
+        compact
       />
-      <FactoryMetric label="Products" :value="state?.products.total ?? '—'" />
-      <FactoryMetric label="Avg price" :value="state ? `€${state.products.avgPrice.toFixed(2)}` : '—'" />
+      <FactoryMetric label="Products" :value="state?.products.total ?? '—'" compact />
+      <FactoryMetric label="Avg price" :value="state ? `€${state.products.avgPrice.toFixed(2)}` : '—'" compact />
       <FactoryMetric
         label="Low stock"
         :value="state?.inventory.lowStockCount ?? '—'"
         :warn="!!state && state.inventory.lowStockCount > 0"
+        compact
       />
     </div>
-  </section>
+  </PanelShell>
 </template>
 
 <style scoped>
+.factory-state-panel { display: flex; flex-direction: column; }
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 1px;
   background: var(--color-border-subtle);
+  flex: 1;
 }
 
-/* 5 metrics don't divide evenly across a 3-column auto-fit track at
- * narrow widths — found live: it left one dangling empty cell on
- * mobile. An explicit 2-column layout below this breakpoint divides
- * cleanly (2/2/1) with no leftover track. */
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

@@ -1,0 +1,13 @@
+ M ui/app/assets/css/main.css
+ M ui/app/components/AgentChain.vue
+ M ui/app/components/AgentDLane.vue
+ M ui/app/components/AuthorityPanel.vue
+ M ui/app/components/EventTimeline.vue
+ M ui/app/components/FactoryMetric.vue
+ M ui/app/components/FactoryState.vue
+ M ui/app/composables/useEventStream.ts
+ M ui/app/pages/index.vue
+?? state/.capture-2026-09-18_post-dashboard-redesign.tmp/
+?? ui/app/components/CredentialLedger.vue
+?? ui/app/components/FactoryFooter.vue
+?? ui/app/components/PanelShell.vue
