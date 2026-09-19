@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-19_vault-hardening-complete"
+  purpose: "Vault hardening pass complete (prompts/improvements/01_04_vault_hardening.md), all 6 items. The stale root token discovered mid-pass required rebuilding the vault-1/2/3 cluster (disposable local demo data, explicitly authorized): wiped vault-1/2/3 Raft+audit volumes, let scripts/vault-bootstrap.sh reinitialize fresh, re-applied vault-platform/vault-sentinel/vault-database Terraform, regenerated the AppRole role_id/secret_id into .env. Item 1 (protect-audit-devices namespace fix) verified correctly denying an ordinary non-root token's audit-disable attempt at root namespace — also discovered and confirmed that hard-mandatory Sentinel EGPs do not constrain the literal root token in this Vault installation (tested against both EGPs), a real property worth carrying into any future root-token-hardening work. Item 3 (secret_id_ttl=90d) applied and confirmed via vault read. Full stack healthy, 24/24 backend + 5/5 agent tests pass, live BAD run confirmed a real factory-bad-role lease issued end to end through the reprovisioned chain."
+  captured_at: "2026-09-19T20:26:37Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-19_post-vault-hardening"
+  git:
+    commit: "a65df211bcedc9fc814ac02af9fbb36dfc0d9339"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
