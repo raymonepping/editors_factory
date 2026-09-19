@@ -64,7 +64,11 @@ describe("agent-d classify(): credential_events lifecycle", () => {
   test("fresh issuance of a GOOD-role credential fires D-004b exactly once", () => {
     const signal = classify({
       type: "credential_events",
-      payload: { vault_role: "factory-good-role", revoked_at: null, renewal_count: 0 },
+      payload: {
+        vault_role: "factory-good-role",
+        revoked_at: null,
+        renewal_count: 0,
+      },
     });
     assert.equal(signal?.code, "D-004b");
   });
@@ -72,7 +76,11 @@ describe("agent-d classify(): credential_events lifecycle", () => {
   test("a GOOD-role renewal does not re-fire D-004b", () => {
     const signal = classify({
       type: "credential_events",
-      payload: { vault_role: "factory-good-role", revoked_at: null, renewal_count: 1 },
+      payload: {
+        vault_role: "factory-good-role",
+        revoked_at: null,
+        renewal_count: 1,
+      },
     });
     assert.equal(signal, null);
   });
