@@ -17,6 +17,14 @@ x-vault: &vault
   mem_limit: 2g
   networks: [default]
   healthcheck:
+    # --no-check-certificate is an accepted exception, not an oversight
+    # (prompts/improvements/01_04_vault_hardening.md, Item 5): checked live
+    # against this exact image — `wget --help` inside the running container
+    # shows BusyBox wget 1.37.0, which has no --ca-certificate flag at all,
+    # so there is no way to pin this wget invocation to
+    # /vault/config/tls/ca-chain.pem the way VAULT_CACERT above already
+    # pins the real `vault` CLI. The request is to the container's own
+    # loopback listener, so the exposure this skips is limited to that.
     test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedok=true&uninitok=false >/dev/null"]
     interval: 10s
     timeout: 5s

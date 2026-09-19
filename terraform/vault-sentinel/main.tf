@@ -72,11 +72,22 @@ resource "vault_egp_policy" "require_agent_c_for_db_creds" {
   EOT
 }
 
-# The audit trail may not be disabled through this namespace. Reused
-# near-verbatim from arcanium/terraform/vault-sentinel/main.tf — a
-# generically valuable control, no Factory-specific adaptation needed.
+# The audit trail may not be disabled. Reused near-verbatim from
+# arcanium/terraform/vault-sentinel/main.tf, whose comment claimed "no
+# Factory-specific adaptation needed" — that claim was wrong. Both real
+# audit devices (scripts/vault-bootstrap.sh's `vault audit enable
+# -path=primary file ...`, run against vault-s and against the vault-1/2/3
+# cluster) are enabled with no `-namespace` flag, i.e. in the root
+# namespace, not `factory`. An earlier version of this resource set
+# `namespace = "factory"` to match the sibling EGP above, which guards a
+# path that genuinely lives in `factory` — copied without checking that
+# `sys/audit/*` does not. That left the actual audit devices with zero
+# Sentinel protection: a root-token holder could `vault audit disable
+# primary` with no resistance. No `namespace` argument here means this
+# resource evaluates in the provider's own default namespace (root — see
+# `provider "vault"` above, which sets none), matching where the paths it
+# guards actually are.
 resource "vault_egp_policy" "protect_audit_devices" {
-  namespace         = "factory"
   name              = "protect-audit-devices"
   paths             = ["sys/audit/*"]
   enforcement_level = "hard-mandatory"

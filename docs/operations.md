@@ -109,12 +109,27 @@ make vault-unseal
 
 The unseal script reads ignored local recovery material. Never copy that material into logs, issues, or state captures.
 
-Backup and restore-drill helpers are available:
+Terraform state under `.secrets/terraform/` can carry sensitive values
+depending on the resource. `terraform apply` recreates each state file at
+the process umask's default permissions, so tighten them again after any
+apply:
+
+```sh
+chmod 600 .secrets/terraform/*.tfstate
+```
+
+A backup helper is available:
 
 ```sh
 ./scripts/vault-backup.sh
-./scripts/vault-restore-drill.sh
 ```
+
+Do not use `scripts/vault-restore-drill.sh`. It is inherited arcanium
+reference code, not adapted for Factory: it depends on
+`compose/vault/compose.restore-drill.yaml`, which does not exist in this
+repository, targets an arcanium-specific Transit key and namespace, and
+writes to a `restore_drill_results` table that is not in this project's
+schema.
 
 Read each script's usage before running it. A restore drill creates and manipulates Vault data and should not be run during a demonstration.
 

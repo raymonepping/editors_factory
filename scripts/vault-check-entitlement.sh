@@ -13,7 +13,8 @@ set -eu
 REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 ROOT_TOKEN=$(python3 -c "import json;print(json.load(open('$REPO_ROOT/.secrets/vault/cluster-init.json'))['root_token'])")
 
-FEATURES=$(podman exec -e VAULT_ADDR=https://127.0.0.1:8200 -e VAULT_SKIP_VERIFY=1 \
+FEATURES=$(podman exec -e VAULT_ADDR=https://127.0.0.1:8200 \
+  -e VAULT_CACERT=/vault/config/tls/ca-chain.pem \
   -e VAULT_TOKEN="$ROOT_TOKEN" factory-vault_1 \
   vault read -format=json sys/license/status 2>/dev/null |
   python3 -c "import sys,json;print('\n'.join(json.load(sys.stdin)['data']['autoloaded']['features']))")
