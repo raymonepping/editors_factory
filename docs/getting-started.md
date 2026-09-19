@@ -94,6 +94,8 @@ make vault-up
 
 Do not start all Vault services directly with Compose. `make vault-up` preserves the required transit-token bootstrap order.
 
+The AppRole `secret_id` expires after 90 days (`terraform/vault-platform/auth.tf`'s `secret_id_ttl`), unlike every other credential in this system, which is short-lived by design. Regenerate it before then by repeating the `vault write -f auth/approle/role/factory-api/secret-id` step above, updating `FACTORY_VAULT_SECRET_ID` in `.env`, and restarting the Vault stack the same way.
+
 ## Prepare PostgreSQL and dynamic credentials
 
 Start PostgreSQL, apply migrations, and restore the seed data:
