@@ -5,10 +5,15 @@ const props = defineProps<{
   nodes: Record<'agent-a' | 'agent-b' | 'agent-c', AgentNodeStatus>
 }>()
 
+// prompts/improvements/01_05_add_identity.md: friendly display names,
+// distinct from the actor_id identifier (agent-a/b/c) rendered below them
+// — the identifier is what actually appears in the database, JWTs, and
+// Sentinel checks, so it stays visible as a precise cross-reference rather
+// than being replaced outright.
 const stations: { id: 'agent-a' | 'agent-b' | 'agent-c'; label: string; role: string }[] = [
-  { id: 'agent-a', label: 'Agent A', role: 'Coordinator' },
-  { id: 'agent-b', label: 'Agent B', role: 'Investigator' },
-  { id: 'agent-c', label: 'Agent C', role: 'Remediation' },
+  { id: 'agent-a', label: 'Assistant', role: 'agent-a' },
+  { id: 'agent-b', label: 'Investigator', role: 'agent-b' },
+  { id: 'agent-c', label: 'Corrector', role: 'agent-c' },
 ]
 
 const STATUS_LABEL: Record<AgentNodeStatus, string> = {
@@ -76,6 +81,7 @@ function pathActive(fromStatus: AgentNodeStatus) {
   color: var(--color-text-primary);
 }
 .station-role {
+  font-family: var(--font-mono);
   font-size: 11px;
   color: var(--color-text-muted);
 }

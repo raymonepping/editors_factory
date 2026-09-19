@@ -43,15 +43,15 @@ function deriveNarrative(entries: TimelineEntry[]): NarrativeStep[] {
     if (e.type === 'audit_events' && e.action === 'task.created' && e.actor_id === 'agent-a') {
       const who = e.delegated_by || 'An operator'
       steps.push({ id: `ask-${e.event_id}`, text: `${who} asked the question`, tone: 'neutral' })
-      steps.push({ id: `accept-${e.event_id}`, text: 'Agent A accepted the task', tone: 'neutral' })
+      steps.push({ id: `accept-${e.event_id}`, text: 'Assistant accepted the task', tone: 'neutral' })
     }
 
     if (e.type === 'audit_events' && e.action === 'task.delegated') {
       if (e.delegated_by === 'agent-a' && e.actor_id === 'agent-b') {
-        steps.push({ id: `del-ab-${e.event_id}`, text: 'Agent A delegated to Agent B', tone: 'neutral' })
+        steps.push({ id: `del-ab-${e.event_id}`, text: 'Assistant delegated to Investigator', tone: 'neutral' })
       }
       if (e.delegated_by === 'agent-b' && e.actor_id === 'agent-c') {
-        steps.push({ id: `del-bc-${e.event_id}`, text: 'Agent B delegated to Agent C', tone: 'neutral' })
+        steps.push({ id: `del-bc-${e.event_id}`, text: 'Investigator delegated to Corrector', tone: 'neutral' })
       }
     }
 
@@ -78,13 +78,13 @@ function deriveNarrative(entries: TimelineEntry[]): NarrativeStep[] {
         steps.push({
           id: `cred-authority-${e.credential_event_id}`,
           text: overPrivileged
-            ? 'Agent C received broad, over-privileged authority'
-            : 'Agent C received narrow, bounded authority',
+            ? 'Corrector received broad, over-privileged authority'
+            : 'Corrector received narrow, bounded authority',
           tone: overPrivileged ? 'critical' : 'info',
         })
         steps.push({
           id: `cred-issued-${e.credential_event_id}`,
-          text: "Vault issued Agent C's task-bound database credential",
+          text: "Vault issued Corrector's task-bound database credential",
           tone: overPrivileged ? 'critical' : 'info',
         })
       }
@@ -92,7 +92,7 @@ function deriveNarrative(entries: TimelineEntry[]): NarrativeStep[] {
         revokedSeen.add(e.credential_event_id)
         steps.push({
           id: `cred-revoked-${e.credential_event_id}`,
-          text: "Agent C's credential was revoked — task complete",
+          text: "Corrector's credential was revoked — task complete",
           tone: 'neutral',
         })
       }
@@ -110,19 +110,19 @@ function deriveNarrative(entries: TimelineEntry[]): NarrativeStep[] {
     if (e.type === 'database_changes' && e.actor_id === 'agent-c') {
       const destructive = e.action === 'DELETE' || (e.action === 'UPDATE' && e.table_name === 'products')
       if (destructive) {
-        steps.push({ id: `dmg-${e.change_id}`, text: 'Agent C caused the damage', tone: 'critical' })
+        steps.push({ id: `dmg-${e.change_id}`, text: 'Corrector caused the damage', tone: 'critical' })
         steps.push({ id: `dmg-recorded-${e.change_id}`, text: 'PostgreSQL recorded the resulting change', tone: 'critical' })
       } else if (e.action === 'UPDATE' && e.table_name === 'orders') {
-        steps.push({ id: `status-${e.change_id}`, text: 'Agent C updated order status', tone: 'neutral' })
+        steps.push({ id: `status-${e.change_id}`, text: 'Corrector updated order status', tone: 'neutral' })
       }
     }
 
     if (e.type === 'findings' && e.actor_id === 'agent-d') {
       const code = e.title.match(/^(D-\d+b?)/)?.[1]
       if (code === 'D-005' || code === 'D-006') {
-        steps.push({ id: `finding-${e.finding_id}`, text: 'Agent D warned about it', tone: 'critical' })
+        steps.push({ id: `finding-${e.finding_id}`, text: 'Discovery warned about it', tone: 'critical' })
       } else if (code === 'D-007') {
-        steps.push({ id: `finding-${e.finding_id}`, text: 'Agent D confirmed containment', tone: 'contained' })
+        steps.push({ id: `finding-${e.finding_id}`, text: 'Discovery confirmed containment', tone: 'contained' })
       }
     }
   }

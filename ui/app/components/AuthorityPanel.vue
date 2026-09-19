@@ -7,11 +7,14 @@ const props = defineProps<{
   amplified: boolean
 }>()
 
+// prompts/improvements/01_05_add_identity.md: friendly display names —
+// the underlying actor_id (agent-a/b/c/d) is what appears in evidence and
+// Sentinel checks, unchanged.
 const actors: { id: ActorId; label: string }[] = [
-  { id: 'agent-a', label: 'Agent A' },
-  { id: 'agent-b', label: 'Agent B' },
-  { id: 'agent-c', label: 'Agent C' },
-  { id: 'agent-d', label: 'Agent D' },
+  { id: 'agent-a', label: 'Assistant' },
+  { id: 'agent-b', label: 'Investigator' },
+  { id: 'agent-c', label: 'Corrector' },
+  { id: 'agent-d', label: 'Discovery' },
 ]
 
 function entriesFor(id: ActorId) {

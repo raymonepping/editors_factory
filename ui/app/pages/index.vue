@@ -76,7 +76,7 @@ async function onReset() {
     <AuthorityPanel :authority="authorityMap" :amplified="!!amplificationEventId" />
 
     <p v-if="!timeline.length" class="overview-hint">
-      Press Run to start a live BAD or GOOD journey — Records, Credentials, Timeline, and Agent D detail live in the sidebar.
+      Press Run to start a live BAD or GOOD journey — Records, Credentials, Timeline, and Discovery detail live in the sidebar.
     </p>
   </div>
 </template>

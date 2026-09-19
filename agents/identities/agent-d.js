@@ -79,7 +79,7 @@ function classify({ type, payload }) {
     return {
       code: "D-001",
       severity: "NORMAL",
-      title: "Task initiated by human operator. Identity verified: agent-a.",
+      title: "Task initiated by human operator. Identity verified: Assistant.",
     };
   }
 
@@ -89,7 +89,7 @@ function classify({ type, payload }) {
         code: "D-002",
         severity: "NORMAL",
         title:
-          "Delegation observed: agent-a -> agent-b. Authority within expected bounds.",
+          "Delegation observed: Assistant -> Investigator. Authority within expected bounds.",
       };
     }
     if (payload.actor_id === "agent-c") {
@@ -97,7 +97,7 @@ function classify({ type, payload }) {
         code: "D-003",
         severity: "ELEVATED",
         title:
-          "Transitive delegation detected: agent-a -> agent-b -> agent-c. Autonomous sub-agent introduced.",
+          "Transitive delegation detected: Assistant -> Investigator -> Corrector. Autonomous sub-agent introduced.",
       };
     }
   }
@@ -121,7 +121,7 @@ function classify({ type, payload }) {
         code: "D-005",
         severity: "CRITICAL",
         title:
-          "Authority amplification: agent-c granted a broad, long-lived database role exceeding anything agent-b ever holds.",
+          "Authority amplification: Corrector granted a broad, long-lived database role exceeding anything Investigator ever holds.",
       };
     }
     if (payload.vault_role === "factory-good-role") {

@@ -82,7 +82,7 @@ watch(showAgentD, (visible) => {
       <div class="header-actions">
         <label class="agent-d-toggle">
           <input type="checkbox" v-model="showAgentD" />
-          <span>Vulnerability discovery (Agent D)</span>
+          <span>Vulnerability discovery</span>
         </label>
 
         <div v-if="session?.user" class="user-badge">

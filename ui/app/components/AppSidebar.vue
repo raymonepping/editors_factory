@@ -38,7 +38,7 @@ const items = computed(() => {
     { to: '/timeline', label: 'Timeline', count: props.eventCount },
   ]
   if (props.showAgentD) {
-    base.push({ to: '/agent-d', label: 'Agent D', risk: RISK_STYLE[props.riskState] })
+    base.push({ to: '/agent-d', label: 'Discovery', risk: RISK_STYLE[props.riskState] })
   }
   return base
 })
@@ -71,8 +71,8 @@ function closeOnNavigate() {
           v-if="item.risk"
           class="sidebar-dot"
           :style="{ background: item.risk.color }"
-          :aria-label="`Agent D status: ${item.risk.label}`"
-          :title="`Agent D: ${item.risk.label}`"
+          :aria-label="`Discovery status: ${item.risk.label}`"
+          :title="`Discovery: ${item.risk.label}`"
         />
         <span
           v-else-if="item.badge"

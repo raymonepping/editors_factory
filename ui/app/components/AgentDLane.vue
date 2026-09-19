@@ -31,7 +31,7 @@ const lastScan = computed(() => {
 
 <template>
   <PanelShell
-    title="Agent D — Inspection &amp; Containment"
+    title="Discovery — Inspection &amp; Containment"
     collapsible
     storage-key="agent-d"
     :default-open="defaultOpen"

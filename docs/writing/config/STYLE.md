@@ -50,6 +50,28 @@ Use these terms consistently:
 
 Use lowercase actor IDs such as `agent-c` only for API identities and code values. Use `factory-bad-role`, `factory-good-role`, and `factory-backend-role` exactly.
 
+### Friendly agent names (dashboard and demo narrative only)
+
+The dashboard and demo-facing docs additionally use a friendly display
+name per agent, introduced by `prompts/improvements/01_05_add_identity.md`:
+
+| Agent | Friendly name |
+| --- | --- |
+| Agent A | Assistant |
+| Agent B | Investigator |
+| Agent C | Corrector |
+| Agent D | Discovery |
+
+Use the friendly name where a reader is following the demo narrative
+(`docs/demo-guide.md`, `docs/project-history.md`, `docs/security-model.md`'s
+narrative passages, the dashboard UI). Keep `Agent A`/`Agent B`/`Agent C`/
+`Agent D` — the table above still governs — where a reader needs to
+correlate precisely with logs, the database, or code:
+`docs/api-reference.md`, `docs/release-checklist.md`,
+`docs/troubleshooting.md`, and every `docs/validation/**` report. The
+underlying `agent-a`/`agent-b`/`agent-c`/`agent-d` identifiers are
+unchanged everywhere — this is a display name, not a renamed identity.
+
 ## Formatting
 
 - Use one H1 per file and do not skip heading levels.

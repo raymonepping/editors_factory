@@ -6,7 +6,7 @@ The Factory began as a small demonstration of excessive agent access and became 
 
 The first design used two agents: a coordinator and a specialist with excessive permissions. The aim was to compare overprivileged and least-privileged execution without changing the task.
 
-The design expanded to three agents so authority could be observed across two delegation hops. Agent A coordinates, Agent B investigates, and Agent C remediates. This made transitive authority visible: a narrow request can still end at an identity with a broad fixed binding.
+The design expanded to three agents so authority could be observed across two delegation hops. The Assistant (Agent A) coordinates, the Investigator (Agent B) investigates, and the Corrector (Agent C) remediates. This made transitive authority visible: a narrow request can still end at an identity with a broad fixed binding.
 
 ## Local and auditable by design
 
@@ -34,7 +34,7 @@ Several implementation discoveries changed the mechanism while preserving the go
 
 ## Detection lane
 
-Agent D was added as an independent witness. It does not receive delegated remediation authority. It consumes the event stream, applies deterministic classifications, and records findings. The language model can narrate a finding, but it does not decide whether the source event occurred.
+Discovery (Agent D) was added as an independent witness. It does not receive delegated remediation authority. It consumes the event stream, applies deterministic classifications, and records findings. The language model can narrate a finding, but it does not decide whether the source event occurred.
 
 This addition separated control from observation and gave the dashboard a clear NORMAL, ELEVATED, CRITICAL, and CONTAINED security story.
 
@@ -44,7 +44,9 @@ The final phase added the Nuxt dashboard, historical event backfill, factory agg
 
 A later phase added OpenLDAP and Keycloak so the root task, and every delegation and credential event downstream of it, traces to an immutable human subject rather than a shared operator identity. Agent identity moved to short-lived, task-bound JWTs issued by the API from a narrow bootstrap token, closing the gap where a long-lived shared credential could be replayed outside its task.
 
-As the dashboard grew a narrative view, a credential ledger, and a full event log alongside the original regions, a single long page stopped fitting the target demo resolutions. The interface was reorganized behind a sidebar: an Overview section keeps the human request, agent chain, narrative, and factory state on one screen, while records, the credential ledger, the event timeline, and Agent D's own detail moved to their own sections.
+As the dashboard grew a narrative view, a credential ledger, and a full event log alongside the original regions, a single long page stopped fitting the target demo resolutions. The interface was reorganized behind a sidebar: an Overview section keeps the human request, agent chain, narrative, and factory state on one screen, while records, the credential ledger, the event timeline, and Discovery's own detail moved to their own sections.
+
+The dashboard and demo-facing docs then gave the four agents names a reader follows naturally — Assistant, Investigator, Corrector, Discovery — alongside, not instead of, their `agent-a`..`agent-d` identifiers, which remain what actually appears in evidence, JWTs, and Sentinel checks.
 
 The project retains a concise principle from its design work:
 
