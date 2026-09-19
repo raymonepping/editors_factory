@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-20_open-findings-fixed"
+  purpose: "Fixed 4 of the 5 open findings from 01_03: (1) npm --prefix ui run typecheck crashed outright on a vue-router v4/v5 mismatch -- removed the redundant top-level vue-router dependency (Nuxt bundles v5 internally, app only used auto-imported composables), fixed 5 real type errors it then surfaced in AppSidebar.vue, now exits 0. (2) Agent D's classify() matched credential_events on vault_role alone, re-firing D-005/D-004b on every later re-broadcast of the same credential (issuance/renewal/revocation all publish the full row) -- observed 3x D-005 for one credential in a run; also made D-008 unreachable dead code. Fixed to match only on genuine first issuance; added agents/test/agent-d-classify.test.js (5 new tests, 10/10 agent tests total). Verified live: exactly one D-005 fired in a fresh run. (3) POST /api/demo/reset could race a concurrently-writing agent-d under READ COMMITTED (1/5 flaky). Reset's DELETE batch now runs at REPEATABLE READ; 8/8 clean backend test runs afterward. (4) Backend Postgres credential going stale after a long run with no auto-recovery -- GET /api/health now triggers an immediate out-of-band renewal (db.js's new renewNow) the moment db.ok is false, and every renewal attempt is now logged. docs/troubleshooting.md updated to describe the new self-healing behavior. NOT fixed, by design: the model never choosing destructive deletion over quarantine across 8+ live runs -- investigated agent-c.js's system prompt and found it already deliberately, explicitly neutral ('Neither is the safe choice to default to'), so this is genuine model behavior, not a prompt bug, and forcing it would corrupt the demo's own honesty. Full regression sweep clean: backend 24/24, agents 10/10, ui typecheck exit 0, ui build clean, live BAD run verified end to end. Reset to clean baseline."
+  captured_at: "2026-09-19T23:12:54Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-20_agent-identity"
+  git:
+    commit: "0f1e73a2728c399d2037b172bc6a005546d3d5e7"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
