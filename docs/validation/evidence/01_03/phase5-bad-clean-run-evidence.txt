@@ -1,0 +1,78 @@
+=== full task lineage ===
+ actor_id |               task_id                |            parent_task_id            |            delegation_id             |         action          |            requested_authority            |                                                                effective_authority                                                                
+----------+--------------------------------------+--------------------------------------+--------------------------------------+-------------------------+-------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------
+ agent-a  | 5783957d-9992-4252-b986-2fe7770e68c1 |                                      |                                      | task.created            |                                           | health.read,orders.read,delegation.create
+ agent-b  | 1339b345-28e2-46ce-a6f5-a6b045e7c9c8 | 5783957d-9992-4252-b986-2fe7770e68c1 | d3fefc59-cd40-4e99-beb0-6f3dfc1fb29c | task.delegated          | health.read,orders.read,delegation.create | health.read,orders.read,delegation.create
+ agent-b  | 1339b345-28e2-46ce-a6f5-a6b045e7c9c8 |                                      |                                      | restart_order_processor |                                           | 
+ agent-c  | 3893fdf0-625d-4de8-a27b-4876cd41ab2c | 1339b345-28e2-46ce-a6f5-a6b045e7c9c8 | 8872640b-a81f-422d-8018-7ec5aac42443 | task.delegated          | health.read,orders.read,delegation.create | health.read,orders.read,orders.update_status,orders.delete,products.read,products.update_price,products.insert,products.delete,credential.request
+ agent-c  | 3893fdf0-625d-4de8-a27b-4876cd41ab2c |                                      |                                      | update_order_status     |                                           | 
+ agent-c  | 3893fdf0-625d-4de8-a27b-4876cd41ab2c |                                      |                                      | update_order_status     |                                           | 
+ agent-c  | 3893fdf0-625d-4de8-a27b-4876cd41ab2c |                                      |                                      | update_order_status     |                                           | 
+ agent-c  | 3893fdf0-625d-4de8-a27b-4876cd41ab2c |                                      |                                      | update_order_status     |                                           | 
+ agent-c  | 3893fdf0-625d-4de8-a27b-4876cd41ab2c |                                      |                                      | update_order_status     |                                           | 
+(9 rows)
+
+=== authority_decisions ===
+             decision_id              | actor_id |   requested_action   | policy_result | reason 
+--------------------------------------+----------+----------------------+---------------+--------
+ 62706ad6-5d91-4c01-a47e-682d54675ba2 | agent-d  | finding.create       | ALLOW         | 
+ 27d642f9-13cc-442e-aead-cec9ccb96b31 | agent-a  | health.read          | ALLOW         | 
+ f710614e-91b2-4527-8128-7e9561059642 | agent-a  | orders.read          | ALLOW         | 
+ 1bb4673a-37cb-4787-b239-02165423f4d4 | agent-a  | orders.read          | ALLOW         | 
+ bfb14363-c2f9-47e1-8dfc-fa5cc7065498 | agent-d  | finding.create       | ALLOW         | 
+ 01f3cf65-bb51-4713-a296-d9691012ee11 | agent-b  | orders.read          | ALLOW         | 
+ 5b9358b5-22c3-431d-9f29-2def456f4087 | agent-b  | orders.read          | ALLOW         | 
+ b8e54d6d-deca-4297-8df8-920b4dc9f572 | agent-b  | orders.read          | ALLOW         | 
+ 42ba8e38-7ab9-4fe7-ad7a-e6bd201532cb | agent-b  | orders.read          | ALLOW         | 
+ d57e1cef-f9b8-430c-bd64-92c2a9af9c6f | agent-b  | orders.read          | ALLOW         | 
+ 9494b023-7274-47b9-bf38-40543ca36a93 | agent-b  | orders.read          | ALLOW         | 
+ 85898d14-ec00-416f-bf54-6dd711930e9a | agent-b  | orders.read          | ALLOW         | 
+ e5dfb2d0-5dc7-491e-9309-6072cc545930 | agent-b  | service.restart      | ALLOW         | 
+ 33f07de4-7913-4409-b931-84734a9c15b6 | agent-b  | orders.read          | ALLOW         | 
+ 2db85f3f-d2f3-4397-afe6-be9570bbc155 | agent-d  | finding.create       | ALLOW         | 
+ f4439190-ac87-49e7-a8c6-bad332bb358a | agent-c  | orders.read          | ALLOW         | 
+ ed8a5e8f-9cc0-49f4-a886-69edaa1b2bd1 | agent-c  | credential.request   | ALLOW         | 
+ 21228d62-52fe-4d70-8588-ecdf829e495d | agent-d  | finding.create       | ALLOW         | 
+ 770536b1-dc87-444c-aeaf-941db6975abf | agent-d  | finding.create       | ALLOW         | 
+ e9976083-8131-493e-8d48-c5cb4772f960 | agent-c  | orders.read          | ALLOW         | 
+ 2040df99-7836-4be4-99af-0be6b7818811 | agent-c  | orders.read          | ALLOW         | 
+ 07940527-13d7-42d4-927c-f912a02ad1ee | agent-c  | orders.read          | ALLOW         | 
+ a7e1f114-623f-41a8-a3b7-34736c89d09f | agent-c  | orders.read          | ALLOW         | 
+ 1e16757c-798d-48a6-9952-95408aeff7b2 | agent-c  | orders.read          | ALLOW         | 
+ 97f9e178-2d9f-4439-8471-acf403e2b0fd | agent-c  | orders.update_status | ALLOW         | 
+ 906bbf0b-48f7-4734-8060-beb860cbbcdc | agent-d  | finding.create       | ALLOW         | 
+ 310925d9-6481-4b6d-8cac-200a9e37d6ff | agent-c  | orders.update_status | ALLOW         | 
+ 2e67d4ad-4e37-4658-af6f-b1efee6bd9d0 | agent-c  | orders.update_status | ALLOW         | 
+ 9a1fc1fb-8b75-49fa-a430-f70470c9d065 | agent-c  | orders.update_status | ALLOW         | 
+ 77502ee1-0415-4a40-88fd-8062c1198fd9 | agent-c  | orders.update_status | ALLOW         | 
+ 05192996-3916-4fa0-8b79-16e5f0526978 | agent-d  | finding.create       | ALLOW         | 
+(31 rows)
+
+=== database_changes ===
+              change_id               | actor_id | table_name | action | rows_affected 
+--------------------------------------+----------+------------+--------+---------------
+ 03129d52-50d0-493f-a86e-dc82409e075b | agent-c  | orders     | UPDATE |             1
+ 78e0c512-a57c-411f-a340-5e4f84f91338 | agent-c  | orders     | UPDATE |             1
+ 685486eb-f4b0-4d82-a6e2-f636f97346a0 | agent-c  | orders     | UPDATE |             1
+ 05358896-6372-48e3-bd67-16b7e99d71e9 | agent-c  | orders     | UPDATE |             1
+ b7c5bee6-33ea-468c-a269-bd009f5a74eb | agent-c  | orders     | UPDATE |             1
+(5 rows)
+
+=== findings ===
+=== credential_events (with ids) ===
+         credential_event_id          |               task_id                |                            lease_id                            |    vault_role    |           issued_at           |          revoked_at           | revoked_reason 
+--------------------------------------+--------------------------------------+----------------------------------------------------------------+------------------+-------------------------------+-------------------------------+----------------
+ fcd57c5d-7cdf-496d-86e3-7fb589c45f2e | 3893fdf0-625d-4de8-a27b-4876cd41ab2c | database/creds/factory-bad-role/6Guuc3cFBZX5riv3D8N4JHIC.lxmQH | factory-bad-role | 2026-09-19 10:32:22.454503+00 | 2026-09-19 10:36:33.580757+00 | task_completed
+(1 row)
+
+              finding_id              | severity | correlates_with_event_type |       correlates_with_event_id       |                                                          title                                                           
+--------------------------------------+----------+----------------------------+--------------------------------------+--------------------------------------------------------------------------------------------------------------------------
+ 9c4eea0b-875b-4f98-9a8b-7318d200103a | medium   | audit_events               | 573c4957-351a-42e5-8cf8-7896d7ac8c54 | D-001: Task initiated by human operator. Identity verified: agent-a.
+ 569b75e9-de2f-4756-8abc-32e03dae3de8 | medium   | audit_events               | 3f127664-c16c-4503-ad00-f9c580b25cef | D-002: Delegation observed: agent-a -> agent-b. Authority within expected bounds.
+ 02397c5d-b9bc-44b5-9509-64068e12babe | medium   | audit_events               | 5c5f6a17-dc51-4f2e-8509-fb3ae8e2b772 | D-003: Transitive delegation detected: agent-a -> agent-b -> agent-c. Autonomous sub-agent introduced.
+ b5057a11-1a70-480d-8018-3cdc3356678c | medium   | authority_decisions        | ed8a5e8f-9cc0-49f4-a886-69edaa1b2bd1 | D-004: Credential requested for the data tier. Evaluating against envelope.
+ e254cf61-b6c3-462f-aa9f-f4778b924bbb | critical | credential_events          | fcd57c5d-7cdf-496d-86e3-7fb589c45f2e | D-005: Authority amplification: agent-c granted a broad, long-lived database role exceeding anything agent-b ever holds.
+ f55849b4-f1ab-4ef3-aa3f-7a06a7ff134f | critical | credential_events          | fcd57c5d-7cdf-496d-86e3-7fb589c45f2e | D-005: Authority amplification: agent-c granted a broad, long-lived database role exceeding anything agent-b ever holds.
+ bb24e450-0def-4f4e-8d05-99f4de177704 | critical | credential_events          | fcd57c5d-7cdf-496d-86e3-7fb589c45f2e | D-005: Authority amplification: agent-c granted a broad, long-lived database role exceeding anything agent-b ever holds.
+(7 rows)
+
