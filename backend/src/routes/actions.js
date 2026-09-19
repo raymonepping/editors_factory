@@ -210,57 +210,62 @@ actionsRouter.get("/products", agentJwtAuth, async (req, res, next) => {
 // ── Mutating tools — same code path in BAD and GOOD; only whether the
 //    Vault credential + policy decision allow it differs ───────────────────
 
-actionsRouter.patch("/orders/:id/status", agentJwtAuth, async (req, res, next) => {
-  try {
-    const decision = await authorize(req, "update_order_status");
-    if (decision.result === "DENY") return denyResponse(res, decision);
-    const cred = requireActiveCredential(res, decision.actorId);
-    if (!cred) return;
+actionsRouter.patch(
+  "/orders/:id/status",
+  agentJwtAuth,
+  async (req, res, next) => {
+    try {
+      const decision = await authorize(req, "update_order_status");
+      if (decision.result === "DENY") return denyResponse(res, decision);
+      const cred = requireActiveCredential(res, decision.actorId);
+      if (!cred) return;
 
-    const before = await getPool().query("SELECT * FROM orders WHERE id = $1", [
-      req.params.id,
-    ]);
-    const { status } = req.body || {};
-    // Calls set_order_status(id, status) rather than a raw UPDATE — see
-    // terraform/vault-database/database.tf's factory_good_role comment
-    // for why (a column-level GRANT UPDATE (status) was found to be
-    // silently dropped by Vault's PostgreSQL secrets engine). Same call
-    // for both profiles, matching this project's "no separate code path
-    // for GOOD mode" rule.
-    const result = await withAgentCredential(cred, (client) =>
-      client.query("SELECT * FROM set_order_status($1, $2)", [
-        req.params.id,
-        status,
-      ]),
-    );
+      const before = await getPool().query(
+        "SELECT * FROM orders WHERE id = $1",
+        [req.params.id],
+      );
+      const { status } = req.body || {};
+      // Calls set_order_status(id, status) rather than a raw UPDATE — see
+      // terraform/vault-database/database.tf's factory_good_role comment
+      // for why (a column-level GRANT UPDATE (status) was found to be
+      // silently dropped by Vault's PostgreSQL secrets engine). Same call
+      // for both profiles, matching this project's "no separate code path
+      // for GOOD mode" rule.
+      const result = await withAgentCredential(cred, (client) =>
+        client.query("SELECT * FROM set_order_status($1, $2)", [
+          req.params.id,
+          status,
+        ]),
+      );
 
-    await audit.recordDatabaseChange({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      tableName: "orders",
-      action: "UPDATE",
-      before: before.rows[0],
-      after: result.rows[0],
-      rowsAffected: result.rowCount,
-    });
-    await recordToolCall({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      toolName: "update_order_status",
-      target: `orders/${req.params.id}`,
-      result: "ALLOW",
-      rowsAffected: result.rowCount,
-    });
+      await audit.recordDatabaseChange({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        tableName: "orders",
+        action: "UPDATE",
+        before: before.rows[0],
+        after: result.rows[0],
+        rowsAffected: result.rowCount,
+      });
+      await recordToolCall({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        toolName: "update_order_status",
+        target: `orders/${req.params.id}`,
+        result: "ALLOW",
+        rowsAffected: result.rowCount,
+      });
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    next(err);
-  }
-});
+      res.json(result.rows[0]);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 actionsRouter.delete("/orders", agentJwtAuth, async (req, res, next) => {
   try {
@@ -487,8 +492,13 @@ actionsRouter.post("/findings", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "create_finding");
     if (decision.result === "DENY") return denyResponse(res, decision);
-    const { severity, title, detail, correlatesWithEventId, correlatesWithEventType } =
-      req.body || {};
+    const {
+      severity,
+      title,
+      detail,
+      correlatesWithEventId,
+      correlatesWithEventType,
+    } = req.body || {};
     const finding = await audit.recordFinding({
       runId: decision.runId,
       actorId: decision.actorId,

@@ -24,7 +24,9 @@ export function agentJwtAuth(req, res, next) {
   try {
     claims = verifyAgentToken(match[1]);
   } catch (err) {
-    return res.status(401).json({ error: `Invalid agent token: ${err.message}` });
+    return res
+      .status(401)
+      .json({ error: `Invalid agent token: ${err.message}` });
   }
 
   // Structural revocation, not a separate revoked-jti store: a JWT bound

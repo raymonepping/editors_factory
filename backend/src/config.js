@@ -44,7 +44,9 @@ export const config = {
     // has expired," accurately describing the symptom. 900s gives
     // comfortable headroom over the 300s task timeout, which now always
     // kills a genuinely stuck task first.
-    agentJwtTtlSeconds: Number(optional("FACTORY_AGENT_JWT_TTL_SECONDS", "900")),
+    agentJwtTtlSeconds: Number(
+      optional("FACTORY_AGENT_JWT_TTL_SECONDS", "900"),
+    ),
   },
 
   oidc: {

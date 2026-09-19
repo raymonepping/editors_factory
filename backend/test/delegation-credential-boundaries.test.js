@@ -5,7 +5,12 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { apiFetch, CLI_TOKEN, AGENT_A_TOKEN, AGENT_C_TOKEN } from "./helpers/env.js";
+import {
+  apiFetch,
+  CLI_TOKEN,
+  AGENT_A_TOKEN,
+  AGENT_C_TOKEN,
+} from "./helpers/env.js";
 
 async function bootstrapFor(actorToken, { goal = "boundary test" } = {}) {
   const created = await apiFetch("/api/agents/agent-a/tasks", {
@@ -24,7 +29,10 @@ async function bootstrapFor(actorToken, { goal = "boundary test" } = {}) {
 
 describe("delegation and credential boundaries", () => {
   before(async () => {
-    const reset = await apiFetch("/api/demo/reset", { method: "POST", cliToken: CLI_TOKEN });
+    const reset = await apiFetch("/api/demo/reset", {
+      method: "POST",
+      cliToken: CLI_TOKEN,
+    });
     assert.equal(reset.status, 200);
   });
 

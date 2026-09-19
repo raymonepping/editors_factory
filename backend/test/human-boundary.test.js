@@ -60,7 +60,10 @@ describe("human-boundary: demo-control routes reject unauthenticated and forged 
   }
 
   test("POST /api/demo/reset with the real CLI token succeeds", async () => {
-    assert.ok(CLI_TOKEN, "FACTORY_CLI_OPERATOR_TOKEN must be set in .env for this test");
+    assert.ok(
+      CLI_TOKEN,
+      "FACTORY_CLI_OPERATOR_TOKEN must be set in .env for this test",
+    );
     const { status } = await apiFetch("/api/demo/reset", {
       method: "POST",
       cliToken: CLI_TOKEN,

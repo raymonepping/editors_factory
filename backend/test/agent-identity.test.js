@@ -10,7 +10,12 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { apiFetch, CLI_TOKEN, AGENT_A_TOKEN, AGENT_C_TOKEN } from "./helpers/env.js";
+import {
+  apiFetch,
+  CLI_TOKEN,
+  AGENT_A_TOKEN,
+  AGENT_C_TOKEN,
+} from "./helpers/env.js";
 
 describe("agent-identity: JWT bootstrap and verification boundaries", () => {
   // Every real POST /api/agents/agent-a/tasks below is picked up by the
@@ -27,7 +32,10 @@ describe("agent-identity: JWT bootstrap and verification boundaries", () => {
     assert.ok(CLI_TOKEN, "FACTORY_CLI_OPERATOR_TOKEN must be set in .env");
     assert.ok(AGENT_A_TOKEN, "AGENT_A_TOKEN must be set in .env");
     assert.ok(AGENT_C_TOKEN, "AGENT_C_TOKEN must be set in .env");
-    const reset = await apiFetch("/api/demo/reset", { method: "POST", cliToken: CLI_TOKEN });
+    const reset = await apiFetch("/api/demo/reset", {
+      method: "POST",
+      cliToken: CLI_TOKEN,
+    });
     assert.equal(reset.status, 200);
   });
 
@@ -97,7 +105,9 @@ describe("agent-identity: JWT bootstrap and verification boundaries", () => {
     });
     const parts = bootstrap.data.token.split(".");
     const tampered = `${parts[0]}.${parts[1]}.${parts[2].slice(0, -1)}${parts[2].at(-1) === "A" ? "B" : "A"}`;
-    const { status } = await apiFetch("/api/actions/health", { token: tampered });
+    const { status } = await apiFetch("/api/actions/health", {
+      token: tampered,
+    });
     assert.equal(status, 401);
   });
 

@@ -10,7 +10,12 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { mentionsATool } from "../src/runtime.js";
 
-const TOOLS = ["delegate_task", "get_health", "list_orders", "restart_order_processor"];
+const TOOLS = [
+  "delegate_task",
+  "get_health",
+  "list_orders",
+  "restart_order_processor",
+];
 
 describe("mentionsATool", () => {
   test("detects the literal snake_case tool name", () => {
@@ -36,7 +41,10 @@ describe("mentionsATool", () => {
 
   test("does not false-positive on ordinary prose containing no tool reference", () => {
     assert.equal(
-      mentionsATool("The remediation is complete. No further action is required.", TOOLS),
+      mentionsATool(
+        "The remediation is complete. No further action is required.",
+        TOOLS,
+      ),
       false,
     );
   });

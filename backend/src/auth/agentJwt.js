@@ -30,7 +30,8 @@ function base64url(input) {
 
 function base64urlDecode(input) {
   const padded = input.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
+  const pad =
+    padded.length % 4 === 0 ? "" : "=".repeat(4 - (padded.length % 4));
   return Buffer.from(padded + pad, "base64");
 }
 

@@ -34,7 +34,10 @@ export const AGENT_A_TOKEN = rootEnv.AGENT_A_TOKEN;
 export const AGENT_C_TOKEN = rootEnv.AGENT_C_TOKEN;
 export const CLI_TOKEN = rootEnv.FACTORY_CLI_OPERATOR_TOKEN;
 
-export async function apiFetch(path, { method = "GET", token, cliToken, body } = {}) {
+export async function apiFetch(
+  path,
+  { method = "GET", token, cliToken, body } = {},
+) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (cliToken) headers["X-Factory-Cli-Token"] = cliToken;
