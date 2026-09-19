@@ -30,8 +30,17 @@ const credentialBadge = computed(() => {
   return { color: bad ? 'var(--color-state-critical)' : 'var(--color-state-healthy)', label: bad ? 'Live' : 'Live' }
 })
 
-const items = computed(() => {
-  const base = [
+interface SidebarItem {
+  to: string
+  label: string
+  exact?: boolean
+  badge?: { color: string; label: string } | null
+  count?: number
+  risk?: { color: string; label: string }
+}
+
+const items = computed<SidebarItem[]>(() => {
+  const base: SidebarItem[] = [
     { to: '/', label: 'Overview', exact: true },
     { to: '/records', label: 'Records' },
     { to: '/credentials', label: 'Credentials', badge: credentialBadge.value },

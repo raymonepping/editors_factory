@@ -64,11 +64,42 @@ demoRouter.post(
       // now blocks deleting its delegation first (found live: this
       // order used to be delegations-then-audit_events, which worked
       // only because nothing referenced delegations by id yet).
-      await getPool().query(
-        `DELETE FROM findings; DELETE FROM database_changes; DELETE FROM credential_events;
-         DELETE FROM authority_decisions; DELETE FROM audit_events; DELETE FROM delegations;
-         DELETE FROM demo_runs;`,
-      );
+      //
+      // Found live (01_03 validation, ~1/5 runs): factory-agent-d is a
+      // real, continuously-running container reacting to the live SSE
+      // stream independently of this request. Under the default READ
+      // COMMITTED isolation, each statement in this batch takes its own
+      // fresh snapshot — so if agent-d's create_finding call inserts an
+      // audit_events row for this exact run between this batch's own
+      // `DELETE FROM audit_events` and its later `DELETE FROM
+      // demo_runs`, that later statement sees a row that did not exist
+      // when the batch started and fails the FK check, aborting the
+      // whole reset. REPEATABLE READ fixes this at the root rather than
+      // retrying around it: the transaction takes ONE snapshot at its
+      // first statement and every later statement in it sees only that
+      // snapshot, so a concurrent commit from agent-d's own separate
+      // connection becomes invisible to the rest of this transaction,
+      // exactly as if it happened after reset finished. (Postgres will
+      // raise 40001 "could not serialize access" instead of an FK
+      // violation if a genuine write conflict occurs under REPEATABLE
+      // READ — none of these statements can conflict with agent-d's own
+      // insert-only writes to different rows, so that path is not
+      // expected to fire here.)
+      const client = await getPool().connect();
+      try {
+        await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+        await client.query(
+          `DELETE FROM findings; DELETE FROM database_changes; DELETE FROM credential_events;
+           DELETE FROM authority_decisions; DELETE FROM audit_events; DELETE FROM delegations;
+           DELETE FROM demo_runs;`,
+        );
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
 
       state.clearTasks();
       state.clearActiveAgentCCredential();

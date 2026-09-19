@@ -70,7 +70,7 @@ function sourceEvent({ type, payload }) {
  * traffic, renewals, etc.) — classify() is deliberately narrow, not a
  * catch-all logger.
  */
-function classify({ type, payload }) {
+export function classify({ type, payload }) {
   if (
     type === "audit_events" &&
     payload.action === "task.created" &&
@@ -115,7 +115,24 @@ function classify({ type, payload }) {
     };
   }
 
-  if (type === "credential_events") {
+  // Found live (01_03 validation): backend/src/audit.js publishes the
+  // full credential_events row on three separate transitions —
+  // recordCredentialEvent (issuance), markCredentialRenewed (renewal),
+  // and markCredentialRevoked (revocation) — and every one of them still
+  // carries the same vault_role. Matching on vault_role alone fired
+  // D-005/D-004b again on each later re-broadcast of the identical
+  // credential (observed: D-005 recorded 3x for one credential_event_id
+  // in a single run), and made D-008 below unreachable, since this block
+  // matched every credential_events message first, revocation included.
+  // Only the true first issuance (revoked_at still null, no renewal yet)
+  // is "a credential was granted" — a later renewal of the same lease
+  // isn't a second grant, and a revocation is D-008's own signal, not
+  // this one's.
+  if (
+    type === "credential_events" &&
+    !payload.revoked_at &&
+    !payload.renewal_count
+  ) {
     if (payload.vault_role === "factory-bad-role") {
       return {
         code: "D-005",

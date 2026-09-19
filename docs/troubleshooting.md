@@ -41,7 +41,7 @@ podman logs factory-api
 podman logs factory-postgres
 ```
 
-During implementation, backend database authentication failed twice after a long run and recovered after the API restarted. The root cause was not established. Treat recurrence as an open defect: capture timestamps and logs before restarting the API.
+During implementation, backend database authentication failed twice after a long run and recovered after the API restarted. The exact original root cause was not established. `GET /api/health` now triggers an out-of-band credential renewal the moment it observes `db.ok: false` (`backend/src/routes/health.js`, `backend/src/db.js`'s `renewNow`), so a stale credential should now self-heal on its own within one healthcheck interval instead of requiring a restart — and every renewal, successful or failed, is now logged (`podman logs factory-api | grep '\[db\]'`), so a recurrence is diagnosable instead of only inferable from a 503. Treat a `db.ok: false` that persists across several health checks as worth investigating: capture the logged renewal attempts before restarting the API.
 
 ## Agent C receives a Sentinel denial
 

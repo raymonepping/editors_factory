@@ -59,26 +59,64 @@ export async function initDbPool() {
 function scheduleRenewal(leaseDurationSeconds) {
   if (renewalTimer) clearTimeout(renewalTimer);
   const renewInMs = Math.max(leaseDurationSeconds * 0.8, 10) * 1000;
-  renewalTimer = setTimeout(async () => {
-    try {
-      const old = pool;
-      const { pool: newPool, cred } = await createBackendPool();
-      pool = newPool;
-      poolCredential = cred;
-      scheduleRenewal(cred.leaseDuration);
-      await old.end();
-    } catch (err) {
-      // Keep the existing pool alive on a renewal failure — a demo
-      // running past a single failed reissue is better than one that
-      // drops its own operational connection mid-run. Retry sooner.
-      console.error(
-        "[db] credential renewal failed, retrying in 30s:",
-        err.message,
-      );
-      renewalTimer = setTimeout(() => scheduleRenewal(0), 30_000);
-    }
+  renewalTimer = setTimeout(() => {
+    renewNow("scheduled").catch(() => {
+      // renewNow() already logs and reschedules its own retry — nothing
+      // further to do here. A setTimeout callback's own rejection would
+      // otherwise be an unhandled promise rejection.
+    });
   }, renewInMs);
   renewalTimer.unref?.();
+}
+
+// True for the duration of one renewal attempt — guards against the
+// scheduled timer and an on-demand call (healthRouter's own recovery
+// trigger, added after `docs/troubleshooting.md`'s previously
+// unestablished "backend database authentication failed twice after a
+// long run" defect) racing each other into two concurrent
+// createBackendPool() calls, which would leak one of the two new pools
+// and could let a slower one overwrite the other's already-current
+// credential with a stale one.
+let renewing = false;
+
+/**
+ * Reissues the backend's operational credential right now, outside the
+ * normal 80%-of-TTL schedule. Exported so healthRouter can call it the
+ * moment `/api/health` observes `db.ok: false` — self-healing on the
+ * request path, not only the timer path, and logged either way so a
+ * recurrence of the credential going stale over a long run is
+ * diagnosable from `podman logs factory-api` instead of only inferable
+ * from a 503 with no further trace.
+ */
+export async function renewNow(trigger = "manual") {
+  if (renewing) return false;
+  renewing = true;
+  try {
+    const old = pool;
+    const { pool: newPool, cred } = await createBackendPool();
+    pool = newPool;
+    poolCredential = cred;
+    scheduleRenewal(cred.leaseDuration);
+    await old?.end();
+    console.log(
+      `[db] operational credential renewed (${trigger}): ${cred.username}, next renewal in ~${Math.round(cred.leaseDuration * 0.8)}s`,
+    );
+    return true;
+  } catch (err) {
+    // Keep the existing pool alive on a renewal failure — a demo
+    // running past a single failed reissue is better than one that
+    // drops its own operational connection mid-run. Retry sooner.
+    console.error(
+      `[db] credential renewal failed (${trigger}), retrying in 30s:`,
+      err.message,
+    );
+    if (renewalTimer) clearTimeout(renewalTimer);
+    renewalTimer = setTimeout(() => scheduleRenewal(0), 30_000);
+    renewalTimer.unref?.();
+    return false;
+  } finally {
+    renewing = false;
+  }
 }
 
 export function getPool() {

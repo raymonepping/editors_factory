@@ -35,7 +35,6 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router'
 import { useDemoApi } from '~/composables/useDemoApi'
 
 definePageMeta({ layout: false })
