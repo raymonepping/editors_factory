@@ -30,7 +30,7 @@ Generate a different bearer token for each agent:
 openssl rand -hex 24
 ```
 
-Repeat that command four times and assign the values to `AGENT_A_TOKEN` through `AGENT_D_TOKEN`. Set a private PostgreSQL password. Do not commit `.env`.
+Repeat that command four times and assign the values to `AGENT_A_TOKEN` through `AGENT_D_TOKEN`, then generate one more for `FACTORY_CLI_OPERATOR_TOKEN`. Set a private PostgreSQL password and replace the placeholder `LDAP_ADMIN_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, and `FACTORY_OIDC_CLIENT_SECRET` values. Do not commit `.env`.
 
 Place the project-owner supplied license files at:
 
@@ -111,6 +111,18 @@ The last command configures the database secrets engine and three roles inside t
 - `factory-bad-role` for the overprivileged demonstration;
 - `factory-good-role` for bounded remediation.
 
+## Bootstrap identity (OpenLDAP and Keycloak)
+
+Seed the LDAP directory and import the Keycloak realm and client:
+
+```sh
+make identity-bootstrap
+```
+
+This starts the identity stack, then runs one-shot LDAP seed and Keycloak realm-import containers, then verifies the result. It provisions the demo accounts defined in `compose/identity/ldap/bootstrap.ldif`, including operator and viewer roles, and configures the `factory-api` OIDC client from the `FACTORY_OIDC_*` values already set in `.env`. Re-running it is safe; it does not need to run again after a plain `make up`.
+
+Dashboard sign-in and the human-triggered control routes (task creation, profile switch, reset) require this step. The `make demo-bad`, `make demo-good`, and `make reset` commands do not: they authenticate with `FACTORY_CLI_OPERATOR_TOKEN` instead, a separate identity domain from both Keycloak sessions and agent bearer tokens.
+
 ## Start the complete stack
 
 Start Ollama first so the configured model is available, then start the remaining services:
@@ -137,7 +149,7 @@ curl -fsS http://localhost:3001/api/demo/mode | jq
 curl -fsS http://localhost:11434/api/tags | jq
 ```
 
-Open `http://localhost:3000`, then continue with the [Demo guide](demo-guide.md).
+Open `http://localhost:3000` and sign in with one of the accounts provisioned by `make identity-bootstrap`, then continue with the [Demo guide](demo-guide.md).
 
 ## After a host restart
 

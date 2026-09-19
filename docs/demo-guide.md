@@ -13,7 +13,7 @@ curl -fsS http://localhost:3001/api/health | jq
 curl -fsS http://localhost:3001/api/factory-state | jq
 ```
 
-Open `http://localhost:3000`. The dashboard should connect to the event stream and show the current profile.
+Open `http://localhost:3000` and sign in with one of the accounts `make identity-bootstrap` provisioned. The dashboard should connect to the event stream and show the current profile. The `make demo-bad`, `make demo-good`, and `make reset` commands below authenticate with `FACTORY_CLI_OPERATOR_TOKEN` instead and do not need a browser session.
 
 If this environment contains evidence from an earlier run, reset it:
 

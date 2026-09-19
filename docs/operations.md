@@ -12,7 +12,7 @@ make up
 make down
 ```
 
-`make up` starts `vault`, `infra`, `ollama`, `api`, `agents`, and `ui` in dependency order. `make down` stops them in reverse order. Each stack also has `*-up`, `*-down`, and `*-logs` targets.
+`make up` starts `vault`, `infra`, `identity`, `ollama`, `api`, `agents`, and `ui` in dependency order. `make down` stops them in reverse order. Each stack also has `*-up`, `*-down`, and `*-logs` targets. The identity stack additionally has `make identity-bootstrap`, a one-shot OpenLDAP seed and Keycloak realm import — see [Getting started](getting-started.md#bootstrap-identity-openldap-and-keycloak).
 
 Useful inspection targets are:
 

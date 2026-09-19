@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import type { Finding } from '~/types/factory'
 
-const props = defineProps<{
-  riskState: 'NORMAL' | 'ELEVATED' | 'CRITICAL' | 'CONTAINED'
-  findings: Finding[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    riskState: 'NORMAL' | 'ELEVATED' | 'CRITICAL' | 'CONTAINED'
+    findings: Finding[]
+    /** Its own dedicated page (prompts/frontend/01_02) passes true — a
+     * viewer who navigated here should see the content immediately, not
+     * find a second collapsed panel. Defaults to false, preserving the
+     * original collapsed-by-default behavior everywhere else this
+     * component might still be used. */
+    defaultOpen?: boolean
+  }>(),
+  { defaultOpen: false },
+)
 
 const RISK_STYLE: Record<typeof props.riskState, { color: string; label: string }> = {
   NORMAL: { color: 'var(--color-state-healthy)', label: 'Normal' },
@@ -25,7 +34,7 @@ const lastScan = computed(() => {
     title="Agent D — Inspection &amp; Containment"
     collapsible
     storage-key="agent-d"
-    :default-open="false"
+    :default-open="defaultOpen"
     :alarm="riskState === 'CRITICAL'"
     class="agent-d-panel"
   >

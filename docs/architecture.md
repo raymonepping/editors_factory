@@ -6,7 +6,7 @@ The Factory is a closed local system built to expose one security question: what
 
 | Component | Responsibility | Trust boundary |
 | --- | --- | --- |
-| Dashboard | Starts demos and presents state, evidence, and findings | Public localhost UI |
+| Dashboard | Starts demos and presents state, evidence, and findings | Keycloak-authenticated localhost UI |
 | Factory API | Orchestrates tasks, evaluates authority, brokers credentials, and stores evidence | Control plane |
 | Agent A | Coordinates the human request | Isolated agent identity |
 | Agent B | Investigates orders and delegates remediation | Isolated agent identity |
@@ -62,6 +62,6 @@ These versions describe the current repository configuration. Container tags and
 
 ## Deliberate limits
 
-The Factory is a demonstration, not a general agent platform. The delegation chain is fixed, agent bearer tokens are static local secrets, dashboard reads are unauthenticated, and the order processor is a narrative concept rather than a separate service. The API records a restart action but does not restart an external workload.
+The Factory is a demonstration, not a general agent platform. The delegation chain is fixed, agent bearer tokens are static local secrets, and the order processor is a narrative concept rather than a separate service. The API records a restart action but does not restart an external workload. Dashboard access requires a Keycloak-authenticated session; see [Security model](security-model.md) for the enforced human and agent identity boundaries.
 
 See [Security model](security-model.md) for the enforced boundaries and [Project history](project-history.md) for the decisions behind this shape.

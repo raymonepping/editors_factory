@@ -1,33 +1,19 @@
 <script setup lang="ts">
 const year = new Date().getFullYear()
 
-// Fixed to the viewport bottom (always visible, even scrolled to the
-// top of a tall page — `position: sticky` only pins an element once its
-// own natural position would otherwise scroll past, it can't pull an
-// off-screen footer into view early, so `fixed` is the correct tool
-// here). Fixed elements are removed from normal flow, so the page's own
-// content needs bottom padding reserved for exactly the footer's real
-// rendered height — measured live via ResizeObserver rather than a
-// guessed pixel value, since the footer's height itself changes at the
-// mobile breakpoint (the signature row stacks to two lines).
-const footerEl = useTemplateRef<HTMLElement>('footerEl')
-let observer: ResizeObserver | null = null
+// prompts/frontend/01_02_dashboard_navigation_and_sidebar.md, Finding 2:
+// this used to be `position: fixed` to the viewport bottom, which
+// permanently consumed ~110-140px of every screen's height (confirmed via
+// Playwright at both target demo resolutions) and produced a full-page
+// screenshot stitching artifact on narrow viewports (Finding 6 — a fixed
+// element gets captured at a fixed offset from the top of each expanded
+// capture pass, so it appeared to render "inside" whatever content
+// happened to occupy that offset). Now a normal in-flow footer, once per
+// page via the shared dashboard layout — it sits at the true end of the
+// document, never overlays content, and needs no reserved padding hack.
 
-onMounted(() => {
-  if (!footerEl.value) return
-  const apply = () => {
-    document.documentElement.style.setProperty('--footer-height', `${footerEl.value?.offsetHeight ?? 0}px`)
-  }
-  apply()
-  observer = new ResizeObserver(apply)
-  observer.observe(footerEl.value)
-})
-onUnmounted(() => observer?.disconnect())
-
-// Folded by default — reclaims vertical space now that the footer is
-// permanently on screen (position: fixed). The ResizeObserver above
-// already reacts to the legend's own height change when it opens, so
-// the page's reserved bottom padding stays correct with no extra wiring.
+// Folded by default — keeps the footer compact; the legend is one click
+// away, not gone.
 const legendOpen = ref(false)
 if (import.meta.client) {
   try {
@@ -80,7 +66,7 @@ const links = [
 </script>
 
 <template>
-  <footer ref="footerEl" class="factory-footer">
+  <footer class="factory-footer">
     <div class="footer-rail" aria-hidden="true" />
 
     <div class="footer-legend" :class="{ 'is-open': legendOpen }">
@@ -137,16 +123,9 @@ const links = [
 
 <style scoped>
 .factory-footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  max-width: var(--dashboard-max-width);
-  margin: 0 auto;
+  margin-top: auto;
   border-top: var(--border-width) solid var(--color-border-subtle);
   background: var(--color-bg-shell);
-  box-shadow: 0 -16px 28px rgb(0 0 0 / 0.4);
   overflow: hidden;
 }
 
@@ -157,6 +136,8 @@ const links = [
 }
 
 .footer-legend {
+  max-width: var(--dashboard-max-width);
+  margin: 0 auto;
   border-bottom: var(--border-width) solid var(--color-border-subtle);
   font-size: 11px;
   color: var(--color-text-muted);
@@ -206,6 +187,8 @@ const links = [
 }
 
 .footer-main {
+  max-width: var(--dashboard-max-width);
+  margin: 0 auto;
   padding: 18px 20px 22px;
   display: flex;
   flex-direction: column;

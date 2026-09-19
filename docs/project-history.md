@@ -42,6 +42,10 @@ This addition separated control from observation and gave the dashboard a clear 
 
 The final phase added the Nuxt dashboard, historical event backfill, factory aggregates, recent records, responsive layouts, and reset controls. The interface displays both the operational state of the mock factory and the security evidence that explains it.
 
+A later phase added OpenLDAP and Keycloak so the root task, and every delegation and credential event downstream of it, traces to an immutable human subject rather than a shared operator identity. Agent identity moved to short-lived, task-bound JWTs issued by the API from a narrow bootstrap token, closing the gap where a long-lived shared credential could be replayed outside its task.
+
+As the dashboard grew a narrative view, a credential ledger, and a full event log alongside the original regions, a single long page stopped fitting the target demo resolutions. The interface was reorganized behind a sidebar: an Overview section keeps the human request, agent chain, narrative, and factory state on one screen, while records, the credential ledger, the event timeline, and Agent D's own detail moved to their own sections.
+
 The project retains a concise principle from its design work:
 
 > Discovery creates evidence. It does not create authority.

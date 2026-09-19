@@ -1,4 +1,6 @@
 <template>
   <div class="factory-atmosphere" aria-hidden="true" />
-  <NuxtPage />
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
 </template>

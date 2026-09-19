@@ -19,7 +19,7 @@ make check
 make status
 ```
 
-The dashboard runs at `http://localhost:3000` and the API at `http://localhost:3001` after the stack is configured and started.
+The dashboard runs at `http://localhost:3000` and the API at `http://localhost:3001` after the stack is configured and started. The dashboard requires signing in through Keycloak.
 
 ## What runs locally
 
@@ -28,6 +28,7 @@ The project uses Podman Compose to run:
 - a three-node Vault Enterprise cluster with a separate transit seal;
 - Vault Agent with AppRole auto-authentication;
 - PostgreSQL with Vault-issued dynamic credentials;
+- OpenLDAP and Keycloak for human sign-in and role enforcement;
 - Ollama with `qwen3:4b-instruct` by default;
 - four isolated Node.js agent containers;
 - an Express orchestration and policy API;

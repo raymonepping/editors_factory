@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import type { TimelineEntry } from '~/types/factory'
 
-const props = defineProps<{ entries: TimelineEntry[] }>()
+const props = withDefaults(
+  defineProps<{
+    entries: TimelineEntry[]
+    /** Its own dedicated page (prompts/frontend/01_02) passes true. See
+     * AgentDLane's identical prop for the rationale. */
+    defaultOpen?: boolean
+  }>(),
+  { defaultOpen: false },
+)
 
 const rows = computed(() => [...props.entries].reverse().slice(0, 200))
 
@@ -53,7 +61,7 @@ function timeOf(e: TimelineEntry): string {
 </script>
 
 <template>
-  <PanelShell title="Event timeline" collapsible storage-key="timeline" :default-open="false" class="timeline-panel">
+  <PanelShell title="Event timeline" collapsible storage-key="timeline" :default-open="defaultOpen" class="timeline-panel">
     <template #actions>
       <span class="text-xs" style="color: var(--color-text-muted)">{{ entries.length }} events</span>
     </template>
