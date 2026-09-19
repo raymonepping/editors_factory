@@ -1,0 +1,33 @@
+Error reading database/creds/factory-bad-role: Error making API request.
+
+Namespace: factory/
+URL: GET https://127.0.0.1:18200/v1/database/creds/factory-bad-role
+Code: 403. Errors:
+
+* 2 errors occurred:
+	* egp standard policy "lxmQH/require-agent-c-for-db-creds" evaluation resulted in denial.
+
+The specific error was:
+Result value was 'undefined'.
+
+This means that undefined behavior was experienced at one or more locations
+and the result of your policy ultimately resulted in "undefined". This usually
+represents a policy which doesn't handle all possible cases and should be
+corrected.
+
+The locations where the undefined behavior happened are:
+
+lxmQH/require-agent-c-for-db-creds:2:5
+
+A trace of the execution for policy "lxmQH/require-agent-c-for-db-creds" is available:
+
+Result: false
+Error: false
+
+Description: <none>
+
+Rule "main" (lxmQH/require-agent-c-for-db-creds:5:1) = undefined
+Rule "metadata_ok" (lxmQH/require-agent-c-for-db-creds:1:1) = undefined
+	* permission denied
+
+

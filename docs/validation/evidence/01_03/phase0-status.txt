@@ -1,0 +1,42 @@
+Podman client
+  version=6.1.1 os=darwin/arm64
+Podman machine
+  podman-machine-default*: true (cpus=12, memory=47.96GiB, disk=119GiB)
+Podman server
+  version=5.7.1
+  platform=linux/arm64
+  rootless=true
+  storage=/var/home/core/.local/share/containers/storage
+Compose provider
+  podman-compose
+[4m>>>> Executing external compose provider "podman-compose". Please see podman-compose(1) for how to disable this message. <<<<
+
+[0mpodman version 6.1.1
+podman-compose version 1.5.0
+OK: Factory can use Podman.
+
+Factory containers
+NAMES                STATUS                   PORTS
+arcanium-api         Exited (0) 2 days ago    127.0.0.1:3001->3001/tcp
+arcanium-worker      Exited (137) 2 days ago  3001/tcp
+arcanium-ui          Exited (0) 2 days ago    127.0.0.1:3000->3000/tcp
+factory-postgres     Up 16 hours (healthy)    127.0.0.1:5432->5432/tcp
+factory-ollama       Up 16 hours (healthy)    127.0.0.1:11434->11434/tcp
+factory-openldap     Up 16 hours (healthy)    389/tcp, 636/tcp
+factory-ldap-admin   Up 16 hours              127.0.0.1:8085->80/tcp, 443/tcp
+factory-keycloak     Up 16 hours (healthy)    127.0.0.1:8088->8080/tcp, 8443/tcp, 9000/tcp
+factory-vault_s      Up 16 hours (healthy)    127.0.0.1:18190->8200/tcp
+factory-vault_1      Up 16 hours (healthy)    127.0.0.1:18200->8200/tcp
+factory-vault_2      Up 16 hours (healthy)    127.0.0.1:18201->8200/tcp
+factory-vault_3      Up 16 hours (healthy)    127.0.0.1:18202->8200/tcp
+factory-vault_agent  Up 16 hours (healthy)    8200/tcp
+factory-api          Up 2 hours (unhealthy)   127.0.0.1:3001->3001/tcp
+factory-agent-a      Up 2 hours (healthy)     
+factory-agent-b      Up 2 hours (healthy)     
+factory-agent-c      Up 2 hours (healthy)     
+factory-agent-d      Up 2 hours (healthy)     
+factory-ui           Up 2 hours (healthy)     127.0.0.1:3000->3000/tcp
+
+Shared networks
+factory-vault-internal: present
+factory-control: present

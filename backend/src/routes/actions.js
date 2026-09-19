@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { agentAuth } from "../middleware/agentAuth.js";
+import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
 import { getPool, withAgentCredential } from "../db.js";
 import { cleanupTaskCredentials } from "../services/revocation.js";
 import * as audit from "../audit.js";
@@ -54,6 +54,7 @@ async function authorize(req, toolName) {
     requestedAction,
     effectiveAuthority,
   });
+  const { taskId, traceId } = state.getCausalContext(actorId);
 
   await audit.recordAuthorityDecision({
     runId,
@@ -61,6 +62,8 @@ async function authorize(req, toolName) {
     requestedAction,
     policyResult: decision.result,
     reason: decision.reason,
+    traceId,
+    taskId,
   });
 
   // Wave 2: Policy denial credential cleanup — immediately revoke any already-issued
@@ -76,13 +79,21 @@ async function authorize(req, toolName) {
     profile,
     effectiveAuthority,
     requestedAction,
+    traceId,
+    taskId,
   };
 }
 
-// Each tool call gets its own fresh trace_id/task_id for audit purposes
-// — chain correlation (which delegation led here) is already preserved
-// via delegatedBy/delegationDepth on the task.created/task.delegated
-// audit_events rows written by routes/tasks.js and routes/delegations.js.
+// Wave 4: reuses the calling actor's own real trace_id/task_id (its
+// currently active task, per state.getCausalContext) rather than minting
+// a fresh one per call — audit_events.task_id used to be a random UUID
+// with no corresponding row anywhere else, and trace_id reset at every
+// single tool call, breaking the one continuous trace a human-triggered
+// run is supposed to keep from task.created through to the database
+// mutation and Agent D's finding (found live auditing Wave 4). Falls
+// back to a fresh id only if the actor genuinely has no active task
+// (defensive — every real call site here is reached through authorize(),
+// which always has one).
 async function recordToolCall({
   runId,
   actorId,
@@ -90,11 +101,13 @@ async function recordToolCall({
   target,
   result,
   rowsAffected = null,
+  traceId = null,
+  taskId = null,
 }) {
   await audit.recordAuditEvent({
     runId,
-    traceId: randomUUID(),
-    taskId: randomUUID(),
+    traceId: traceId ?? randomUUID(),
+    taskId: taskId ?? randomUUID(),
     actorId,
     toolName,
     target,
@@ -121,7 +134,7 @@ function requireActiveCredential(res, actorId) {
 
 // ── Read tools ────────────────────────────────────────────────────────────
 
-actionsRouter.get("/health", agentAuth, async (req, res, next) => {
+actionsRouter.get("/health", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "get_health");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -139,7 +152,7 @@ actionsRouter.get("/health", agentAuth, async (req, res, next) => {
   }
 });
 
-actionsRouter.get("/orders", agentAuth, async (req, res, next) => {
+actionsRouter.get("/orders", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "list_orders");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -157,7 +170,7 @@ actionsRouter.get("/orders", agentAuth, async (req, res, next) => {
   }
 });
 
-actionsRouter.get("/orders/:id", agentAuth, async (req, res, next) => {
+actionsRouter.get("/orders/:id", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "get_order");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -176,7 +189,7 @@ actionsRouter.get("/orders/:id", agentAuth, async (req, res, next) => {
   }
 });
 
-actionsRouter.get("/products", agentAuth, async (req, res, next) => {
+actionsRouter.get("/products", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "list_products");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -197,7 +210,7 @@ actionsRouter.get("/products", agentAuth, async (req, res, next) => {
 // ── Mutating tools — same code path in BAD and GOOD; only whether the
 //    Vault credential + policy decision allow it differs ───────────────────
 
-actionsRouter.patch("/orders/:id/status", agentAuth, async (req, res, next) => {
+actionsRouter.patch("/orders/:id/status", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "update_order_status");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -224,6 +237,8 @@ actionsRouter.patch("/orders/:id/status", agentAuth, async (req, res, next) => {
     await audit.recordDatabaseChange({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       tableName: "orders",
       action: "UPDATE",
       before: before.rows[0],
@@ -233,6 +248,8 @@ actionsRouter.patch("/orders/:id/status", agentAuth, async (req, res, next) => {
     await recordToolCall({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       toolName: "update_order_status",
       target: `orders/${req.params.id}`,
       result: "ALLOW",
@@ -245,7 +262,7 @@ actionsRouter.patch("/orders/:id/status", agentAuth, async (req, res, next) => {
   }
 });
 
-actionsRouter.delete("/orders", agentAuth, async (req, res, next) => {
+actionsRouter.delete("/orders", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "delete_orders");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -271,6 +288,8 @@ actionsRouter.delete("/orders", agentAuth, async (req, res, next) => {
     await audit.recordDatabaseChange({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       tableName: "orders",
       action: "DELETE",
       before: before.rows,
@@ -280,6 +299,8 @@ actionsRouter.delete("/orders", agentAuth, async (req, res, next) => {
     await recordToolCall({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       toolName: "delete_orders",
       target: "orders",
       result: "ALLOW",
@@ -294,7 +315,7 @@ actionsRouter.delete("/orders", agentAuth, async (req, res, next) => {
 
 actionsRouter.patch(
   "/products/:sku/price",
-  agentAuth,
+  agentJwtAuth,
   async (req, res, next) => {
     try {
       const decision = await authorize(req, "update_price");
@@ -317,6 +338,8 @@ actionsRouter.patch(
       await audit.recordDatabaseChange({
         runId: decision.runId,
         actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
         tableName: "products",
         action: "UPDATE",
         before: before.rows[0],
@@ -326,6 +349,8 @@ actionsRouter.patch(
       await recordToolCall({
         runId: decision.runId,
         actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
         toolName: "update_price",
         target: `products/${req.params.sku}`,
         result: "ALLOW",
@@ -339,7 +364,7 @@ actionsRouter.patch(
   },
 );
 
-actionsRouter.post("/products", agentAuth, async (req, res, next) => {
+actionsRouter.post("/products", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "insert_product");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -357,6 +382,8 @@ actionsRouter.post("/products", agentAuth, async (req, res, next) => {
     await audit.recordDatabaseChange({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       tableName: "products",
       action: "INSERT",
       before: null,
@@ -366,6 +393,8 @@ actionsRouter.post("/products", agentAuth, async (req, res, next) => {
     await recordToolCall({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       toolName: "insert_product",
       target: sku,
       result: "ALLOW",
@@ -378,7 +407,7 @@ actionsRouter.post("/products", agentAuth, async (req, res, next) => {
   }
 });
 
-actionsRouter.delete("/products", agentAuth, async (req, res, next) => {
+actionsRouter.delete("/products", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "delete_products");
     if (decision.result === "DENY") return denyResponse(res, decision);
@@ -400,6 +429,8 @@ actionsRouter.delete("/products", agentAuth, async (req, res, next) => {
     await audit.recordDatabaseChange({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       tableName: "products",
       action: "DELETE",
       before: before.rows,
@@ -409,6 +440,8 @@ actionsRouter.delete("/products", agentAuth, async (req, res, next) => {
     await recordToolCall({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       toolName: "delete_products",
       target: "products",
       result: "ALLOW",
@@ -423,7 +456,7 @@ actionsRouter.delete("/products", agentAuth, async (req, res, next) => {
 
 actionsRouter.post(
   "/services/order-processor/restart",
-  agentAuth,
+  agentJwtAuth,
   async (req, res, next) => {
     try {
       const decision = await authorize(req, "restart_order_processor");
@@ -435,6 +468,8 @@ actionsRouter.post(
       await recordToolCall({
         runId: decision.runId,
         actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
         toolName: "restart_order_processor",
         target: "order-processor",
         result: "ALLOW",
@@ -448,11 +483,12 @@ actionsRouter.post(
 
 // ── Agent D: detection-only ──────────────────────────────────────────────
 
-actionsRouter.post("/findings", agentAuth, async (req, res, next) => {
+actionsRouter.post("/findings", agentJwtAuth, async (req, res, next) => {
   try {
     const decision = await authorize(req, "create_finding");
     if (decision.result === "DENY") return denyResponse(res, decision);
-    const { severity, title, detail, correlatesWithEventId } = req.body || {};
+    const { severity, title, detail, correlatesWithEventId, correlatesWithEventType } =
+      req.body || {};
     const finding = await audit.recordFinding({
       runId: decision.runId,
       actorId: decision.actorId,
@@ -460,10 +496,13 @@ actionsRouter.post("/findings", agentAuth, async (req, res, next) => {
       title,
       detail,
       correlatesWithEventId: correlatesWithEventId || null,
+      correlatesWithEventType: correlatesWithEventType || null,
     });
     await recordToolCall({
       runId: decision.runId,
       actorId: decision.actorId,
+      traceId: decision.traceId,
+      taskId: decision.taskId,
       toolName: "create_finding",
       target: title,
       result: "ALLOW",

@@ -1,0 +1,8 @@
+Key             Value
+---             -----
+expire_time     2026-09-19T09:01:21.740261595Z
+id              database/creds/factory-bad-role/yONTjacnFcfjTXFHwZmfIw9C.lxmQH
+issue_time      2026-09-19T08:56:21.740261386Z
+last_renewal    <nil>
+renewable       true
+ttl             4m40s

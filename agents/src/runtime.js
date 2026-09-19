@@ -53,6 +53,10 @@ export async function startTaskRuntime(identity, { signal } = {}) {
 }
 
 async function handleTask(identity, taskId) {
+  // Wave 6: mints a JWT bound to this exact task before making any other
+  // backend call — the static per-agent token (config.agentToken) is
+  // used for nothing else from this point forward.
+  await backendClient.bootstrapToken();
   const task = await backendClient.getTask(taskId);
   if (!task) {
     console.error(
@@ -108,7 +112,7 @@ const TOOL_CALL_DISCIPLINE = `\n\nWhen you decide to use a tool (including deleg
 // "list"/"update"/"get" are too generic to trust alone.
 const DISTINCTIVE_STEMS = new Set(["delegate", "restart", "quarantine"]);
 
-function mentionsATool(text, toolNames) {
+export function mentionsATool(text, toolNames) {
   const lower = text.toLowerCase();
   return toolNames.some((name) => {
     if (lower.includes(name)) return true;
@@ -166,6 +170,7 @@ async function runLoop(identity, task) {
       console.log(
         `[${config.identity}] task ${task.taskId} stopped (no further tool call) after ${iteration} iteration(s): ${message.content}`,
       );
+      await reportCompletion(task.taskId);
       return;
     }
 
@@ -206,6 +211,40 @@ async function runLoop(identity, task) {
   console.log(
     `[${config.identity}] task ${task.taskId} hit AGENT_MAX_ITERATIONS (${config.maxIterations}) without stopping or delegating`,
   );
+  // Also a genuine terminal state for this agent's own involvement — no
+  // further iteration will happen, so a lingering credential is exactly
+  // the gap Prompt 01.02 Phase 2 closes, same as the natural-stop path.
+  await reportCompletion(task.taskId);
+}
+
+// Prompt 01.02 Phase 2: never called from the "delegated onward" return
+// path above — that one correctly means the task is still active, just
+// owned by the next agent now. A failure here is logged, not thrown —
+// a completion-report call itself failing must never crash the runtime
+// or mask the real outcome the agent already reached and logged above.
+//
+// Found live: a long-running task under slow local inference can
+// outlast the task-bound JWT bootstrapped at the START of handleTask()
+// (FACTORY_AGENT_JWT_TTL_SECONDS, independently of the database
+// credential's own renewal — Wave 2.5's renewal keeps the DB lease
+// alive, it does not touch this agent's own API identity token) — the
+// completion report itself then failed with "token expired," and the
+// credential it should have revoked was left for the next reset/
+// denial/switch to clean up instead. Re-bootstrapping immediately
+// before this specific call is cheap and precise: the backend's own
+// bootstrap check only cares whether the task is still active (it is,
+// right up until this call succeeds), not how old the previous token
+// was.
+async function reportCompletion(taskId) {
+  try {
+    await backendClient.bootstrapToken();
+    await backendClient.completeTask(taskId);
+  } catch (err) {
+    console.error(
+      `[${config.identity}] failed to report completion for task ${taskId}:`,
+      err.message,
+    );
+  }
 }
 
 async function executeTool(call, allowedToolNames, ctx) {

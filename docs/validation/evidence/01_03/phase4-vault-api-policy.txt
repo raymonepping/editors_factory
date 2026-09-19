@@ -1,0 +1,53 @@
+path "database/creds/factory-bad-role" {
+  capabilities = ["read"]
+}
+
+path "database/creds/factory-good-role" {
+  capabilities = ["read"]
+}
+
+# factory-api's own operational credential — evidence-table
+# bookkeeping and read-only product/order tool calls, unrelated to
+# the agent-c BAD/GOOD mechanism. Not gated by the
+# require-agent-c-for-db-creds Sentinel EGP (see that EGP's own
+# comment in terraform/vault-sentinel/main.tf).
+path "database/creds/factory-backend-role" {
+  capabilities = ["read"]
+}
+
+path "sys/leases/revoke" {
+  capabilities = ["update"]
+}
+
+path "sys/leases/revoke/*" {
+  capabilities = ["update"]
+}
+
+path "sys/leases/renew" {
+  capabilities = ["update"]
+}
+
+path "auth/token/revoke" {
+  capabilities = ["update"]
+}
+
+path "auth/token/revoke-accessor" {
+  capabilities = ["update"]
+}
+
+# Wave 2.5 (prompts/improvements/01_01_improvement.md): renews the
+# child token that requested a database credential, alongside
+# sys/leases/renew, so a long-running task's lease survives past its
+# original TTL — found live (a deliberately short test TTL) that
+# renew-accessor was never granted, since nothing needed it before
+# this wave; sys/leases/renew alone is not sufficient (see
+# backend/src/vault.js's renewTokenByAccessor comment for why).
+path "auth/token/renew-accessor" {
+  capabilities = ["update"]
+}
+
+# Required so factory-api can mint the short-lived, factory_agent=agent-c
+# -tagged child token scoped to specific role policies.
+path "auth/token/create" {
+  capabilities = ["create", "update"]
+}

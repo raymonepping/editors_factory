@@ -1,9 +1,11 @@
 import { Router } from "express";
-import { agentAuth, requireActor } from "../middleware/agentAuth.js";
+import { requireActor } from "../middleware/agentAuth.js";
+import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
 import { issueDatabaseCredential } from "../vault.js";
 import * as audit from "../audit.js";
 import * as state from "../state.js";
 import { checkAuthority, effectiveAuthorityFor } from "../policy.js";
+import { startCredentialRenewal } from "../services/revocation.js";
 
 export const credentialsRouter = Router();
 
@@ -15,7 +17,7 @@ export const credentialsRouter = Router();
  * other tool call goes through (so a DENY here produces an
  * authority_decisions row exactly like any other denial).
  */
-credentialsRouter.post("/credentials", agentAuth, async (req, res, next) => {
+credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
   try {
     const actorId = req.actorId;
     const profile = state.getProfile();
@@ -26,6 +28,7 @@ credentialsRouter.post("/credentials", agentAuth, async (req, res, next) => {
       requestedAction: "credential.request",
       effectiveAuthority,
     });
+    const { taskId, traceId } = state.getCausalContext(actorId);
 
     await audit.recordAuthorityDecision({
       runId,
@@ -33,6 +36,8 @@ credentialsRouter.post("/credentials", agentAuth, async (req, res, next) => {
       requestedAction: "credential.request",
       policyResult: decision.result,
       reason: decision.reason,
+      traceId,
+      taskId,
     });
 
     if (decision.result === "DENY") {
@@ -49,10 +54,18 @@ credentialsRouter.post("/credentials", agentAuth, async (req, res, next) => {
     const role = profile === "bad" ? "factory-bad-role" : "factory-good-role";
     const credential = await issueDatabaseCredential(role, actorId);
 
+    // taskId makes cleanupTaskCredentials' own ownership check real
+    // (services/revocation.js) — previously never set, so that check's
+    // "no taskId on record" branch always fired regardless of which
+    // task asked, which happened to be harmless under this demo's
+    // single-flow-at-a-time design but meant task-scoped revocation
+    // (Prompt 01.02 Phase 2) could not actually distinguish "this task's
+    // own credential" from "whatever credential happens to be active."
     state.setActiveAgentCCredential({
       ...credential,
       role,
       actorId,
+      taskId,
       tokenAccessor: credential.tokenAccessor,
       issuedAt: Date.now(),
     });
@@ -63,6 +76,18 @@ credentialsRouter.post("/credentials", agentAuth, async (req, res, next) => {
       vaultRole: role,
       leaseId: credential.leaseId,
       ttlSeconds: credential.leaseDuration,
+      traceId,
+      taskId,
+    });
+
+    // Wave 2.5: keep the lease alive if the task outlives its original
+    // TTL — never assumes the task will finish in time (see
+    // services/revocation.js's own comment on why this specific role's
+    // TTL is a real, not hypothetical, risk).
+    startCredentialRenewal({
+      leaseId: credential.leaseId,
+      ttlSeconds: credential.leaseDuration,
+      tokenAccessor: credential.tokenAccessor,
     });
 
     // The raw password never leaves the backend process — Agent C

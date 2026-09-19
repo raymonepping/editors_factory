@@ -1,0 +1,7 @@
+path "database/creds/factory-bad-role" {
+  capabilities = ["read"]
+}
+
+path "database/creds/factory-good-role" {
+  capabilities = ["read"]
+}

@@ -19,6 +19,117 @@ import type {
   TimelineEntry,
 } from '~/types/factory'
 
+// Prompt 01.02 Phase 3 (input/Codex_Feedback.md): the human-readable
+// causal story — "Raymon asked the question -> Agent A accepted it ->
+// ... -> Agent D warned about it" — reconstructed entirely from real
+// evidence already in `timeline`, never invented. A step is only ever
+// pushed once its underlying event has actually arrived (01_00's own
+// "no faked progress" rule extended here); BAD and GOOD diverge visibly
+// at whichever of the credential-authority / boundary-denial /
+// destructive-mutation / contained-mutation steps actually happened,
+// not from a hardcoded profile branch.
+export interface NarrativeStep {
+  id: string
+  text: string
+  tone: 'neutral' | 'info' | 'warning' | 'critical' | 'contained'
+}
+
+function deriveNarrative(entries: TimelineEntry[]): NarrativeStep[] {
+  const steps: NarrativeStep[] = []
+  const issuedSeen = new Set<string>()
+  const revokedSeen = new Set<string>()
+
+  for (const e of entries) {
+    if (e.type === 'audit_events' && e.action === 'task.created' && e.actor_id === 'agent-a') {
+      const who = e.delegated_by || 'An operator'
+      steps.push({ id: `ask-${e.event_id}`, text: `${who} asked the question`, tone: 'neutral' })
+      steps.push({ id: `accept-${e.event_id}`, text: 'Agent A accepted the task', tone: 'neutral' })
+    }
+
+    if (e.type === 'audit_events' && e.action === 'task.delegated') {
+      if (e.delegated_by === 'agent-a' && e.actor_id === 'agent-b') {
+        steps.push({ id: `del-ab-${e.event_id}`, text: 'Agent A delegated to Agent B', tone: 'neutral' })
+      }
+      if (e.delegated_by === 'agent-b' && e.actor_id === 'agent-c') {
+        steps.push({ id: `del-bc-${e.event_id}`, text: 'Agent B delegated to Agent C', tone: 'neutral' })
+      }
+    }
+
+    if (e.type === 'credential_events' && e.actor_id === 'agent-c') {
+      // GET /api/events/history returns ONE row per credential_event_id
+      // (the row's CURRENT state, ordered by issued_at) — it is not a
+      // per-transition log the way live SSE is, where issuance and
+      // revocation arrive as two separate messages. Found live: on a
+      // page reload after a run had already completed, an entry whose
+      // CONTENT was already revoked still only appeared once, at its
+      // issuance position — deriveNarrative only checked !e.revoked_at
+      // to decide whether to render "issued," so the revoked reload
+      // case rendered NEITHER "issued" NOR the right order, only
+      // "revoked" floating before the mutations that actually preceded
+      // it. Deciding "render issued" independently of revoked_at (only
+      // gated on "not already rendered for this id") fixes both paths:
+      // live SSE still renders issued then revoked as two arrivals;
+      // backfill of an already-revoked credential renders both, right
+      // here, adjacently — the best honest ordering this endpoint's own
+      // one-row-per-id shape allows.
+      if (!issuedSeen.has(e.credential_event_id)) {
+        issuedSeen.add(e.credential_event_id)
+        const overPrivileged = e.vault_role === 'factory-bad-role'
+        steps.push({
+          id: `cred-authority-${e.credential_event_id}`,
+          text: overPrivileged
+            ? 'Agent C received broad, over-privileged authority'
+            : 'Agent C received narrow, bounded authority',
+          tone: overPrivileged ? 'critical' : 'info',
+        })
+        steps.push({
+          id: `cred-issued-${e.credential_event_id}`,
+          text: "Vault issued Agent C's task-bound database credential",
+          tone: overPrivileged ? 'critical' : 'info',
+        })
+      }
+      if (e.revoked_at && e.revoked_reason === 'task_completed' && !revokedSeen.has(e.credential_event_id)) {
+        revokedSeen.add(e.credential_event_id)
+        steps.push({
+          id: `cred-revoked-${e.credential_event_id}`,
+          text: "Agent C's credential was revoked — task complete",
+          tone: 'neutral',
+        })
+      }
+    }
+
+    if (
+      e.type === 'authority_decisions' &&
+      e.actor_id === 'agent-c' &&
+      e.policy_result === 'DENY' &&
+      DESTRUCTIVE_ACTIONS.has(e.requested_action)
+    ) {
+      steps.push({ id: `deny-${e.decision_id}`, text: 'The authority boundary denied the request', tone: 'contained' })
+    }
+
+    if (e.type === 'database_changes' && e.actor_id === 'agent-c') {
+      const destructive = e.action === 'DELETE' || (e.action === 'UPDATE' && e.table_name === 'products')
+      if (destructive) {
+        steps.push({ id: `dmg-${e.change_id}`, text: 'Agent C caused the damage', tone: 'critical' })
+        steps.push({ id: `dmg-recorded-${e.change_id}`, text: 'PostgreSQL recorded the resulting change', tone: 'critical' })
+      } else if (e.action === 'UPDATE' && e.table_name === 'orders') {
+        steps.push({ id: `status-${e.change_id}`, text: 'Agent C updated order status', tone: 'neutral' })
+      }
+    }
+
+    if (e.type === 'findings' && e.actor_id === 'agent-d') {
+      const code = e.title.match(/^(D-\d+b?)/)?.[1]
+      if (code === 'D-005' || code === 'D-006') {
+        steps.push({ id: `finding-${e.finding_id}`, text: 'Agent D warned about it', tone: 'critical' })
+      } else if (code === 'D-007') {
+        steps.push({ id: `finding-${e.finding_id}`, text: 'Agent D confirmed containment', tone: 'contained' })
+      }
+    }
+  }
+
+  return steps
+}
+
 const CHAIN_ACTORS = ['agent-a', 'agent-b', 'agent-c'] as const
 type ChainActor = (typeof CHAIN_ACTORS)[number]
 
@@ -83,12 +194,17 @@ function resetChainState() {
   credentialEvents.clear()
 }
 
-// Agent-c has no explicit "I'm finished" signal (the agent runtime logs
-// this locally but the backend has no route for it yet — a real, known
-// gap, not an oversight — see agents/src/runtime.js). Inferring
-// completion from a quiet period after its last real event is a
-// legitimate technique (reacting to the absence of further activity),
-// distinct from faking progress with a fixed-duration timer.
+// Agent-c DOES now have an explicit completion signal (Prompt 01.02
+// Phase 2, agents/src/runtime.js -> POST /api/tasks/:taskId/complete) —
+// but it doesn't itself publish an SSE event. Its real, visible effect
+// is the credential_events row it triggers (revoked_reason=
+// 'task_completed', handled directly in applyEntry below), which DOES
+// publish. This timer stays as a fallback for the path that signal
+// can't cover: agent-c stopping WITHOUT ever having requested a
+// credential (nothing to revoke, so no credential_events row exists to
+// react to) — inferring completion from a quiet period after its last
+// real event in that specific case only, not faking progress with a
+// fixed-duration timer.
 function armDoneTimer() {
   if (doneTimer) clearTimeout(doneTimer)
   doneTimer = setTimeout(() => {
@@ -97,6 +213,20 @@ function armDoneTimer() {
 }
 
 function applyEntry(entry: TimelineEntry, { fromHistory = false } = {}) {
+  // A live task.created always starts a fresh timeline, not only an
+  // explicit Reset click — found live (Prompt 01.02 Phase 3 verification
+  // with a real browser session): resetLocalState() clears the client
+  // array immediately on the Reset button, but a still-in-flight
+  // previous run's own agent containers can keep producing real events
+  // for a few more seconds; those arrived after the clear and silently
+  // repopulated the "story" with a mix of two different runs' steps.
+  // Self-healing this at the one event that unambiguously means "a
+  // genuinely new run has begun" is more robust than trying to win a
+  // timing race on the Reset button alone.
+  if (!fromHistory && entry.type === 'audit_events' && entry.action === 'task.created' && entry.actor_id === 'agent-a') {
+    timeline.value = []
+    findings.value = []
+  }
   if (!fromHistory) timeline.value.push(entry)
 
   if (entry.type === 'audit_events') {
@@ -129,6 +259,10 @@ function applyEntry(entry: TimelineEntry, { fromHistory = false } = {}) {
     if (entry.vault_role === 'factory-bad-role' && !entry.revoked_at) {
       amplificationEventId.value = entry.credential_event_id
       if (nodeStatus['agent-c'] !== 'done') nodeStatus['agent-c'] = 'acting'
+    }
+    if (entry.revoked_at && entry.revoked_reason === 'task_completed') {
+      if (doneTimer) clearTimeout(doneTimer)
+      nodeStatus['agent-c'] = 'done'
     }
   }
 
@@ -226,6 +360,8 @@ export function useEventStream() {
     ),
   )
 
+  const narrativeSteps = computed(() => deriveNarrative(timeline.value))
+
   return {
     connected,
     timeline,
@@ -237,6 +373,7 @@ export function useEventStream() {
     nodeStatus,
     amplificationEventId,
     credentialLedger,
+    narrativeSteps,
     refreshAuthority,
     refreshFactoryState,
     setDemoModeLocal: (mode: DemoMode) => { demoMode.value = mode },

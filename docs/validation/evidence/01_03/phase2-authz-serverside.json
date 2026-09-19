@@ -1,0 +1,8 @@
+{
+  "viewer_reset_status": 403,
+  "viewer_profile_switch_status": 403,
+  "viewer_task_creation_status": 403,
+  "viewer_telemetry_status": 200,
+  "after_logout_me_status": 401,
+  "after_logout_reset_status": 401
+}

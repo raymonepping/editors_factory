@@ -157,6 +157,25 @@ export async function renewLease(leaseId, incrementSeconds = 120) {
   });
 }
 
+/**
+ * Renews the CHILD TOKEN that originally requested a credential, by
+ * accessor. Necessary alongside renewLease(), not instead of it —
+ * mintAgentTaggedChildToken()'s own comment documents that a lease is
+ * revoked when the child token that created it expires, regardless of
+ * the lease's own TTL; renewing only the lease without also renewing the
+ * token that owns it would silently stop working the moment the child
+ * token's original TTL elapses. Confirmed by direct testing (Wave 2.5,
+ * a deliberately short test TTL) rather than assumed from Vault's docs
+ * alone, matching this file's own established discipline.
+ */
+export async function renewTokenByAccessor(accessor, incrementSeconds = 120) {
+  const parentToken = await readAgentToken();
+  return await vaultRequest("PUT", "auth/token/renew-accessor", {
+    token: parentToken,
+    body: { accessor, increment: `${incrementSeconds}s` },
+  });
+}
+
 /** Revokes one lease by its exact lease_id. Treats 400/404 as already-revoked. */
 export async function revokeLease(leaseId) {
   try {

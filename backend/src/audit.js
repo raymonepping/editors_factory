@@ -36,6 +36,8 @@ export async function recordAuditEvent(event) {
     parentTaskId = null,
     actorId,
     delegatedBy = null,
+    humanSubjectId = null,
+    delegationId = null,
     delegationDepth = 0,
     requestedAuthority = null,
     effectiveAuthority = null,
@@ -49,9 +51,10 @@ export async function recordAuditEvent(event) {
   const { rows } = await getPool().query(
     `INSERT INTO audit_events
        (run_id, trace_id, task_id, parent_task_id, actor_id, delegated_by,
-        delegation_depth, requested_authority, effective_authority,
+        human_subject_id, delegation_id, delegation_depth,
+        requested_authority, effective_authority,
         credential_id, tool_name, target, action, result, rows_affected)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING *`,
     [
       runId,
@@ -60,6 +63,8 @@ export async function recordAuditEvent(event) {
       parentTaskId,
       actorId,
       delegatedBy,
+      humanSubjectId,
+      delegationId,
       delegationDepth,
       requestedAuthority,
       effectiveAuthority,
@@ -97,11 +102,13 @@ export async function recordAuthorityDecision({
   requestedAction,
   policyResult,
   reason = null,
+  traceId = null,
+  taskId = null,
 }) {
   const { rows } = await getPool().query(
-    `INSERT INTO authority_decisions (run_id, actor_id, requested_action, policy_result, reason)
-     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [runId, actorId, requestedAction, policyResult, reason],
+    `INSERT INTO authority_decisions (run_id, actor_id, requested_action, policy_result, reason, trace_id, task_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [runId, actorId, requestedAction, policyResult, reason, traceId, taskId],
   );
   publishEvent("authority_decisions", rows[0]);
   return rows[0];
@@ -113,17 +120,19 @@ export async function recordCredentialEvent({
   vaultRole,
   leaseId,
   ttlSeconds,
+  traceId = null,
+  taskId = null,
 }) {
   const { rows } = await getPool().query(
-    `INSERT INTO credential_events (run_id, actor_id, vault_role, lease_id, ttl_seconds)
-     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [runId, actorId, vaultRole, leaseId, ttlSeconds],
+    `INSERT INTO credential_events (run_id, actor_id, vault_role, lease_id, ttl_seconds, trace_id, task_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [runId, actorId, vaultRole, leaseId, ttlSeconds, traceId, taskId],
   );
   publishEvent("credential_events", rows[0]);
   return rows[0];
 }
 
-export async function markCredentialRevoked(leaseId) {
+export async function markCredentialRevoked(leaseId, reason = null) {
   // Found live executing prompts/agents/05_01_agent_d_detection.md:
   // this update had no publishEvent call, so a revoked credential was
   // invisible to the live SSE stream entirely — Agent D's D-008 signal
@@ -131,10 +140,22 @@ export async function markCredentialRevoked(leaseId) {
   // same publishEvent('credential_events', row) every other write to
   // this table already does.
   const { rows } = await getPool().query(
-    `UPDATE credential_events SET revoked_at = now() WHERE lease_id = $1 RETURNING *`,
+    `UPDATE credential_events SET revoked_at = now(), revoked_reason = $2 WHERE lease_id = $1 RETURNING *`,
+    [leaseId, reason],
+  );
+  if (rows[0]) publishEvent("credential_events", rows[0]);
+}
+
+export async function markCredentialRenewed(leaseId) {
+  const { rows } = await getPool().query(
+    `UPDATE credential_events
+        SET renewal_count = renewal_count + 1, last_renewed_at = now()
+      WHERE lease_id = $1 AND revoked_at IS NULL
+      RETURNING *`,
     [leaseId],
   );
   if (rows[0]) publishEvent("credential_events", rows[0]);
+  return rows[0] || null;
 }
 
 export async function getUnrevokedLeases(runId) {
@@ -153,10 +174,12 @@ export async function recordDatabaseChange({
   before = null,
   after = null,
   rowsAffected,
+  traceId = null,
+  taskId = null,
 }) {
   const { rows } = await getPool().query(
-    `INSERT INTO database_changes (run_id, actor_id, table_name, action, before, after, rows_affected)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    `INSERT INTO database_changes (run_id, actor_id, table_name, action, before, after, rows_affected, trace_id, task_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
     [
       runId,
       actorId,
@@ -165,6 +188,8 @@ export async function recordDatabaseChange({
       before ? JSON.stringify(before) : null,
       after ? JSON.stringify(after) : null,
       rowsAffected,
+      traceId,
+      taskId,
     ],
   );
   publishEvent("database_changes", rows[0]);
@@ -178,11 +203,20 @@ export async function recordFinding({
   title,
   detail = null,
   correlatesWithEventId = null,
+  correlatesWithEventType = null,
 }) {
   const { rows } = await getPool().query(
-    `INSERT INTO findings (run_id, actor_id, severity, title, detail, correlates_with_event_id)
-     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [runId, actorId, severity, title, detail, correlatesWithEventId],
+    `INSERT INTO findings (run_id, actor_id, severity, title, detail, correlates_with_event_id, correlates_with_event_type)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [
+      runId,
+      actorId,
+      severity,
+      title,
+      detail,
+      correlatesWithEventId,
+      correlatesWithEventType,
+    ],
   );
   publishEvent("findings", rows[0]);
   return rows[0];

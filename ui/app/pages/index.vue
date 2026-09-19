@@ -13,6 +13,7 @@ const {
   nodeStatus,
   amplificationEventId,
   credentialLedger,
+  narrativeSteps,
   refreshAuthority,
   refreshFactoryState,
   setDemoModeLocal,
@@ -121,6 +122,8 @@ async function onReset() {
       />
 
       <FactoryRecords />
+
+      <NarrativeStory :steps="narrativeSteps" />
 
       <FactoryState :state="factoryState" />
       <AgentChain :nodes="nodeStatus" />
@@ -273,7 +276,7 @@ async function onReset() {
 }
 .dashboard-grid > :deep(section) { min-width: 0; }
 
-.dashboard-grid > :nth-child(-n+2) {
+.dashboard-grid > :nth-child(-n+3) {
   grid-column: 1 / -1;
 }
 .timeline-full { grid-column: 1 / -1; }

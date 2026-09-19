@@ -22,6 +22,17 @@ services:
     image: factory-api:local
     container_name: factory-api
     hostname: api
+    # Wave 5 hardening (prompts/improvements/01_01_improvement.md) — same
+    # pattern as compose/agents/compose.yaml and the vault-agent service
+    # this was originally proven on. factory-api's only local filesystem
+    # interaction is reading the read-only vault-agent-secrets mount
+    # below (backend/src/vault.js's readAgentToken()); it writes nothing
+    # to disk, so /tmp is the only tmpfs path needed.
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp]
     environment:
       PORT: "3001"
       VAULT_ADDR: "https://vault-1:8200"
@@ -36,7 +47,9 @@ services:
       AGENT_B_TOKEN: "${AGENT_B_TOKEN}"
       AGENT_C_TOKEN: "${AGENT_C_TOKEN}"
       AGENT_D_TOKEN: "${AGENT_D_TOKEN}"
+      FACTORY_AGENT_JWT_SECRET: "${FACTORY_AGENT_JWT_SECRET}"
       FACTORY_AUTH_ENABLED: "${FACTORY_AUTH_ENABLED:-true}"
+      FACTORY_CLI_OPERATOR_TOKEN: "${FACTORY_CLI_OPERATOR_TOKEN}"
       FACTORY_OIDC_ENABLED: "${FACTORY_OIDC_ENABLED:-true}"
       KEYCLOAK_ISSUER_URL: "${KEYCLOAK_ISSUER_URL:-http://keycloak:8080/realms/factory}"
       KEYCLOAK_PUBLIC_ISSUER_URL: "${KEYCLOAK_PUBLIC_ISSUER_URL:-http://localhost:8088/realms/factory}"

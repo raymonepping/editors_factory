@@ -6,4 +6,9 @@ description = "global allowlist"
 paths = [
   "CHANGELOG.md",
   ".gitleaks.toml",
+  # False positive: "credential_event_id" is a Postgres primary-key UUID
+  # (internal row id for the credential_events evidence table), not a
+  # secret — gitleaks' generic-api-key rule matches on the "credential"
+  # keyword plus the UUID's entropy, not on any real bearer value.
+  "docs/validation/evidence/01_03/phase4-app-credential-evidence.json",
 ]

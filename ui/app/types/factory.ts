@@ -15,6 +15,8 @@ export interface AuditEvent {
   parent_task_id: string | null
   actor_id: string
   delegated_by: string | null
+  human_subject_id: string | null
+  delegation_id: string | null
   delegation_depth: number
   requested_authority: string | null
   effective_authority: string | null
@@ -46,6 +48,9 @@ export interface CredentialEvent {
   issued_at: string
   ttl_seconds: number | null
   revoked_at: string | null
+  revoked_reason: string | null
+  renewal_count: number
+  last_renewed_at: string | null
 }
 
 export interface DatabaseChange {

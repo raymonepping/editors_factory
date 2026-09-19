@@ -111,7 +111,16 @@ resource "vault_database_secret_backend_role" "factory_good_role" {
   ]
 
   default_ttl = "120" # 2m
-  max_ttl     = "120" # 2m
+  # Wave 2.5 (prompts/improvements/01_01_improvement.md): max_ttl used to
+  # equal default_ttl (120/120) — zero headroom, so Vault could never
+  # actually grant a renewal past the original lease no matter what the
+  # backend requested (found live testing backend/src/services/
+  # revocation.js's new startCredentialRenewal against this role: every
+  # renew call returned success but the reported lease_duration never
+  # moved past 120s). 600s gives real renewal room while staying well
+  # under BAD's 1800s ceiling — GOOD's total possible lifetime stays
+  # short relative to BAD's, matching the intended narrower profile.
+  max_ttl = "600" # 10m
 }
 
 # factory-api's OWN operational credential — not part of the BAD/GOOD

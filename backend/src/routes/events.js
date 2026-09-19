@@ -38,6 +38,21 @@ eventsRouter.get("/events/history", async (req, res, next) => {
   try {
     const runId = req.query.run_id || state.getCurrentRunId();
     if (!runId) return res.json([]);
+    // credential_events is a real mutable row (issued, maybe renewed,
+    // maybe revoked), not an append-only log the way every other
+    // evidence table is — a plain SELECT here returns each credential
+    // exactly once, at its issued_at position, showing whatever its
+    // CURRENT state happens to be. Found live (Prompt 01.02 Phase 3,
+    // narrative view): for an already-revoked credential, that put the
+    // single row at its issuance timestamp but with revoked content —
+    // the frontend rendered a "revoked" step floating before mutations
+    // that actually preceded the real revocation, with no "issued" step
+    // at all. Projected here as up to two rows instead, matching what
+    // live SSE already sends as two separate messages (src/audit.js's
+    // recordCredentialEvent then markCredentialRevoked, each its own
+    // publishEvent call): an "issued" snapshot at issued_at with the
+    // revoked fields nulled, and — only if actually revoked — a second,
+    // full snapshot at revoked_at.
     const { rows } = await getPool().query(
       `SELECT 'audit_events' AS type, "timestamp" AS ts, to_jsonb(audit_events) AS payload
          FROM audit_events WHERE run_id = $1
@@ -45,8 +60,12 @@ eventsRouter.get("/events/history", async (req, res, next) => {
        SELECT 'authority_decisions', "timestamp", to_jsonb(authority_decisions)
          FROM authority_decisions WHERE run_id = $1
        UNION ALL
-       SELECT 'credential_events', issued_at, to_jsonb(credential_events)
+       SELECT 'credential_events', issued_at,
+         to_jsonb(credential_events) || jsonb_build_object('revoked_at', null, 'revoked_reason', null)
          FROM credential_events WHERE run_id = $1
+       UNION ALL
+       SELECT 'credential_events', revoked_at, to_jsonb(credential_events)
+         FROM credential_events WHERE run_id = $1 AND revoked_at IS NOT NULL
        UNION ALL
        SELECT 'database_changes', "timestamp", to_jsonb(database_changes)
          FROM database_changes WHERE run_id = $1

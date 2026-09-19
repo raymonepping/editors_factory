@@ -1,0 +1,62 @@
+
+> factory-api@0.1.0 test
+> node --test --test-concurrency=1
+
+▶ agent-identity: JWT bootstrap and verification boundaries
+  ✔ bootstrap rejects a wrong static token (4.161ms)
+  ✔ bootstrap rejects an agent with no active task (1.387458ms)
+  ✔ a real task-bound JWT authenticates a tool call (11.314041ms)
+  ✔ the static token no longer works on an ordinary tool route (Wave 6's central claim) (1.83475ms)
+  ✔ a malformed JWT is rejected (1.352959ms)
+  ✔ a JWT with a tampered signature is rejected (6.750167ms)
+  ✔ a token bound to agent-a cannot call an agent-c-only route (policy still enforces identity) (6.703292ms)
+  ✖ a JWT stops working the instant its task is cleared (reset) — structural revocation (13.344833ms)
+✖ agent-identity: JWT bootstrap and verification boundaries (96.928542ms)
+▶ delegation and credential boundaries
+  ✔ POST /api/delegations with no auth -> 401 (4.864583ms)
+  ✔ agent-a's own JWT can reach /api/delegations as its own identity (route is authenticated, not yet policy-checked here) (9.902958ms)
+  ✔ agent-c has no path to /api/delegations at all without an active task of its own (2.258166ms)
+  ✔ agent-a may not request a database credential -> 403 (10.664583ms)
+  ✔ POST /api/credentials with no auth -> 401 (2.559333ms)
+✔ delegation and credential boundaries (74.985584ms)
+✔ test/helpers/env.js (82.457542ms)
+▶ human-boundary: demo-control routes reject unauthenticated and forged requests
+  ✔ POST /api/demo/reset with no auth -> 401 (61.675542ms)
+  ✔ POST /api/demo/reset with a forged Bearer token -> 401 (14.09425ms)
+  ✔ POST /api/demo/reset with the wrong CLI token -> 401 (20.746416ms)
+  ✔ PUT /api/demo/mode with no auth -> 401 (13.800292ms)
+  ✔ PUT /api/demo/mode with a forged Bearer token -> 401 (5.660917ms)
+  ✔ PUT /api/demo/mode with the wrong CLI token -> 401 (3.737834ms)
+  ✔ POST /api/agents/agent-a/tasks with no auth -> 401 (3.51775ms)
+  ✔ POST /api/agents/agent-a/tasks with a forged Bearer token -> 401 (4.122ms)
+  ✔ POST /api/agents/agent-a/tasks with the wrong CLI token -> 401 (4.449583ms)
+  ✔ POST /api/demo/reset with the real CLI token succeeds (22.6165ms)
+✔ human-boundary: demo-control routes reject unauthenticated and forged requests (156.065834ms)
+ℹ tests 24
+ℹ suites 3
+ℹ pass 23
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 700.311875
+
+✖ failing tests:
+
+test at test/agent-identity.test.js:122:3
+✖ a JWT stops working the instant its task is cleared (reset) — structural revocation (13.344833ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  500 !== 200
+  
+      at TestContext.<anonymous> (file:///Users/raymon.epping/Documents/VSC/HashiCorp/editors_factory/backend/test/agent-identity.test.js:144:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

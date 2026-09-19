@@ -48,6 +48,17 @@ resource "vault_policy" "factory_api" {
       capabilities = ["update"]
     }
 
+    # Wave 2.5 (prompts/improvements/01_01_improvement.md): renews the
+    # child token that requested a database credential, alongside
+    # sys/leases/renew, so a long-running task's lease survives past its
+    # original TTL — found live (a deliberately short test TTL) that
+    # renew-accessor was never granted, since nothing needed it before
+    # this wave; sys/leases/renew alone is not sufficient (see
+    # backend/src/vault.js's renewTokenByAccessor comment for why).
+    path "auth/token/renew-accessor" {
+      capabilities = ["update"]
+    }
+
     # Required so factory-api can mint the short-lived, factory_agent=agent-c
     # -tagged child token scoped to specific role policies.
     path "auth/token/create" {

@@ -20,6 +20,31 @@ export const config = {
 
   auth: {
     enabled: authEnabled,
+    // Shared secret for the Makefile's own curl-based demo commands
+    // (make demo-bad/demo-good/reset) — a third identity domain distinct
+    // from per-agent tokens and human OIDC sessions (auth/index.js's
+    // requireHumanSession). null when unset: the CLI-token bypass simply
+    // never matches, so a request without a real session still gets a
+    // real 401 instead of silently falling back to an implicit identity.
+    cliOperatorToken: optional("FACTORY_CLI_OPERATOR_TOKEN", null),
+    // Wave 6 (ADR docs/validation/ADR_001_agent_api_identity.md): signs
+    // and verifies the short-lived, task-bound JWT that replaces a
+    // static bearer token as an agent's per-call credential. Required,
+    // like the agent tokens below — this is now the enforced mechanism,
+    // not an optional hardening layer.
+    agentJwtSecret: required("FACTORY_AGENT_JWT_SECRET"),
+    // Prompt 01.02 Phase 5, found live: this defaulted to 300, exactly
+    // equal to AGENT_TASK_TIMEOUT_MS's own 300000ms default — a task
+    // bootstraps its JWT at the same moment its timeout clock starts, so
+    // an equal TTL meant the two raced with zero margin. A task running
+    // anywhere close to its own timeout under this environment's slow
+    // CPU-only inference hit real 401s on its OWN in-flight tool calls
+    // (not just the final completion report) once the JWT won that race
+    // first — the agent's own transcript narrated it as "the credential
+    // has expired," accurately describing the symptom. 900s gives
+    // comfortable headroom over the 300s task timeout, which now always
+    // kills a genuinely stuck task first.
+    agentJwtTtlSeconds: Number(optional("FACTORY_AGENT_JWT_TTL_SECONDS", "900")),
   },
 
   oidc: {

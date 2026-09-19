@@ -5,6 +5,8 @@ import * as state from "../state.js";
 import { effectiveAuthorityFor } from "../policy.js";
 import { requireHumanSession } from "../auth/index.js";
 import { requireRole } from "../auth/authorize.js";
+import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
+import { cleanupTaskCredentials } from "../services/revocation.js";
 
 export const tasksRouter = Router();
 
@@ -49,6 +51,11 @@ tasksRouter.post(
       );
 
       const humanUser = req.identity?.user || "human";
+      // Prompt 01.02 Phase 1: stable identity for the root task's own
+      // evidence row, distinct from the display name above — null for
+      // every identity domain that isn't a real Keycloak session
+      // (disabled-auth demo mode, the CLI operator token), by design.
+      const humanSubjectId = req.identity?.subjectId ?? null;
 
       state.createTask({
         taskId,
@@ -67,6 +74,7 @@ tasksRouter.post(
         taskId,
         actorId: "agent-a",
         delegatedBy: humanUser,
+        humanSubjectId,
         delegationDepth: 1,
         requestedAuthority: null,
         effectiveAuthority: effectiveAuthority.join(","),
@@ -95,5 +103,44 @@ tasksRouter.get("/tasks/:taskId", requireHumanSession, (req, res) => {
   if (!task) return res.status(404).json({ error: "not found" });
   res.json(task);
 });
+
+/**
+ * Prompt 01.02 Phase 2 (input/Codex_Feedback.md): agents/src/runtime.js
+ * calls this the moment its own runLoop reaches a genuine terminal state
+ * for a task — never on the "delegated onward" path, where the task is
+ * correctly still active, just owned by the next agent. Closes a real
+ * gap: before this, nothing told the backend a task's work was actually
+ * over, so a successfully-completed BAD run's credential stayed active
+ * until the next reset/profile-switch/denial, not revoked at the moment
+ * the work that justified it ended.
+ *
+ * agentJwtAuth already guarantees req.taskId is this exact agent's own
+ * active task (or the request would have already 401'd) — the route
+ * param is checked against it anyway, defensively, rather than trusted
+ * on its own.
+ */
+tasksRouter.post(
+  "/tasks/:taskId/complete",
+  agentJwtAuth,
+  async (req, res, next) => {
+    try {
+      if (req.taskId !== req.params.taskId) {
+        return res.status(403).json({
+          error: "token is not bound to the task named in the URL",
+        });
+      }
+      const task = state.completeTask(req.params.taskId);
+      if (!task) {
+        return res.status(404).json({ error: "not found" });
+      }
+      if (req.actorId === "agent-c") {
+        await cleanupTaskCredentials(req.params.taskId, "task_completed");
+      }
+      res.json({ completed: true, taskId: req.params.taskId });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export { DELEGATION_DEPTH };

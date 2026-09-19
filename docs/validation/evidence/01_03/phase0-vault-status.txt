@@ -1,0 +1,7 @@
+vault-s: initialized=true sealed=false seal=shamir version=2.1.0+ent
+vault-1: initialized=true sealed=false seal=transit version=2.1.0+ent
+vault-2: initialized=true sealed=false seal=transit version=2.1.0+ent
+vault-3: initialized=true sealed=false seal=transit version=2.1.0+ent
+  vault-1: leader=false voter=true
+  vault-2: leader=false voter=true
+  vault-3: leader=true voter=true

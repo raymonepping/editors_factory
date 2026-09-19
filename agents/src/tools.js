@@ -354,6 +354,15 @@ export const TOOLS = {
             title: { type: "string" },
             detail: { type: "string" },
             correlates_with_event_id: { type: "string" },
+            correlates_with_event_type: {
+              type: "string",
+              enum: [
+                "audit_events",
+                "authority_decisions",
+                "credential_events",
+                "database_changes",
+              ],
+            },
           },
           required: ["severity", "title"],
         },
@@ -365,6 +374,7 @@ export const TOOLS = {
         title: args.title,
         detail: args.detail,
         correlatesWithEventId: args.correlates_with_event_id,
+        correlatesWithEventType: args.correlates_with_event_type,
       }),
   },
 };

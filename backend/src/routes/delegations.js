@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import { agentAuth } from "../middleware/agentAuth.js";
+import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
 import * as audit from "../audit.js";
 import * as state from "../state.js";
 import { effectiveAuthorityFor, intersectEnvelope } from "../policy.js";
@@ -17,7 +17,7 @@ const ALLOWED_DELEGATIONS = { "agent-a": "agent-b", "agent-b": "agent-c" };
  * authority, never allowed to grow across the hop
  * (prompts/backend/01_01_orchestrator_api.md).
  */
-delegationsRouter.post("/delegations", agentAuth, async (req, res, next) => {
+delegationsRouter.post("/delegations", agentJwtAuth, async (req, res, next) => {
   try {
     const fromActor = req.actorId;
     const toActor = ALLOWED_DELEGATIONS[fromActor];
@@ -65,7 +65,15 @@ delegationsRouter.post("/delegations", agentAuth, async (req, res, next) => {
         ? toActorCeiling
         : intersectEnvelope(authorityEnvelope, toActorCeiling);
 
-    const traceId = randomUUID();
+    // Wave 4: the delegating actor's own active task is this delegation's
+    // real parent — propagate its trace_id rather than minting a fresh
+    // one, so the whole human-triggered run keeps ONE trace_id from
+    // task.created through every hop, the credential it requests, and
+    // the database mutation it causes (found live: this used to generate
+    // a brand-new trace_id/parent_task_id=null at every single hop,
+    // making trace_id useless for reconstructing a chain).
+    const parentContext = state.getCausalContext(fromActor);
+    const traceId = parentContext.traceId ?? randomUUID();
     const taskId = randomUUID();
     const depth = DELEGATION_DEPTH[toActor];
 
@@ -76,7 +84,7 @@ delegationsRouter.post("/delegations", agentAuth, async (req, res, next) => {
       delegationDepth: depth,
       effectiveAuthority,
       traceId,
-      parentTaskId: null,
+      parentTaskId: parentContext.taskId,
       goal,
     });
 
@@ -92,8 +100,10 @@ delegationsRouter.post("/delegations", agentAuth, async (req, res, next) => {
       runId,
       traceId,
       taskId,
+      parentTaskId: parentContext.taskId,
       actorId: toActor,
       delegatedBy: fromActor,
+      delegationId: delegation.delegation_id,
       delegationDepth: depth,
       requestedAuthority: authorityEnvelope.join(","),
       effectiveAuthority: effectiveAuthority.join(","),

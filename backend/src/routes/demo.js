@@ -58,9 +58,15 @@ demoRouter.post(
         await audit.endRun(runId, "reset");
       }
 
+      // audit_events must be cleared before delegations — Prompt 01.02
+      // Phase 1 added audit_events.delegation_id, a real FK to
+      // delegations(delegation_id), so a referencing audit_events row
+      // now blocks deleting its delegation first (found live: this
+      // order used to be delegations-then-audit_events, which worked
+      // only because nothing referenced delegations by id yet).
       await getPool().query(
         `DELETE FROM findings; DELETE FROM database_changes; DELETE FROM credential_events;
-         DELETE FROM authority_decisions; DELETE FROM delegations; DELETE FROM audit_events;
+         DELETE FROM authority_decisions; DELETE FROM audit_events; DELETE FROM delegations;
          DELETE FROM demo_runs;`,
       );
 

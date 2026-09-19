@@ -32,6 +32,26 @@ function formatTtl(seconds: number): string {
 function roleTone(role: string): 'critical' | 'ok' {
   return role === 'factory-bad-role' ? 'critical' : 'ok'
 }
+
+// Prompt 01.02 Phase 4 (input/Codex_Feedback.md): renewal and revocation
+// reason were already real, audited data (Wave 2.5 / Phase 2) but never
+// rendered anywhere — visible only via podman logs or a direct SQL
+// query. This is a rendering gap, not a new backend capability.
+// Exact reason strings from backend/src/services/revocation.js's real
+// call sites (routes/actions.js, tasks.js, demo.js, index.js) — kept in
+// sync with those, not guessed.
+const REVOKED_LABEL: Record<string, string> = {
+  task_completed: 'Revoked — task complete',
+  policy_denial_containment: 'Revoked — denied',
+  profile_switch: 'Revoked — profile switch',
+  reset: 'Revoked — reset',
+  startup_recovery: 'Revoked — startup recovery',
+}
+
+function revokedLabel(c: CredentialEvent): string {
+  if (!c.revoked_at) return 'Active'
+  return (c.revoked_reason && REVOKED_LABEL[c.revoked_reason]) || 'Revoked'
+}
 </script>
 
 <template>
@@ -59,15 +79,19 @@ function roleTone(role: string): 'critical' | 'ok' {
           :style="{ width: `${active.ttl_seconds ? Math.min(100, ((secondsLeft(active) ?? 0) / active.ttl_seconds) * 100) : 0}%` }"
         />
       </div>
+      <div v-if="active.renewal_count > 0" class="ledger-renewal">
+        Renewed {{ active.renewal_count }}×<template v-if="active.last_renewed_at">, last {{ formatTtl(Math.max(0, Math.round((now - new Date(active.last_renewed_at).getTime()) / 1000))) }} ago</template>
+      </div>
     </div>
     <div v-else class="ledger-empty">No active credential — Agent C has not requested one this run.</div>
 
     <ul class="ledger-history">
       <li v-for="c in history" :key="c.credential_event_id" class="ledger-row">
         <span class="mono ledger-row-role">{{ c.vault_role }}</span>
+        <span v-if="c.renewal_count > 0" class="ledger-row-renewals mono">×{{ c.renewal_count }}</span>
         <span class="ledger-row-actor">{{ c.actor_id }}</span>
         <span class="state-pill" :class="c.revoked_at ? 'tone-neutral' : `tone-${roleTone(c.vault_role)}`">
-          {{ c.revoked_at ? 'Revoked' : 'Active' }}
+          {{ revokedLabel(c) }}
         </span>
       </li>
       <li v-if="!history.length" class="ledger-empty">No credentials issued yet.</li>
@@ -102,6 +126,12 @@ function roleTone(role: string): 'critical' | 'ok' {
 }
 .ledger-active.tone-critical .ttl-bar-fill { background: var(--color-state-critical); }
 
+.ledger-renewal {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--color-accent-info);
+}
+
 .ledger-history {
   list-style: none;
   margin: 0;
@@ -120,6 +150,7 @@ function roleTone(role: string): 'critical' | 'ok' {
   font-size: 12px;
 }
 .ledger-row-role { color: var(--color-text-secondary); }
+.ledger-row-renewals { color: var(--color-accent-info); font-size: 10px; }
 .ledger-row-actor { color: var(--color-text-muted); flex: 1; text-align: right; margin-right: 8px; }
 
 .ledger-empty { color: var(--color-text-muted); font-size: 12px; padding: var(--pad-dense) var(--pad-panel); }

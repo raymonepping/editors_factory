@@ -8,14 +8,20 @@ This document tracks the verified findings from `Codex_Validation.md` and `Navi_
 
 | Wave | Domain | Status | Target Phase |
 | :--- | :--- | :---: | :--- |
-| **Wave 7** | **Human AuthN & AuthZ (OpenLDAP + Keycloak)** | **COMPLETED** | Current Cycle |
+| **Wave 7** | **Human AuthN & AuthZ (OpenLDAP + Keycloak)** | **COMPLETED, with a fix** | Current Cycle |
 | **Wave 1** | **Stale Security Documentation & Claim Realignment** | **COMPLETED** | Roadmap Phase 1 |
-| **Wave 2** | **Credential & Dynamic Lease Lifecycle Management** | **COMPLETED** | Roadmap Phase 2 |
+| **Wave 2** | **Credential & Dynamic Lease Lifecycle Management** | **COMPLETED, with a fix** | Roadmap Phase 2 |
 | **Wave 3** | **Token Scope Narrowing & Task-Bounded TTLs** | **COMPLETED** | Roadmap Phase 2 |
-| **Wave 4** | End-to-End Causal Tracing Linkage | **PLANNED** | Roadmap Phase 3 |
-| **Wave 5** | Agent Container Confinement & Hardening | **PLANNED** | Roadmap Phase 3 |
-| **Wave 6** | Agent API Identity (Short-Lived Task-Bound Tokens) | **PLANNED** | Roadmap Phase 4 |
-| **Wave 8** | Adversarial Boundaries & Invariant Verification | **PLANNED** | Roadmap Phase 4 |
+| **Wave 4** | End-to-End Causal Tracing Linkage | **COMPLETED** | Roadmap Phase 3 |
+| **Wave 5** | Agent Container Confinement & Hardening | **COMPLETED** | Roadmap Phase 3 |
+| **Wave 6** | Agent API Identity (Short-Lived Task-Bound Tokens) | **COMPLETED** | Roadmap Phase 4 |
+| **Wave 8** | Adversarial Boundaries & Invariant Verification | **COMPLETED** | Roadmap Phase 4 |
+
+This roadmap's "COMPLETED" rows for Waves 1–3 and 7 were written by an earlier pass. A follow-up pass verified them directly against the running system rather than trusting the label — see `IMPROVEMENT_REPORT.md` for what that verification actually found, including a live authorization bypass in Wave 7 and an unused credential-renewal function from Wave 2, both fixed. Waves 4, 5, 6, and 8 below were implemented and verified live in that same follow-up pass.
+
+## 1.1 Prompt 01.02 (`prompts/improvements/01_02_improvement.md`)
+
+A second follow-up pass, prompted by `input/Codex_Feedback.md`'s review of the demo's presentation readiness rather than a new technical wave. Added: a stable human-subject identity and real delegation linkage in the evidence trail (Phase 1); task-completion-triggered credential revocation, closing a gap the original Wave 2 left open (Phase 2); a dashboard narrative view reconstructing the human-readable BAD/GOOD story live from real evidence (Phase 3); credential renewal/revocation-reason visibility in the UI (Phase 4); and an honest Phase 5 verdict against Codex's five demo-readiness criteria. Verification surfaced and fixed five genuine regressions along the way — see `IMPROVEMENT_REPORT_01_02.md` for the full account. **Result: PASS.**
 
 ---
 

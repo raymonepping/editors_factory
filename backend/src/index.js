@@ -6,6 +6,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { authRouter, requireHumanSession } from "./auth/index.js";
 import { cleanupRunCredentials } from "./services/revocation.js";
 import { healthRouter } from "./routes/health.js";
+import { agentTokenRouter } from "./routes/agentToken.js";
 import { tasksRouter } from "./routes/tasks.js";
 import { delegationsRouter } from "./routes/delegations.js";
 import { authorityRouter } from "./routes/authority.js";
@@ -45,6 +46,7 @@ app.use("/api/v1/auth", authRouter);
 
 // Domain and API routes
 app.use("/api", healthRouter);
+app.use("/api/v1", agentTokenRouter);
 app.use("/api", tasksRouter);
 app.use("/api", delegationsRouter);
 app.use("/api", authorityRouter);

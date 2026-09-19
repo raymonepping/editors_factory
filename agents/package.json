@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test test/"
+    "test": "AGENT_IDENTITY=agent-a AGENT_A_TOKEN=test-only-unused-value OLLAMA_MODEL=test-only-unused-value node --test"
   },
   "dependencies": {}
 }

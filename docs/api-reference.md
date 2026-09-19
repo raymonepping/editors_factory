@@ -7,18 +7,28 @@ This reference describes the local demo contract. It is not an internet-facing A
 ## Authentication
 
 ### Machine (Agent) Authentication
-Agent endpoints require a static per-agent bearer token:
+Agent tool, delegation, and credential endpoints require a short-lived, task-bound JWT:
 
 ```http
-Authorization: Bearer <per-agent-token>
+Authorization: Bearer <agent-jwt>
 ```
 
-The API maps each bearer token to one actor identity (`agent-a`, `agent-b`, `agent-c`, `agent-d`).
+An agent obtains one from `POST /api/v1/agents/token`, authenticated with its static per-agent bearer token — the only route that token is valid for. The JWT is bound to the actor's currently active task (or, for `agent-d`, to the active run) and stops being honored the moment that task or run ends, independent of its own expiry. See `docs/validation/ADR_001_agent_api_identity.md` for the full design.
 
 ### Human Authentication & Sessions
 Human control operations (`POST /api/agents/agent-a/tasks`, `PUT /api/demo/mode`, `POST /api/demo/reset`) and UI dashboard access are protected by session cookies (`factory_session`) backed by OpenLDAP and Keycloak OIDC. Two RBAC roles are enforced:
 - `factory-operator`: full control (run tasks, switch demo mode, reset database);
 - `factory-viewer`: read-only dashboard access.
+
+The same routes also accept an `X-Factory-Cli-Token` header carrying a separate shared secret, so the documented `make demo-bad`/`make demo-good`/`make reset` workflow keeps working from a terminal without a browser session — a third identity domain, distinct from both agent and human OIDC identity.
+
+### Agent token bootstrap
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/agents/token` | Static per-agent bearer token | Issue a short-lived, task-bound JWT |
+
+Rejects with `400` if the calling agent (other than `agent-d`) has no currently active task to bind the token to.
 
 OIDC authentication endpoints are exposed under `/api/v1/auth/`:
 - `GET /api/v1/auth/login`: initiates PKCE login redirect to Keycloak;

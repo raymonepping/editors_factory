@@ -1,0 +1,47 @@
+{
+  "raymon": {
+    "username": "raymon",
+    "landedUrl": "http://localhost:3000/",
+    "me": {
+      "enabled": true,
+      "user": "raymon",
+      "subjectId": "7d4dc95d-ebf0-434d-a879-09e9d83784ba",
+      "role": "factory-operator",
+      "groups": [
+        "factory-operator"
+      ]
+    },
+    "hasSessionCookie": true,
+    "cookieValue": "[REDACTED]"
+  },
+  "barend": {
+    "username": "barend",
+    "landedUrl": "http://localhost:3000/",
+    "me": {
+      "enabled": true,
+      "user": "barend",
+      "subjectId": "fe29e429-5200-4e9d-baa9-8c7c1362ed42",
+      "role": "factory-operator",
+      "groups": [
+        "factory-operator"
+      ]
+    },
+    "hasSessionCookie": true,
+    "cookieValue": "[REDACTED]"
+  },
+  "claire": {
+    "username": "claire",
+    "landedUrl": "http://localhost:3000/",
+    "me": {
+      "enabled": true,
+      "user": "claire",
+      "subjectId": "ac2f884d-853c-4682-927e-7e821f9565e5",
+      "role": "factory-viewer",
+      "groups": [
+        "factory-viewer"
+      ]
+    },
+    "hasSessionCookie": true,
+    "cookieValue": "[REDACTED]"
+  }
+}

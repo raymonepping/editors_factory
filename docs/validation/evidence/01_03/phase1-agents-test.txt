@@ -1,0 +1,19 @@
+
+> factory-agent@0.1.0 test
+> AGENT_IDENTITY=agent-a AGENT_A_TOKEN=test-only-unused-value OLLAMA_MODEL=test-only-unused-value node --test
+
+▶ mentionsATool
+  ✔ detects the literal snake_case tool name (0.467958ms)
+  ✔ detects the space-separated paraphrase (0.059667ms)
+  ✔ detects a natural-language paraphrase via its distinctive stem — the exact case found live (0.05075ms)
+  ✔ does not false-positive on ordinary prose containing no tool reference (0.054583ms)
+  ✔ does not false-positive on a generic word that happens to prefix a tool name (0.048375ms)
+✔ mentionsATool (1.337583ms)
+ℹ tests 5
+ℹ suites 1
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 131.191

@@ -40,9 +40,15 @@ export function authorizeAction(role, action) {
 
 export function requireRole(action) {
   return (req, res, next) => {
-    // If auth is disabled globally, permit all
+    // req.identity is always set by requireHumanSession before this runs
+    // — including the FACTORY_AUTH_ENABLED=false case, which assigns a
+    // real default operator identity rather than leaving it unset (see
+    // auth/index.js). A missing identity here means requireHumanSession
+    // was skipped or bypassed, not that auth is off — fail closed rather
+    // than treat that as permission to proceed (this used to silently
+    // permit every request; found live).
     if (!req.identity) {
-      return next();
+      return res.status(401).json({ error: "authentication required" });
     }
     const role = req.identity.role;
     if (!authorizeAction(role, action)) {

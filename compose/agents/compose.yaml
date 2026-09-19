@@ -23,6 +23,18 @@ x-agent-common: &agent-common
     dockerfile: Containerfile
   image: factory-agent:local
   restart: unless-stopped
+  # Wave 5 hardening (prompts/improvements/01_01_improvement.md) — same
+  # pattern already proven for compose/vault/compose.yaml's vault-agent
+  # service. The node:22-alpine image's own `node` user is UID/GID
+  # 1000:1000 (confirmed live); the only local write an agent runtime
+  # ever does is agents/src/heartbeat.js's /tmp/agent-heartbeat touch, so
+  # /tmp is the only tmpfs path required — smoke-tested read-only with
+  # just that path before applying here.
+  user: "1000:1000"
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  read_only: true
+  tmpfs: [/tmp]
   environment: &agent-common-env
     OLLAMA_MODEL: "${OLLAMA_MODEL}"
     AGENT_MAX_ITERATIONS: "${AGENT_MAX_ITERATIONS:-15}"

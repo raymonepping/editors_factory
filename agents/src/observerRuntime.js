@@ -40,9 +40,33 @@ export async function startObserverRuntime(identity, { signal } = {}) {
   const heartbeatTimer = setInterval(beat, 5000);
   beat();
 
+  // Wave 6: agent-d has no task to bind a JWT to (never part of the
+  // delegation chain), so its token is bound to the current run instead.
+  // Refreshed on its own fixed timer, independent of identity.onTick —
+  // not every observer identity is guaranteed to define one, and a
+  // token silently never refreshing would eventually 401 every call.
+  await backendClient.bootstrapToken();
+  const tokenRefreshTimer = setInterval(() => {
+    backendClient.ensureFreshToken().catch((err) => {
+      console.error(`[${config.identity}] token refresh failed:`, err.message);
+    });
+  }, 15000);
+
   const tickTimer = identity.onTick
     ? setInterval(identity.onTick, identity.tickIntervalMs || 15000)
     : null;
+
+  // Wave 6, found live: the 15s time-based refresh above is not enough
+  // on its own — make reset/profile-switch starts a brand-new run_id
+  // immediately, a discrete event, not something a time-based heuristic
+  // reacts to promptly. A token minted for the previous run is invalid
+  // the instant that happens (agentJwtAuth's own run_id check), so
+  // agent-d's every create_finding call 401'd until its next scheduled
+  // refresh happened to catch up. Tracking the run_id of the last
+  // processed event and forcing an immediate re-bootstrap the moment it
+  // changes closes that window precisely, instead of shortening the
+  // timer and hoping.
+  let lastKnownRunId = null;
 
   await subscribeEvents(
     // Awaited by subscribeEvents itself (backendClient.js's own
@@ -52,6 +76,11 @@ export async function startObserverRuntime(identity, { signal } = {}) {
     // chronological order.
     async (event) => {
       try {
+        const eventRunId = event.payload?.run_id;
+        if (eventRunId && eventRunId !== lastKnownRunId) {
+          await backendClient.bootstrapToken();
+          lastKnownRunId = eventRunId;
+        }
         await identity.onEvent(event);
       } catch (err) {
         console.error(
@@ -64,6 +93,7 @@ export async function startObserverRuntime(identity, { signal } = {}) {
   );
 
   clearInterval(heartbeatTimer);
+  clearInterval(tokenRefreshTimer);
   if (tickTimer) clearInterval(tickTimer);
 }
 
@@ -92,6 +122,7 @@ export async function recordFinding({
   title,
   detail,
   correlatesWithEventId,
+  correlatesWithEventType,
 }) {
   return TOOLS.create_finding.run(
     {
@@ -99,6 +130,7 @@ export async function recordFinding({
       title,
       detail,
       correlates_with_event_id: correlatesWithEventId,
+      correlates_with_event_type: correlatesWithEventType,
     },
     { identity: config.identity },
   );

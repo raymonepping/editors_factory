@@ -1,19 +1,32 @@
 // src/backendClient.js — every authenticated call an agent makes to
 // factory-api. One function per endpoint from
-// prompts/api/API_CONTRACTS.md, using this agent's own bearer token
-// (config.agentToken) on every request. Agents never call each other's
-// network endpoints directly and never touch PostgreSQL or Vault
-// directly — this file is the only network client an identity module
-// (agents/identities/*.js) should ever need.
+// prompts/api/API_CONTRACTS.md. Wave 6 (ADR
+// docs/validation/ADR_001_agent_api_identity.md): config.agentToken (the
+// static per-agent secret) is now used for exactly one call —
+// bootstrapToken() below — never attached to any other request. Every
+// other call uses the short-lived, task-bound JWT that call returns.
+// Agents never call each other's network endpoints directly and never
+// touch PostgreSQL or Vault directly — this file is the only network
+// client an identity module (agents/identities/*.js) should ever need.
 
 import { config } from "./config.js";
 
-async function request(method, path, body) {
+let currentAgentToken = null;
+let tokenMintedAt = 0;
+let tokenTtlSeconds = 0;
+
+async function request(method, path, body, { useStaticToken = false } = {}) {
+  const token = useStaticToken ? config.agentToken : currentAgentToken;
+  if (!token) {
+    throw new Error(
+      `request(${method} ${path}) called before an agent token was bootstrapped`,
+    );
+  }
   const res = await fetch(`${config.backend.url}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${config.agentToken}`,
+      Authorization: `Bearer ${token}`,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
@@ -30,6 +43,42 @@ async function request(method, path, body) {
   return data;
 }
 
+/**
+ * Mints a fresh JWT using the static per-agent token, bound (server-side
+ * — never from anything this call sends) to this actor's currently
+ * active task, or to the active run for agent-d, which has none. Must be
+ * called before ANY other backendClient method — runtime.js's handleTask
+ * does this as its very first step, before even fetching the task it was
+ * just handed.
+ */
+async function bootstrapToken() {
+  const { token, ttlSeconds } = await request(
+    "POST",
+    "/api/v1/agents/token",
+    undefined,
+    { useStaticToken: true },
+  );
+  currentAgentToken = token;
+  tokenMintedAt = Date.now();
+  tokenTtlSeconds = ttlSeconds;
+  return token;
+}
+
+/**
+ * Re-bootstraps only if the current token is past half its life — for
+ * agent-d's long-lived observer loop, which has no natural "new task"
+ * moment to hang a refresh off of (called from its own onTick, same 15-
+ * 20s cadence services/revocation.js's DB-credential renewal already
+ * uses this halfway heuristic for). A no-op for agent-a/b/c, which
+ * bootstrap fresh per task instead.
+ */
+async function ensureFreshToken() {
+  const ageSeconds = (Date.now() - tokenMintedAt) / 1000;
+  if (!currentAgentToken || ageSeconds > tokenTtlSeconds / 2) {
+    await bootstrapToken();
+  }
+}
+
 function query(params) {
   const entries = Object.entries(params || {}).filter(
     ([, v]) => v !== undefined && v !== null && v !== "",
@@ -39,6 +88,10 @@ function query(params) {
 }
 
 export const backendClient = {
+  // ── Identity (Wave 6) ───────────────────────────────────────────────
+  bootstrapToken,
+  ensureFreshToken,
+
   // ── Read tools ──────────────────────────────────────────────────────
   getHealth: () => request("GET", "/api/actions/health"),
   listOrders: (filter = {}) =>
@@ -66,16 +119,24 @@ export const backendClient = {
     request("POST", "/api/delegations", { toActor, goal, authorityEnvelope }),
 
   // ── Detection-only (Agent D) ────────────────────────────────────────
-  createFinding: ({ severity, title, detail, correlatesWithEventId }) =>
+  createFinding: ({
+    severity,
+    title,
+    detail,
+    correlatesWithEventId,
+    correlatesWithEventType,
+  }) =>
     request("POST", "/api/actions/findings", {
       severity,
       title,
       detail,
       correlatesWithEventId,
+      correlatesWithEventType,
     }),
 
   // ── Task lookup ─────────────────────────────────────────────────────
   getTask: (taskId) => request("GET", `/api/tasks/${taskId}`),
+  completeTask: (taskId) => request("POST", `/api/tasks/${taskId}/complete`),
 
   // ── Introspection ───────────────────────────────────────────────────
   getAuthority: () => request("GET", "/api/authority"),

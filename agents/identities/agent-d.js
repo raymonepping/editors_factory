@@ -41,6 +41,29 @@ const DESTRUCTIVE_ACTIONS = new Set([
 
 let riskState = "NORMAL";
 
+// Wave 4 (prompts/improvements/01_01_improvement.md): each evidence
+// table's own row uses a different primary-key column name (audit_events
+// keeps event_id, but authority_decisions/credential_events/
+// database_changes — where most of classify()'s own signals actually
+// fire — use decision_id/credential_event_id/change_id respectively), so
+// there is no single field name to read the correlated id from. Found
+// live: every real recordFinding() call below used to omit
+// correlatesWithEventId/Type entirely, leaving findings.
+// correlates_with_event_id NULL for every finding this file has ever
+// written, even though the raw event it classified was right there.
+const SOURCE_ID_FIELD = {
+  audit_events: "event_id",
+  authority_decisions: "decision_id",
+  credential_events: "credential_event_id",
+  database_changes: "change_id",
+};
+
+function sourceEvent({ type, payload }) {
+  const field = SOURCE_ID_FIELD[type];
+  const id = field ? payload?.[field] : null;
+  return id ? { id, type } : { id: null, type: null };
+}
+
 /**
  * Tier 1: maps one raw SSE event to at most one classification. Returns
  * null for events that don't correspond to a matrix row (most read-tool
@@ -223,6 +246,7 @@ export default {
     );
 
     const detail = transitioned ? await narrate(signal, event.payload) : null;
+    const source = sourceEvent(event);
     await recordFinding({
       severity:
         signal.severity === "CRITICAL"
@@ -232,6 +256,8 @@ export default {
             : "medium",
       title: `${signal.code}: ${signal.title}`,
       detail,
+      correlatesWithEventId: source.id,
+      correlatesWithEventType: source.type,
     });
   },
 
