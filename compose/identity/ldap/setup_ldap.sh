@@ -8,6 +8,12 @@ BASE_DN="${LDAP_BASE_DN:-dc=factory,dc=local}"
 BIND_DN="cn=admin,${BASE_DN}"
 LDIF="/bootstrap/bootstrap.ldif"
 
+# prompts/improvements/01_07_vault_kv_secrets_migration.md: the admin
+# password is Vault-sourced, rendered by identity-secrets-init onto the
+# shared volume this container mounts read-only — same file openldap
+# itself reads via LDAP_ADMIN_PASSWORD_FILE, not a hand-edited .env value.
+LDAP_ADMIN_PASSWORD="$(cat "${LDAP_ADMIN_PASSWORD_FILE:-/run/secrets/ldap-admin-password}")"
+
 echo "Waiting for ${LDAP_HOST}..."
 for _ in $(seq 1 30); do
   ldapsearch -x -H "ldap://${LDAP_HOST}" -D "$BIND_DN" -w "$LDAP_ADMIN_PASSWORD" -b "$BASE_DN" -s base >/dev/null 2>&1 && break

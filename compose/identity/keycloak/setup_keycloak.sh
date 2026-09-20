@@ -9,6 +9,15 @@ REALM=factory
 CLIENT_ID=factory-api
 LDAP_BASE_DN="dc=factory,dc=local"
 
+# prompts/improvements/01_07_vault_kv_secrets_migration.md: both values
+# are Vault-sourced, rendered by identity-secrets-init onto the shared
+# volume this container mounts read-only — the same admin password file
+# Keycloak's own vault-entrypoint.sh wrapper reads, not a hand-edited
+# .env value.
+KEYCLOAK_ADMIN_PASSWORD="$(cat "${KEYCLOAK_ADMIN_PASSWORD_FILE:-/run/secrets/keycloak-admin-password}")"
+FACTORY_OIDC_CLIENT_SECRET="$(cat "${FACTORY_OIDC_CLIENT_SECRET_FILE:-/run/secrets/oidc-client-secret}")"
+LDAP_ADMIN_PASSWORD="$(cat "${LDAP_ADMIN_PASSWORD_FILE:-/run/secrets/ldap-admin-password}")"
+
 echo "Waiting for Keycloak at ${KC_URL}..."
 attempt=0
 until "$KC" config credentials --server "$KC_URL" --realm master \
@@ -109,7 +118,18 @@ ensure_client() {
   local post_logout="${FACTORY_BASE_URL:-http://localhost:3000}"
   if [ -n "$uuid" ]; then
     echo "  = client exists: $CLIENT_ID ($uuid)"
+    if [ -n "${FACTORY_OIDC_CLIENT_SECRET:-}" ]; then
+      "$KC" update "clients/$uuid" -r "$REALM" \
+        -s "secret=${FACTORY_OIDC_CLIENT_SECRET}" >/dev/null 2>&1 &&
+        echo "  = client secret synced from Vault"
+    fi
   else
+    # clients/$uuid/client-secret is a regenerate-only sub-resource (POST
+    # generates a new random value; PUT with -s value=... silently no-ops
+    # — found live doing this migration, printed no error and no success
+    # line, and Keycloak kept its own auto-generated secret instead).
+    # Setting `secret` directly in the client representation at creation
+    # time is the only way this Vault-sourced value actually takes.
     "$KC" create clients -r "$REALM" \
       -s clientId="$CLIENT_ID" \
       -s protocol=openid-connect \
@@ -120,14 +140,10 @@ ensure_client() {
       -s serviceAccountsEnabled=false \
       -s 'attributes."pkce.code.challenge.method"=S256' \
       -s "redirectUris=[\"${redirect}\"]" \
-      -s webOrigins='[]'
+      -s webOrigins='[]' \
+      ${FACTORY_OIDC_CLIENT_SECRET:+-s "secret=${FACTORY_OIDC_CLIENT_SECRET}"}
     uuid=$(get_client_uuid)
     echo "  + client created: $CLIENT_ID ($uuid)"
-    if [ -n "${FACTORY_OIDC_CLIENT_SECRET:-}" ]; then
-      "$KC" update "clients/$uuid/client-secret" -r "$REALM" \
-        -s value="$FACTORY_OIDC_CLIENT_SECRET" >/dev/null 2>&1 &&
-        echo "  + client secret set from FACTORY_OIDC_CLIENT_SECRET"
-    fi
   fi
   "$KC" update "clients/$uuid" -r "$REALM" \
     -s "attributes.\"post.logout.redirect.uris\"=${post_logout}" >/dev/null 2>&1 &&

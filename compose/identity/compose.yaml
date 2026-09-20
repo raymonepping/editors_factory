@@ -13,8 +13,36 @@ networks:
   default:
     name: factory-control
     external: true
+  factory-vault-internal:
+    # Only identity-secrets-init joins this — it's the one place in this
+    # stack that talks to Vault directly (prompts/improvements/01_07).
+    external: true
 
 services:
+  # prompts/improvements/01_07_vault_kv_secrets_migration.md: fetches
+  # OpenLDAP's and Keycloak's admin passwords + the OIDC client secret
+  # from Vault KV once at stack start, renders them to a shared volume.
+  # See compose/identity/identity-secrets/entrypoint.sh for why this is
+  # a one-shot init container rather than a persistent Vault Agent.
+  identity-secrets-init:
+    image: docker.io/hashicorp/vault-enterprise:2.1.0-ent
+    container_name: factory-identity-secrets-init
+    entrypoint: ["/bin/sh", "/init/entrypoint.sh"]
+    environment:
+      VAULT_ADDR: "https://vault-1:8200"
+      VAULT_CACERT: "/vault/tls/ca-chain.pem"
+      VAULT_NAMESPACE: "factory"
+      IDENTITY_SECRETS_ROLE_ID: "${IDENTITY_SECRETS_ROLE_ID}"
+      IDENTITY_SECRETS_SECRET_ID: "${IDENTITY_SECRETS_SECRET_ID}"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ../../vault-tls:/vault/tls:ro
+      - ./identity-secrets/entrypoint.sh:/init/entrypoint.sh:ro
+      - identity-secrets:/run/secrets
+    networks: [default, factory-vault-internal]
+    restart: "no"
+
   openldap:
     image: docker.io/osixia/openldap:1.5.0
     container_name: factory-openldap
@@ -23,7 +51,7 @@ services:
       LDAP_ORGANISATION: "The Factory"
       LDAP_DOMAIN: "factory.local"
       LDAP_BASE_DN: "dc=factory,dc=local"
-      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}"
+      LDAP_ADMIN_PASSWORD_FILE: "/run/secrets/ldap-admin-password"
       LDAP_TLS: "false"
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE, CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, KILL]
@@ -31,10 +59,14 @@ services:
     volumes:
       - ldap-data:/var/lib/ldap
       - ldap-config:/etc/ldap/slapd.d
+      - identity-secrets:/run/secrets:ro
     networks: [default]
     restart: unless-stopped
+    depends_on:
+      identity-secrets-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-D", "cn=admin,dc=factory,dc=local", "-w", "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}", "-b", "dc=factory,dc=local", "-s", "base"]
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -D cn=admin,dc=factory,dc=local -w \"$(cat /run/secrets/ldap-admin-password)\" -b dc=factory,dc=local -s base"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -45,12 +77,13 @@ services:
     container_name: factory-ldap-bootstrap
     profiles: ["init"]
     environment:
-      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}"
+      LDAP_ADMIN_PASSWORD_FILE: "/run/secrets/ldap-admin-password"
       LDAP_BASE_DN: "dc=factory,dc=local"
       LDAP_HOST: "openldap"
     entrypoint: ["/bootstrap/setup_ldap.sh"]
     volumes:
       - ./ldap:/bootstrap:ro
+      - identity-secrets:/run/secrets:ro
     networks: [default]
     depends_on:
       openldap:
@@ -78,10 +111,10 @@ services:
     image: docker.io/keycloak/keycloak:26.6.4
     container_name: factory-keycloak
     hostname: keycloak
+    entrypoint: ["/bin/sh", "/vault/vault-entrypoint.sh"]
     command: start-dev
     environment:
       KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
-      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-factory-keycloak-admin-2026}"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: "${KC_HOSTNAME:-localhost:8088}"
       KC_HOSTNAME_STRICT: "false"
@@ -93,10 +126,14 @@ services:
       - "127.0.0.1:8088:8080"
     volumes:
       - keycloak-data:/opt/keycloak/data
+      - ./keycloak/vault-entrypoint.sh:/vault/vault-entrypoint.sh:ro
+      - identity-secrets:/run/secrets:ro
     networks: [default]
     depends_on:
       openldap:
         condition: service_healthy
+      identity-secrets-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/master/.well-known/openid-configuration HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK' || exit 1"]
@@ -112,14 +149,15 @@ services:
     entrypoint: ["/bin/bash", "/bootstrap/setup_keycloak.sh"]
     environment:
       KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
-      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-factory-keycloak-admin-2026}"
-      LDAP_ADMIN_PASSWORD: "${LDAP_ADMIN_PASSWORD:-factory-admin-secret}"
+      KEYCLOAK_ADMIN_PASSWORD_FILE: "/run/secrets/keycloak-admin-password"
+      LDAP_ADMIN_PASSWORD_FILE: "/run/secrets/ldap-admin-password"
+      FACTORY_OIDC_CLIENT_SECRET_FILE: "/run/secrets/oidc-client-secret"
       KC_INTERNAL_URL: "http://keycloak:8080"
-      FACTORY_OIDC_CLIENT_SECRET: "${FACTORY_OIDC_CLIENT_SECRET:-}"
       FACTORY_BASE_URL: "${FACTORY_BASE_URL:-http://localhost:3000}"
       FACTORY_API_CALLBACK_URL: "${FACTORY_API_CALLBACK_URL:-http://localhost:3000/gateway/api/v1/auth/callback}"
     volumes:
       - ./keycloak:/bootstrap:ro
+      - identity-secrets:/run/secrets:ro
     networks: [default]
     depends_on:
       keycloak:
@@ -132,3 +170,5 @@ volumes:
     name: factory-identity_ldap-config
   keycloak-data:
     name: factory-identity_keycloak-data
+  identity-secrets:
+    name: factory-identity_identity-secrets

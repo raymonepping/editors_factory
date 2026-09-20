@@ -30,8 +30,10 @@ const TONE_COLOR: Record<NarrativeStep['tone'], string> = {
           class="story-step"
           :style="{ '--step-color': TONE_COLOR[step.tone] }"
         >
-          <span class="story-index mono">{{ i + 1 }}</span>
-          <span class="story-connector" aria-hidden="true" />
+          <div class="story-rail">
+            <span class="story-index mono">{{ i + 1 }}</span>
+            <span v-if="i < steps.length - 1" class="story-line" aria-hidden="true" />
+          </div>
           <span class="story-text">{{ step.text }}</span>
         </li>
       </TransitionGroup>
@@ -54,9 +56,16 @@ const TONE_COLOR: Record<NarrativeStep['tone'], string> = {
 
 .story-step {
   display: grid;
-  grid-template-columns: 22px 16px 1fr;
-  align-items: start;
-  min-height: 30px;
+  grid-template-columns: 20px 1fr;
+  column-gap: 12px;
+  align-items: stretch;
+  min-height: 28px;
+}
+
+.story-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .story-index {
@@ -65,31 +74,24 @@ const TONE_COLOR: Record<NarrativeStep['tone'], string> = {
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin-top: 2px;
   border-radius: 50%;
   border: var(--border-width) solid var(--step-color);
   color: var(--step-color);
   font-size: 10px;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
-.story-connector {
-  position: relative;
-  align-self: stretch;
-  display: flex;
-  justify-content: center;
-}
-.story-connector::before {
-  content: '';
+.story-line {
   width: 2px;
   flex: 1;
   background: var(--color-border-subtle);
-  margin: 2px 0;
+  margin: 4px 0;
+  min-height: 8px;
 }
-.story-step:last-child .story-connector::before { background: transparent; }
 
 .story-text {
-  padding: 5px 0 12px;
+  padding: 1px 0 12px;
   font-size: 14px;
   line-height: 1.4;
   color: var(--color-text-primary);
