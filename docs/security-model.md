@@ -38,6 +38,8 @@ Vault Agent authenticates the API through AppRole and renews its parent token. W
 
 Sentinel does not inspect an HTTP header here. Live testing showed that Vault's Sentinel request object does not expose request headers for this purpose. Token metadata is the enforced mechanism.
 
+Hard-mandatory Sentinel policy does not constrain the cluster's own root token — live testing against this Vault install confirmed the root token bypasses both endpoint governing policies here, `require-agent-c-for-db-creds` included. That is why routine Vault administration (every Terraform apply after the first, and the entitlement check) uses a separate, narrowly-scoped, periodic `vault-admin` token instead of the root token — see [Operations](operations.md#vault-maintenance). The root token itself is reserved for initial cluster bootstrap, not treated as a standing operational credential.
+
 ### Dynamic database identities
 
 Vault creates a PostgreSQL role for each lease. The API retains the username and password in process memory and gives Agent C only the role name, lease ID, lifetime, and issuance status. Mutating routes use the retained credential on Agent C's behalf.

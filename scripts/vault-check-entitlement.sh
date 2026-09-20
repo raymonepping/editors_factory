@@ -11,11 +11,14 @@
 set -eu
 
 REPO_ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-ROOT_TOKEN=$(python3 -c "import json;print(json.load(open('$REPO_ROOT/.secrets/vault/cluster-init.json'))['root_token'])")
+# prompts/improvements/01_06_vault_root_token_elimination.md: the narrow
+# vault-admin token, not the cluster root token — sys/license/status only
+# ever needed plain read capability, already granted to vault-admin.
+ADMIN_TOKEN=$(cat "$REPO_ROOT/.secrets/vault/vault-admin-token")
 
 FEATURES=$(podman exec -e VAULT_ADDR=https://127.0.0.1:8200 \
   -e VAULT_CACERT=/vault/config/tls/ca-chain.pem \
-  -e VAULT_TOKEN="$ROOT_TOKEN" factory-vault_1 \
+  -e VAULT_TOKEN="$ADMIN_TOKEN" factory-vault_1 \
   vault read -format=json sys/license/status 2>/dev/null |
   python3 -c "import sys,json;print('\n'.join(json.load(sys.stdin)['data']['autoloaded']['features']))")
 

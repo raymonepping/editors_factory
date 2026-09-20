@@ -109,6 +109,30 @@ make vault-unseal
 
 The unseal script reads ignored local recovery material. Never copy that material into logs, issues, or state captures.
 
+Routine Vault administration — every `terraform apply` after the first,
+and `scripts/vault-check-entitlement.sh` — uses a narrow, periodic
+`vault-admin` token (`.secrets/vault/vault-admin-token`), not the cluster
+root token. It is good for 30 days at a time and must be renewed, not
+reissued, before it expires:
+
+```sh
+VAULT_TOKEN="$(cat .secrets/vault/vault-admin-token)" vault token renew
+```
+
+If the file is missing or the token has expired past recovery, mint a
+replacement (idempotent, safe to re-run):
+
+```sh
+make vault-admin-bootstrap
+```
+
+The root token itself is reserved for `vault operator init`, the first
+`terraform -chdir=terraform/vault-platform apply` on a fresh cluster (the
+one operation that creates the `vault-admin` policy in the first place),
+and re-applying that same policy's own content — see
+[Getting started](getting-started.md#bootstrap-vault) for why that one
+case stays root-only.
+
 Terraform state under `.secrets/terraform/` can carry sensitive values
 depending on the resource. `terraform apply` recreates each state file at
 the process umask's default permissions, so tighten them again after any

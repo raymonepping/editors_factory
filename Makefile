@@ -81,7 +81,7 @@ infra-configure-vault: ## Apply terraform/vault-database (Database secrets engin
 	@POSTGRES_USER=$$(grep '^POSTGRES_USER=' .env | cut -d= -f2-); \
 	POSTGRES_PASSWORD=$$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2-); \
 	POSTGRES_DB=$$(grep '^POSTGRES_DB=' .env | cut -d= -f2-); \
-	VAULT_TOKEN=$$(jq -er '.root_token' .secrets/vault/cluster-init.json); \
+	VAULT_TOKEN=$$(cat .secrets/vault/vault-admin-token); \
 	export VAULT_TOKEN; \
 	terraform -chdir=terraform/vault-database init -input=false; \
 	terraform -chdir=terraform/vault-database apply -auto-approve \
@@ -123,6 +123,9 @@ vault-status: ## Show Vault cluster init/seal/leader status
 
 vault-unseal: ## Re-unseal the Vault cluster after a host/Podman restart
 	@./scripts/vault-unseal.sh
+
+vault-admin-bootstrap: ## Mint the narrow vault-admin token (idempotent; run after the first vault-platform apply)
+	@./scripts/vault-admin-bootstrap.sh
 
 ollama-up: ## Start Ollama and pull the configured model
 	@./scripts/compose.sh ollama config --quiet

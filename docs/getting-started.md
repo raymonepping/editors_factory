@@ -59,25 +59,45 @@ make vault-status
 
 The bootstrap writes recovery material under `.secrets/vault/`. That directory is ignored by Git and must remain private.
 
-Load the root token only into the current shell, then apply the namespace, policies, and AppRole:
+Load the root token only into the current shell, for this one apply only —
+every later step in this guide uses a narrower token instead (see below):
 
 ```sh
 export VAULT_TOKEN="$(jq -r '.root_token' .secrets/vault/cluster-init.json)"
 terraform -chdir=terraform/vault-platform init -input=false
 terraform -chdir=terraform/vault-platform apply
-terraform -chdir=terraform/vault-platform output -raw factory_api_role_id
 ```
 
-Copy the role ID into `FACTORY_VAULT_ROLE_ID` in `.env`. Generate the AppRole secret ID outside Terraform:
+That apply creates the `factory` namespace, the AppRole, and — alongside
+the policies the API and its agents actually use — a narrow `vault-admin`
+policy meant to replace the root token for every routine operation that
+follows. Mint a token attached to it now:
 
 ```sh
+make vault-admin-bootstrap
+```
+
+This is idempotent (safe to re-run) and saves the token to
+`.secrets/vault/vault-admin-token`, mode 0600. It is periodic — good for
+30 days at a time, renewed with `VAULT_TOKEN=$(cat
+.secrets/vault/vault-admin-token) vault token renew` — never eternal the
+way the root token is. From here on, every command in this guide uses this
+token, not root.
+
+Get the role ID and generate the AppRole secret ID:
+
+```sh
+export VAULT_TOKEN="$(cat .secrets/vault/vault-admin-token)"
 export VAULT_ADDR=https://127.0.0.1:18200
 export VAULT_CACERT="$PWD/vault-tls/ca-chain.pem"
+terraform -chdir=terraform/vault-platform output -raw factory_api_role_id
 export VAULT_NAMESPACE=factory
 vault write -f auth/approle/role/factory-api/secret-id
 ```
 
-Copy the returned `secret_id` into `FACTORY_VAULT_SECRET_ID` in `.env`, then apply the Sentinel endpoint policies:
+Copy the role ID into `FACTORY_VAULT_ROLE_ID` and the returned `secret_id`
+into `FACTORY_VAULT_SECRET_ID` in `.env`, then apply the Sentinel endpoint
+policies:
 
 ```sh
 unset VAULT_NAMESPACE
@@ -94,7 +114,18 @@ make vault-up
 
 Do not start all Vault services directly with Compose. `make vault-up` preserves the required transit-token bootstrap order.
 
-The AppRole `secret_id` expires after 90 days (`terraform/vault-platform/auth.tf`'s `secret_id_ttl`), unlike every other credential in this system, which is short-lived by design. Regenerate it before then by repeating the `vault write -f auth/approle/role/factory-api/secret-id` step above, updating `FACTORY_VAULT_SECRET_ID` in `.env`, and restarting the Vault stack the same way.
+The AppRole `secret_id` expires after 90 days (`terraform/vault-platform/auth.tf`'s `secret_id_ttl`), unlike every other credential in this system, which is short-lived by design. Regenerate it before then by repeating the `vault write -f auth/approle/role/factory-api/secret-id` step above (using the admin token, not root), updating `FACTORY_VAULT_SECRET_ID` in `.env`, and restarting the Vault stack the same way.
+
+**The root token is not a routine tool.** After the one `vault-platform`
+apply above, the only things that legitimately need it again are
+re-running that same apply (it is the one resource — the `vault-admin`
+policy's own content — that token deliberately cannot modify, since a
+token should not be able to grant itself more power), or minting a
+replacement admin token if the current one is lost. `terraform apply` for
+`vault-sentinel` and `vault-database`, and `scripts/vault-check-entitlement.sh`,
+all use `.secrets/vault/vault-admin-token` — if any of them ever fails
+with `permission denied`, that is `vault-admin`'s policy missing a path,
+not a reason to reach for root instead.
 
 ## Prepare PostgreSQL and dynamic credentials
 
