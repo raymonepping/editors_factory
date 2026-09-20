@@ -86,14 +86,24 @@ export async function loadSecretsFromVault(config) {
   for (const id of ["agent-a", "agent-b", "agent-c", "agent-d"]) {
     const field = id.replace("-", "_"); // agent-a -> agent_a
     const value = agents[field];
-    if (!value) throw new Error(`Vault KV agents/bearer-tokens missing field "${field}"`);
+    if (!value)
+      throw new Error(`Vault KV agents/bearer-tokens missing field "${field}"`);
     config.agentTokens[id] = value;
   }
-  if (!jwt.value) throw new Error("Vault KV backend/jwt-signing-secret missing field \"value\"");
+  if (!jwt.value)
+    throw new Error(
+      'Vault KV backend/jwt-signing-secret missing field "value"',
+    );
   config.auth.agentJwtSecret = jwt.value;
-  if (!cli.value) throw new Error("Vault KV backend/cli-operator-token missing field \"value\"");
+  if (!cli.value)
+    throw new Error(
+      'Vault KV backend/cli-operator-token missing field "value"',
+    );
   config.auth.cliOperatorToken = cli.value;
-  if (!oidcSecret.value) throw new Error("Vault KV identity/oidc-client-secret missing field \"value\"");
+  if (!oidcSecret.value)
+    throw new Error(
+      'Vault KV identity/oidc-client-secret missing field "value"',
+    );
   config.oidc.clientSecret = oidcSecret.value;
 }
 
