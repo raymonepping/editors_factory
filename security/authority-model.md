@@ -220,6 +220,21 @@ already rules out arbitrary shell/SQL tools for agents
 is never trusted as a security boundary; only deterministic software
 between the agent and the resource is.
 
+This boundary held under real pressure to relax it:
+`prompts/improvements/01_07_vault_kv_secrets_migration.md` moved every
+agent's own bearer token into Vault KV as its source of truth, and the
+obvious, simplest implementation would have been a Vault Agent sidecar
+or AppRole identity inside each agent-a/b/c/d container to fetch its own
+token — exactly the shape this section argues against. Instead, the
+agent containers' own token copies still arrive the only way they ever
+have, a plain environment variable set at container creation, with a
+host-side script (`scripts/agents-secrets-sync.sh`) as the only bridge
+between Vault and that env var. No agent container gained any Vault
+credential, sidecar, or network path to Vault at all — the migration
+changed where the value is generated and audited, not who can reach
+Vault. See [Static secrets (Vault KV)](../docs/security-model.md#static-secrets-vault-kv)
+for the full design.
+
 ## Containment rules (hard requirements, every agent container)
 
 ```text

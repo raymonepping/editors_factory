@@ -127,6 +127,9 @@ vault-unseal: ## Re-unseal the Vault cluster after a host/Podman restart
 vault-admin-bootstrap: ## Mint the narrow vault-admin token (idempotent; run after the first vault-platform apply)
 	@./scripts/vault-admin-bootstrap.sh
 
+vault-secrets-bootstrap: ## Seed Vault KV's agent tokens, JWT secret, CLI token, and identity passwords (idempotent; run after vault-admin-bootstrap)
+	@./scripts/vault-secrets-bootstrap.sh
+
 agents-secrets-sync: ## Sync .env's agent bearer tokens from Vault KV (agent containers stay Vault-blind)
 	@./scripts/agents-secrets-sync.sh
 

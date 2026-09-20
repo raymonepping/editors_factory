@@ -48,6 +48,34 @@ The GOOD database role can read required records and execute `set_order_status`.
 
 The BAD database role has intentionally excessive mutation grants. That defect is the subject of the demonstration.
 
+### Static secrets (Vault KV)
+
+`prompts/improvements/01_07_vault_kv_secrets_migration.md` moved the
+per-agent bearer tokens, the JWT signing secret, the CLI operator token,
+the OIDC client secret, and OpenLDAP's/Keycloak's admin passwords into a
+KV v2 mount (`secret/`) inside the `factory` namespace — Vault is now
+their source of truth, not a hand-edited `.env` line. Three separate
+mechanisms deliver them to their actual consumers, deliberately not one:
+factory-api reads its own four directly from Vault at startup
+(`backend/src/vault.js`); the agent-a/b/c/d containers still receive
+only a plain environment variable, generated and audited in Vault but
+delivered by a host-side sync script (`scripts/agents-secrets-sync.sh`)
+— giving those containers any Vault credential at all, even a narrow
+one, would violate "no agent container ever holds a Vault credential"
+(`security/authority-model.md`); and OpenLDAP/Keycloak, third-party
+images this project does not control the source of, receive theirs via
+a dedicated one-shot `identity-secrets-init` container using its own
+separate, narrower AppRole — a different trust domain from factory-api's
+own, matching this project's established pattern of separate security
+domains for human/agent/CLI-operator identity.
+
+This closes what was previously an open scope limit (no KV engine, every
+static secret living in `.env` with no real rotation path). It does not
+make rotation automatic — see [Operations](operations.md#vault-kv-secrets-rotation)
+for the real procedure, including the genuine caveat that OpenLDAP's and
+Keycloak's own bootstrap images only apply a password change on true
+first initialization, not on every restart.
+
 ### Network isolation
 
 Vault servers attach only to `factory-vault-internal`. Agents, PostgreSQL, Ollama, and the dashboard attach to `factory-control`. The API is the only application component on both networks. Host ports bind to `127.0.0.1`.
@@ -90,4 +118,6 @@ The API is intentionally unable to reset product and order tables with its own c
 
 ## Known scope limits
 
-This local demonstration implements human authentication and RBAC via Keycloak OIDC/OpenLDAP for the web UI and control plane, but does not provide transport encryption (TLS) for localhost container-to-container traffic, bearer-token rotation for machine agents, general multi-hop delegation graphs, or strict host-level container network egress filtering. Model inference is strictly local to Ollama. Do not expose its published ports to an untrusted network.
+This local demonstration implements human authentication and RBAC via Keycloak OIDC/OpenLDAP for the web UI and control plane, but does not provide transport encryption (TLS) for localhost container-to-container traffic, general multi-hop delegation graphs, or strict host-level container network egress filtering. Model inference is strictly local to Ollama. Do not expose its published ports to an untrusted network.
+
+Every static secret now has a real source of truth and a real, if manual, rotation path (Vault KV — see [Static secrets (Vault KV)](#static-secrets-vault-kv) above), but rotation is still an operator-run procedure, not scheduled or automatic, and the per-agent bearer tokens themselves do not expire or rotate on their own between operator-run rotations.

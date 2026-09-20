@@ -43,18 +43,16 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_DB: "${POSTGRES_DB}"
       DEMO_PROFILE: "${DEMO_PROFILE}"
-      AGENT_A_TOKEN: "${AGENT_A_TOKEN}"
-      AGENT_B_TOKEN: "${AGENT_B_TOKEN}"
-      AGENT_C_TOKEN: "${AGENT_C_TOKEN}"
-      AGENT_D_TOKEN: "${AGENT_D_TOKEN}"
-      FACTORY_AGENT_JWT_SECRET: "${FACTORY_AGENT_JWT_SECRET}"
+      # prompts/improvements/01_07_vault_kv_secrets_migration.md: the
+      # per-agent bearer tokens, the JWT signing secret, the CLI operator
+      # token, and the OIDC client secret are no longer passed in here —
+      # src/vault.js's loadSecretsFromVault() reads factory-api's own
+      # copy of each directly from Vault KV at startup (see
+      # backend/src/config.js's own comment on why these are null
+      # placeholders above process.env).
       FACTORY_AUTH_ENABLED: "${FACTORY_AUTH_ENABLED:-true}"
-      FACTORY_CLI_OPERATOR_TOKEN: "${FACTORY_CLI_OPERATOR_TOKEN}"
       FACTORY_OIDC_ENABLED: "${FACTORY_OIDC_ENABLED:-true}"
-      KEYCLOAK_ISSUER_URL: "${KEYCLOAK_ISSUER_URL:-http://keycloak:8080/realms/factory}"
-      KEYCLOAK_PUBLIC_ISSUER_URL: "${KEYCLOAK_PUBLIC_ISSUER_URL:-http://localhost:8088/realms/factory}"
       FACTORY_OIDC_CLIENT_ID: "${FACTORY_OIDC_CLIENT_ID:-factory-api}"
-      FACTORY_OIDC_CLIENT_SECRET: "${FACTORY_OIDC_CLIENT_SECRET}"
       FACTORY_BASE_URL: "${FACTORY_BASE_URL:-http://localhost:3000}"
       FACTORY_API_CALLBACK_URL: "${FACTORY_API_CALLBACK_URL:-http://localhost:3000/gateway/api/v1/auth/callback}"
     volumes:

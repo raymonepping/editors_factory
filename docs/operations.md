@@ -157,6 +157,96 @@ schema.
 
 Read each script's usage before running it. A restore drill creates and manipulates Vault data and should not be run during a demonstration.
 
+## Vault KV secrets rotation
+
+`prompts/improvements/01_07_vault_kv_secrets_migration.md` moved six
+static secrets out of `.env` into Vault KV v2 (mount `secret/`, inside
+the `factory` namespace). Rotation always starts the same way — write
+the new value directly to Vault, using the `vault-admin` token — but
+what has to happen *after* that write differs per secret, because each
+one has a different consumer:
+
+```sh
+export VAULT_TOKEN="$(cat .secrets/vault/vault-admin-token)"
+export VAULT_ADDR=https://127.0.0.1:18200
+export VAULT_CACERT="$PWD/vault-tls/ca-chain.pem"
+export VAULT_NAMESPACE=factory
+```
+
+**Per-agent bearer tokens, JWT signing secret, CLI operator token**
+(`secret/agents/bearer-tokens`, `secret/backend/jwt-signing-secret`,
+`secret/backend/cli-operator-token`):
+
+```sh
+vault kv put secret/agents/bearer-tokens \
+  agent_a="$(openssl rand -hex 24)" agent_b=<unchanged> agent_c=<unchanged> agent_d=<unchanged>
+```
+
+(`vault kv put` replaces the whole item — pass every field, not just the
+one changing, or read the current ones back first and reuse them.) Then:
+
+```sh
+make agents-secrets-sync              # only rewrites AGENT_A_TOKEN..D_TOKEN and
+                                       # FACTORY_CLI_OPERATOR_TOKEN in .env — the
+                                       # only two of these four families .env
+                                       # ever holds a copy of
+./scripts/compose.sh agents up -d --force-recreate
+./scripts/compose.sh api up -d --force-recreate
+```
+
+factory-api reads its own copy of all four families straight from Vault
+at startup (`backend/src/vault.js`'s `loadSecretsFromVault`), read once,
+not hot-reloaded — recreating the `api` container is what actually picks
+up a rotated value there, not just rewriting `.env`. `FACTORY_AGENT_JWT_SECRET`
+specifically only affects the backend; nothing else needs recreating for
+it.
+
+**OIDC client secret** (`secret/identity/oidc-client-secret`): write the
+new value, then re-run the Keycloak bootstrap and recreate `api` — this
+one genuinely round-trips because `setup_keycloak.sh`'s `ensure_client()`
+syncs Vault's current value onto the *existing* client on every run
+(`clients/$uuid` update), not only at first creation:
+
+```sh
+vault kv put secret/identity/oidc-client-secret value="$(openssl rand -hex 24)"
+./scripts/compose.sh identity --profile init run --rm keycloak-bootstrap
+./scripts/compose.sh api up -d --force-recreate
+```
+
+**OpenLDAP / Keycloak admin passwords** (`secret/identity/ldap-admin-password`,
+`secret/identity/keycloak-admin-password`) — **do not assume a container
+recreate is enough.** Both images only apply their bootstrap admin
+password when their own persisted state is genuinely first-initialized
+(confirmed live in `osixia/openldap:1.5.0`'s own `startup.sh`: it gates
+the whole password-setting block behind a `slapd-first-start-done`
+marker file inside the `ldap-data`/`ldap-config` volumes — a later
+restart with a *different* `LDAP_ADMIN_PASSWORD_FILE` value changes
+nothing already-bound in the directory). Writing a new value to Vault
+KV only changes what `identity-secrets-init` renders next; it does not
+retroactively change the running service's actual credential. To
+rotate for real:
+
+```sh
+vault kv put secret/identity/ldap-admin-password value="$(openssl rand -hex 16)"
+```
+
+then change the **live** OpenLDAP admin password to match, using the
+old one you still have to authenticate:
+
+```sh
+podman exec factory-openldap ldappasswd -x -H ldap://localhost \
+  -D cn=admin,dc=factory,dc=local -w '<old password>' \
+  -s '<new password, matching what you just wrote to Vault>'
+```
+
+For Keycloak's admin password, change it the same way — through the
+Admin Console or `kcadm.sh update users/<admin-uuid> -s ...` while
+authenticated with the old one — then write the matching value to
+`secret/identity/keycloak-admin-password`. This has not been proven
+live in this project the way the OpenLDAP case above has; treat it as
+the same class of problem (an already-bootstrapped credential, not a
+fresh one) rather than assuming a container restart is sufficient.
+
 ## Rebuild changed components
 
 Compose stack starts build local images when required. The UI also has a dedicated rebuild target:

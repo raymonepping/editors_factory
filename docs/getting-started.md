@@ -18,19 +18,20 @@ The stack is sized for local development. Ollama model loading and four agent pr
 
 ## Prepare configuration
 
-Copy the environment template and replace every placeholder:
+Copy the environment template:
 
 ```sh
 cp .env.example .env
 ```
 
-Generate a different bearer token for each agent:
-
-```sh
-openssl rand -hex 24
-```
-
-Repeat that command four times and assign the values to `AGENT_A_TOKEN` through `AGENT_D_TOKEN`, then generate one more for `FACTORY_CLI_OPERATOR_TOKEN`. Set a private PostgreSQL password and replace the placeholder `LDAP_ADMIN_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, and `FACTORY_OIDC_CLIENT_SECRET` values. Do not commit `.env`.
+Set a private `POSTGRES_PASSWORD`. Everything else that looks like a
+placeholder secret in `.env.example` — the per-agent bearer tokens,
+`FACTORY_CLI_OPERATOR_TOKEN`, `LDAP_ADMIN_PASSWORD`,
+`KEYCLOAK_ADMIN_PASSWORD`, `FACTORY_OIDC_CLIENT_SECRET` — is generated
+for you later by `make vault-secrets-bootstrap`, once Vault is up: Vault
+KV is their source of truth, not a hand-edited `.env` line (see [Bootstrap
+Vault](#bootstrap-vault) below). Do not fill those in by hand and do not
+commit `.env`.
 
 Place the project-owner supplied license files at:
 
@@ -68,10 +69,11 @@ terraform -chdir=terraform/vault-platform init -input=false
 terraform -chdir=terraform/vault-platform apply
 ```
 
-That apply creates the `factory` namespace, the AppRole, and — alongside
-the policies the API and its agents actually use — a narrow `vault-admin`
-policy meant to replace the root token for every routine operation that
-follows. Mint a token attached to it now:
+That apply creates the `factory` namespace, both AppRoles (`factory-api`
+and `identity-secrets` — see below), and — alongside the policies the
+API and its agents actually use — a narrow `vault-admin` policy meant to
+replace the root token for every routine operation that follows. Mint a
+token attached to it now:
 
 ```sh
 make vault-admin-bootstrap
@@ -84,20 +86,26 @@ This is idempotent (safe to re-run) and saves the token to
 way the root token is. From here on, every command in this guide uses this
 token, not root.
 
-Get the role ID and generate the AppRole secret ID:
+Get the role ID and generate the AppRole secret ID for factory-api's own
+identity, and then the same for `identity-secrets` — a second, narrower
+AppRole that only ever renders OpenLDAP's/Keycloak's admin passwords and
+the OIDC client secret (see [Bootstrap identity](#bootstrap-identity-openldap-and-keycloak)):
 
 ```sh
 export VAULT_TOKEN="$(cat .secrets/vault/vault-admin-token)"
 export VAULT_ADDR=https://127.0.0.1:18200
 export VAULT_CACERT="$PWD/vault-tls/ca-chain.pem"
 terraform -chdir=terraform/vault-platform output -raw factory_api_role_id
+terraform -chdir=terraform/vault-platform output -raw identity_secrets_role_id
 export VAULT_NAMESPACE=factory
 vault write -f auth/approle/role/factory-api/secret-id
+vault write -f auth/approle/role/identity-secrets/secret-id
 ```
 
-Copy the role ID into `FACTORY_VAULT_ROLE_ID` and the returned `secret_id`
-into `FACTORY_VAULT_SECRET_ID` in `.env`, then apply the Sentinel endpoint
-policies:
+Copy the two role IDs and their returned `secret_id`s into
+`FACTORY_VAULT_ROLE_ID`/`FACTORY_VAULT_SECRET_ID` and
+`IDENTITY_SECRETS_ROLE_ID`/`IDENTITY_SECRETS_SECRET_ID` in `.env`, then
+apply the Sentinel endpoint policies:
 
 ```sh
 unset VAULT_NAMESPACE
@@ -114,7 +122,33 @@ make vault-up
 
 Do not start all Vault services directly with Compose. `make vault-up` preserves the required transit-token bootstrap order.
 
-The AppRole `secret_id` expires after 90 days (`terraform/vault-platform/auth.tf`'s `secret_id_ttl`), unlike every other credential in this system, which is short-lived by design. Regenerate it before then by repeating the `vault write -f auth/approle/role/factory-api/secret-id` step above (using the admin token, not root), updating `FACTORY_VAULT_SECRET_ID` in `.env`, and restarting the Vault stack the same way.
+Both AppRoles' `secret_id`s expire after 90 days (`terraform/vault-platform/auth.tf`'s `secret_id_ttl`), unlike every other credential in this system, which is short-lived by design. Regenerate them before then by repeating the relevant `vault write -f auth/approle/role/<role>/secret-id` step above (using the admin token, not root), updating the matching `.env` value, and restarting the Vault stack the same way.
+
+Seed Vault KV with the per-agent bearer tokens, the JWT signing secret,
+the CLI operator token, and the two identity-service admin passwords —
+this is the step that generates the values `.env.example` used to ask
+you to fill in by hand:
+
+```sh
+make vault-secrets-bootstrap
+make agents-secrets-sync
+```
+
+`vault-secrets-bootstrap` is idempotent: on a fresh cluster it generates
+a random value for anything not already in Vault KV; on a re-run it
+reads back whatever's already there and reapplies it unchanged, so
+running it again is never a silent rotation (see
+[Operations](operations.md) for how to actually rotate one of these).
+`agents-secrets-sync` then pulls the four agent tokens and the CLI
+operator token out of Vault KV into `.env` — the only mechanism that
+gets those specific two into `.env`, ever, is this command,
+because the agent-a/b/c/d containers and the Makefile's own
+`demo-bad`/`demo-good`/`reset` commands read them from there and never
+talk to Vault directly (`security/authority-model.md`'s "no agent
+container ever holds a Vault credential" rule). The Keycloak/LDAP
+admin passwords and the OIDC client secret stay in Vault only — nothing
+ever writes those to `.env`; see
+[Bootstrap identity](#bootstrap-identity-openldap-and-keycloak).
 
 **The root token is not a routine tool.** After the one `vault-platform`
 apply above, the only things that legitimately need it again are
@@ -152,7 +186,17 @@ Seed the LDAP directory and import the Keycloak realm and client:
 make identity-bootstrap
 ```
 
-This starts the identity stack, then runs one-shot LDAP seed and Keycloak realm-import containers, then verifies the result. It provisions the demo accounts defined in `compose/identity/ldap/bootstrap.ldif`, including operator and viewer roles, and configures the `factory-api` OIDC client from the `FACTORY_OIDC_*` values already set in `.env`. Re-running it is safe; it does not need to run again after a plain `make up`.
+This starts the identity stack — including `identity-secrets-init`, a
+one-shot container that authenticates with the `identity-secrets`
+AppRole and renders OpenLDAP's admin password, Keycloak's admin
+password, and the OIDC client secret from Vault KV onto a shared volume
+before OpenLDAP/Keycloak start — then runs one-shot LDAP seed and
+Keycloak realm-import containers, then verifies the result. It
+provisions the demo accounts defined in `compose/identity/ldap/bootstrap.ldif`,
+including operator and viewer roles, and configures the `factory-api`
+OIDC client using the same Vault-sourced secret, plus the non-secret
+`FACTORY_OIDC_*` endpoint values already set in `.env`. Re-running it is
+safe; it does not need to run again after a plain `make up`.
 
 Dashboard sign-in and the human-triggered control routes (task creation, profile switch, reset) require this step. The `make demo-bad`, `make demo-good`, and `make reset` commands do not: they authenticate with `FACTORY_CLI_OPERATOR_TOKEN` instead, a separate identity domain from both Keycloak sessions and agent bearer tokens.
 
