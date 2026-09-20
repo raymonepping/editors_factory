@@ -51,6 +51,52 @@ async function vaultRequest(method, path, { token, body } = {}) {
   return data;
 }
 
+/** Reads one field from a KV v2 secret at `secret/<path>`, using the
+ * Vault Agent-rendered factory-api token. KV v2 double-nests its payload
+ * (`{data: {data: {...}}}`) — this returns the inner object. */
+async function getKvSecret(path) {
+  const data = await vaultRequest("GET", `secret/data/${path}`, {
+    token: await readAgentToken(),
+  });
+  return data.data.data;
+}
+
+/**
+ * prompts/improvements/01_07_vault_kv_secrets_migration.md: fetches the
+ * static secrets factory-api itself consumes (agent bearer tokens for
+ * validating incoming requests, the JWT signing secret, the CLI operator
+ * token, the OIDC client secret) from Vault KV and writes them into the
+ * already-imported `config` object in place — every consumer of `config`
+ * already reads these fields inside a function body at call time, not at
+ * its own module load time (checked directly before writing this), so
+ * mutating the shared object here, before `app.listen()`, is sufficient;
+ * nothing needs to re-import `config` afterward.
+ *
+ * Fails fast, matching db.js's own createBackendPool: a demo that cannot
+ * reach its own secrets should not start half-configured.
+ */
+export async function loadSecretsFromVault(config) {
+  const [agents, jwt, cli, oidcSecret] = await Promise.all([
+    getKvSecret("agents/bearer-tokens"),
+    getKvSecret("backend/jwt-signing-secret"),
+    getKvSecret("backend/cli-operator-token"),
+    getKvSecret("identity/oidc-client-secret"),
+  ]);
+
+  for (const id of ["agent-a", "agent-b", "agent-c", "agent-d"]) {
+    const field = id.replace("-", "_"); // agent-a -> agent_a
+    const value = agents[field];
+    if (!value) throw new Error(`Vault KV agents/bearer-tokens missing field "${field}"`);
+    config.agentTokens[id] = value;
+  }
+  if (!jwt.value) throw new Error("Vault KV backend/jwt-signing-secret missing field \"value\"");
+  config.auth.agentJwtSecret = jwt.value;
+  if (!cli.value) throw new Error("Vault KV backend/cli-operator-token missing field \"value\"");
+  config.auth.cliOperatorToken = cli.value;
+  if (!oidcSecret.value) throw new Error("Vault KV identity/oidc-client-secret missing field \"value\"");
+  config.oidc.clientSecret = oidcSecret.value;
+}
+
 /**
  * Mints a short-lived child token from the Vault Agent-rendered
  * factory-api token, tagged with metadata identifying the calling agent.

@@ -20,19 +20,31 @@ export const config = {
 
   auth: {
     enabled: authEnabled,
+    // prompts/improvements/01_07_vault_kv_secrets_migration.md: these
+    // four values (cliOperatorToken, agentJwtSecret, oidc.clientSecret
+    // below, and agentTokens at the bottom of this file) no longer come
+    // from process.env — they start as null/empty placeholders here and
+    // are populated by vault.js's loadSecretsFromVault(config), called
+    // once during backend startup (index.js's main(), before
+    // app.listen()) and mutated into this same exported object. Every
+    // consumer already reads these fields inside a function body at call
+    // time, never at its own module's top level, so the mutation is
+    // visible everywhere by the time the server accepts its first
+    // request.
+    //
     // Shared secret for the Makefile's own curl-based demo commands
     // (make demo-bad/demo-good/reset) — a third identity domain distinct
     // from per-agent tokens and human OIDC sessions (auth/index.js's
     // requireHumanSession). null when unset: the CLI-token bypass simply
     // never matches, so a request without a real session still gets a
     // real 401 instead of silently falling back to an implicit identity.
-    cliOperatorToken: optional("FACTORY_CLI_OPERATOR_TOKEN", null),
+    cliOperatorToken: null,
     // Wave 6 (ADR docs/validation/ADR_001_agent_api_identity.md): signs
     // and verifies the short-lived, task-bound JWT that replaces a
-    // static bearer token as an agent's per-call credential. Required,
-    // like the agent tokens below — this is now the enforced mechanism,
-    // not an optional hardening layer.
-    agentJwtSecret: required("FACTORY_AGENT_JWT_SECRET"),
+    // static bearer token as an agent's per-call credential. Populated by
+    // loadSecretsFromVault before the server accepts requests — see the
+    // note above.
+    agentJwtSecret: null,
     // Prompt 01.02 Phase 5, found live: this defaulted to 300, exactly
     // equal to AGENT_TASK_TIMEOUT_MS's own 300000ms default — a task
     // bootstraps its JWT at the same moment its timeout clock starts, so
@@ -58,10 +70,9 @@ export const config = {
     internalUrl: optional("FACTORY_OIDC_INTERNAL_URL", "http://keycloak:8080"),
     publicUrl: optional("FACTORY_OIDC_PUBLIC_URL", "http://localhost:8088"),
     clientId: optional("FACTORY_OIDC_CLIENT_ID", "factory-api"),
-    clientSecret: optional(
-      "FACTORY_OIDC_CLIENT_SECRET",
-      "factory-client-secret-2026",
-    ),
+    // Populated by loadSecretsFromVault before the server accepts
+    // requests — see the note on config.auth above.
+    clientSecret: null,
     callbackUrl: optional(
       "FACTORY_API_CALLBACK_URL",
       "http://localhost:3000/gateway/api/v1/auth/callback",
@@ -87,11 +98,13 @@ export const config = {
 
   // Per-agent bearer tokens for agent -> backend calls (input/05.md: every
   // agent has its own service identity, never a shared API key).
+  // Populated by loadSecretsFromVault before the server accepts requests
+  // — see the note on config.auth above.
   agentTokens: {
-    "agent-a": required("AGENT_A_TOKEN"),
-    "agent-b": required("AGENT_B_TOKEN"),
-    "agent-c": required("AGENT_C_TOKEN"),
-    "agent-d": required("AGENT_D_TOKEN"),
+    "agent-a": null,
+    "agent-b": null,
+    "agent-c": null,
+    "agent-d": null,
   },
 };
 

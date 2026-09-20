@@ -33,3 +33,17 @@ resource "vault_approle_auth_backend_role" "factory_api" {
   # before this TTL expires.
   secret_id_ttl = 7776000 # 90 days, seconds
 }
+
+# prompts/improvements/01_07_vault_kv_secrets_migration.md: a separate
+# machine identity for the identity-secrets Vault Agent sidecar that
+# renders OpenLDAP's and Keycloak's own bootstrap passwords — not
+# factory-api's AppRole, see that policy's own comment for why.
+resource "vault_approle_auth_backend_role" "identity_secrets" {
+  namespace      = vault_namespace.factory.path
+  backend        = vault_auth_backend.approle.path
+  role_name      = "identity-secrets"
+  token_policies = [vault_policy.identity_secrets.name]
+  token_ttl      = 3600
+  token_max_ttl  = 14400
+  secret_id_ttl  = 7776000 # 90 days, same rotation discipline as factory-api's own
+}

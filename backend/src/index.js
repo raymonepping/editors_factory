@@ -1,6 +1,7 @@
 import express from "express";
 import { validateConfigOnBoot, config } from "./config.js";
 import { initDbPool } from "./db.js";
+import { loadSecretsFromVault } from "./vault.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { authRouter, requireHumanSession } from "./auth/index.js";
@@ -61,6 +62,9 @@ app.use("/api", factoryRecordsRouter);
 app.use(errorHandler);
 
 async function main() {
+  await loadSecretsFromVault(config);
+  console.log("[factory-api] static secrets loaded from Vault KV");
+
   await initDbPool();
   console.log("[factory-api] database pool ready (factory-backend-role)");
 

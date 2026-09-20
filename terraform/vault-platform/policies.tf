@@ -64,6 +64,27 @@ resource "vault_policy" "factory_api" {
     path "auth/token/create" {
       capabilities = ["create", "update"]
     }
+
+    # prompts/improvements/01_07_vault_kv_secrets_migration.md: the four
+    # static secrets factory-api itself consumes (agent bearer tokens for
+    # validating incoming requests, its own JWT signing secret, the CLI
+    # operator token, the OIDC client secret) — read only, exactly these
+    # four paths, nothing broader under secret/.
+    path "secret/data/agents/bearer-tokens" {
+      capabilities = ["read"]
+    }
+
+    path "secret/data/backend/jwt-signing-secret" {
+      capabilities = ["read"]
+    }
+
+    path "secret/data/backend/cli-operator-token" {
+      capabilities = ["read"]
+    }
+
+    path "secret/data/identity/oidc-client-secret" {
+      capabilities = ["read"]
+    }
   EOT
 }
 
@@ -77,6 +98,31 @@ resource "vault_policy" "factory_agent_c_cred" {
     }
 
     path "database/creds/factory-good-role" {
+      capabilities = ["read"]
+    }
+  EOT
+}
+
+# prompts/improvements/01_07_vault_kv_secrets_migration.md — a separate
+# identity from factory-api's own, for OpenLDAP's and Keycloak's own
+# bootstrap secrets. Different trust domain (a third-party container's
+# own admin password, not an application-broker credential), so a
+# separate AppRole + policy, not a wider grant tacked onto factory-api's
+# — matching this project's own established pattern of distinct security
+# domains for human/agent/CLI-operator identity.
+resource "vault_policy" "identity_secrets" {
+  namespace = vault_namespace.factory.path
+  name      = "identity-secrets"
+  policy    = <<-EOT
+    path "secret/data/identity/ldap-admin-password" {
+      capabilities = ["read"]
+    }
+
+    path "secret/data/identity/keycloak-admin-password" {
+      capabilities = ["read"]
+    }
+
+    path "secret/data/identity/oidc-client-secret" {
       capabilities = ["read"]
     }
   EOT
@@ -183,6 +229,38 @@ resource "vault_policy" "vault_admin" {
 
     path "factory/database/roles/factory-backend-role" {
       capabilities = ["create", "read", "update", "delete"]
+    }
+
+    # prompts/improvements/01_07_vault_kv_secrets_migration.md: managing
+    # the new secret/ KV v2 mount (terraform/vault-secrets) and the
+    # identity-secrets AppRole role, the same way vault-admin already
+    # manages every other routine Terraform-applied resource in this
+    # namespace.
+    path "factory/sys/mounts/secret" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/auth/approle/role/identity-secrets" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/auth/approle/role/identity-secrets/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/sys/policies/acl/identity-secrets" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    # Writing the actual secret values (terraform/vault-secrets' own
+    # vault_kv_secret_v2 resources) — read+write, not sudo; a KV v2 data
+    # path is an ordinary secrets-engine path, not a sys/ path.
+    path "factory/secret/data/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/secret/metadata/*" {
+      capabilities = ["read", "list", "delete"]
     }
   EOT
 }
