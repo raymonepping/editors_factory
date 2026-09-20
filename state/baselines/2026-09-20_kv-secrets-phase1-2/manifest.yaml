@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-20_kv-secrets-phase1-2"
+  purpose: "Vault KV v2 secrets migration Phase 1-2: backend static secrets (agent bearer tokens, JWT signing secret, CLI operator token, OIDC client secret) moved from .env to Vault KV, backend loads them at startup via loadSecretsFromVault(), agent containers stay Vault-blind and are kept in sync via scripts/agents-secrets-sync.sh. Live-verified end to end (demo-bad run produced D-001..D-005 + a real factory-bad-role lease); both test suites pass."
+  captured_at: "2026-09-20T14:05:03Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-20_root-token-eliminated"
+  git:
+    commit: "27d5daca56f3b70b959a613feb83e0b595fff43b"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
