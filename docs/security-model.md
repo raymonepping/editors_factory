@@ -73,7 +73,7 @@ The API publishes evidence after writes to the evidence tables. Agent D applies 
 The dashboard's traffic-light state reflects evidence:
 
 - **NORMAL**: no harmful action is present;
-- **ELEVATED**: suspicious or denied activity needs attention;
+- **ELEVATED**: attention-worthy activity is underway — not only suspicious or denied action, but any database-tier credential issuance and any delegation that reaches the remediation agent, since both are worth a human noticing even when fully authorized;
 - **CRITICAL**: destructive data loss occurred;
 - **CONTAINED**: a dangerous request was denied by the bounded profile.
 
