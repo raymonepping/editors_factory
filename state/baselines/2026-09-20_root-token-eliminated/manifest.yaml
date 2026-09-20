@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-20_root-token-eliminated"
+  purpose: "Root-token elimination (prompts/improvements/01_06_vault_root_token_elimination.md). New vault-admin policy + scripts/vault-admin-bootstrap.sh: a single, narrowly-scoped, periodic (30-day) token replacing the cluster root token for every routine Vault operation -- homed in root namespace, reaching into factory via namespace-prefixed policy paths (one token covers both, not two, confirmed live before implementing). Every path and sudo requirement verified live by minting real scoped tokens and testing directly -- only sys/auth/* (mounting an auth backend) needed sudo; mounts, EGPs, ACL policies, and namespace creation did not. Two real gaps found and fixed live during a full from-scratch cluster rebuild: the Vault Terraform provider itself needs auth/token/create for at least vault_egp_policy resources (provider-internal, not resource HCL), and AppRole role-id/secret-id are separate sub-paths not covered by a grant on the exact role path alone. Makefile's infra-configure-vault and scripts/vault-check-entitlement.sh switched to the admin token. Proven end to end on a real wipe-and-reinit of the vault-1/2/3 cluster (not inferred): fresh init -> vault-platform apply with root -> vault-admin-bootstrap -> every subsequent step (secret_id generation, vault-sentinel apply, vault-database apply, entitlement check, a live BAD run issuing a real factory-bad-role lease and firing Agent D's D-005) using only the admin token. Confirmed the token is genuinely narrow: denied vault audit disable, a direct database/creds/factory-bad-role read, and a bare sys/mounts listing. docs/getting-started.md, docs/operations.md, docs/security-model.md updated -- including an honest note that hard-mandatory Sentinel does not constrain the literal root token in this install, which is exactly why routine admin work no longer uses it. Full regression clean: backend 24/24, agents 10/10, ui typecheck+build clean, terraform fmt clean on the changed file. Reset to clean baseline. KV-engine migration for static secrets in .env remains deliberately deferred as its own, larger follow-up (would require wrapping Keycloak's and OpenLDAP's own third-party container entrypoints, not just our own code)."
+  captured_at: "2026-09-20T12:38:43Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-20_open-findings-fixed"
+  git:
+    commit: "8bc06394b56e9b896136680fcb5e01364b9f3d7d"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
