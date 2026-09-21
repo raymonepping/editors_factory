@@ -1,0 +1,9 @@
+{
+  "git": "git version 2.50.1 (Apple Git-155)",
+  "podman": "podman version 6.1.1",
+  "vault": "Vault v2.1.0+ent (55748a8f023db67c541723e8fc8c8f4d48ba1e1e), built 2026-08-31T09:58:32Z",
+  "node": "v25.2.1",
+  "npm": "11.6.2",
+  "ollama": "ollama version is 0.19.0",
+  "jq": "jq-1.8.1"
+}
