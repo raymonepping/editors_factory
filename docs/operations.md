@@ -157,6 +157,35 @@ schema.
 
 Read each script's usage before running it. A restore drill creates and manipulates Vault data and should not be run during a demonstration.
 
+## Verifying the evidence trail against Vault's own audit log
+
+`docs/security-model.md`'s "Preserve the chain of evidence" claims a
+reviewer can reconstruct a credential-issuance event two independent
+ways — from the application's own `credential_events` rows, and from
+Vault's own audit trail — and that the two have to agree. This is a
+claim worth actually checking, not just trusting:
+
+```sh
+./scripts/vault-audit-crosscheck.py <run_id>
+./scripts/vault-audit-crosscheck.py --latest
+```
+
+It reads the raw audit log directly off every Vault node's own
+container filesystem (only whichever node was Raft leader at the
+moment of a given request wrote that entry locally, so it merges all
+three rather than assuming leadership stayed on one node for the whole
+run), matches each `credential_events` row's `lease_id` against a
+Vault audit response entry with the same lease, and confirms the
+paired request entry shows the `require-agent-c-for-db-creds` Sentinel
+policy as one of its granting policies. A `FAIL` means either a
+credential the app recorded was never actually issued by Vault
+(impossible under normal operation — worth investigating immediately
+if it ever happens), or a credential Vault issued was never recorded
+by the app (a gap in the application's own evidence-writing code).
+Run it after any demo run you want an audited record of, or as a
+one-off sanity check after changing anything in the
+credential-issuance path.
+
 ## Vault KV secrets rotation
 
 `prompts/improvements/01_07_vault_kv_secrets_migration.md` moved six
