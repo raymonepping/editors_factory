@@ -35,6 +35,7 @@ demoRouter.put(
       state.setCurrentRunId(runId);
       state.clearTasks();
       state.clearActiveAgentCCredential();
+      state.clearPendingApprovals();
 
       res.json({ profile, runId });
     } catch (err) {
@@ -103,6 +104,7 @@ demoRouter.post(
 
       state.clearTasks();
       state.clearActiveAgentCCredential();
+      state.clearPendingApprovals();
 
       const newRunId = await audit.startRun(state.getProfile());
       state.setCurrentRunId(newRunId);

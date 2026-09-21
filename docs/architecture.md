@@ -2,6 +2,8 @@
 
 The Factory is a closed local system built to expose one security question: what happens when a delegated agent receives more authority than its task requires?
 
+See the [architecture diagram](architecture_diagram.md) for the complete identity, runtime, Vault, data, and evidence flows.
+
 ## Component map
 
 | Component | Responsibility | Trust boundary |

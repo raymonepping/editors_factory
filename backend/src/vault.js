@@ -223,6 +223,110 @@ export async function issueDatabaseCredential(role, agentId, taskId = null) {
   };
 }
 
+/**
+ * Issues a dynamic PostgreSQL credential through the Control-Group-gated
+ * supervised policy instead of the normal factory-agent-c-cred one
+ * (prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4)
+ * — used only when the backend's own anomaly trigger fires
+ * (routes/credentials.js), never for the normal unattended demo-bad/
+ * demo-good flow. Vault does not release the credential here: it
+ * returns a wrap_info block (a limited-duration wrapping token plus
+ * its accessor) instead of `data`, confirmed live before writing this.
+ * Returns that wrap info for the caller to hold as a pending approval —
+ * see authorizeControlGroupRequest() and unwrapCredential() for the
+ * other two steps of this three-step flow.
+ *
+ * Deliberately does NOT reuse DB_ROLE_TOKEN_TTL_SECONDS here. Found
+ * live: a Control Group's approval stays tied to the ORIGINAL
+ * requesting child token remaining valid — authorizing after that
+ * token has expired returns `approved: false` ("Request needs further
+ * authorization") and the pending request becomes permanently
+ * unusable, even though the wrapping token itself has a much longer
+ * default TTL (24h). The database role's own short TTL (2-5 minutes)
+ * is nowhere near enough time for a human to actually notice and click
+ * approve — it would make this path fail almost every time by
+ * construction. SUPERVISED_APPROVAL_WINDOW_SECONDS below is a
+ * separate, generous window for the wait itself; the eventually-issued
+ * credential still gets its own normal (short) lease from the role's
+ * own default_ttl once unwrapped, confirmed live to be unaffected by
+ * how long the approval took.
+ */
+const SUPERVISED_APPROVAL_WINDOW_SECONDS = 1800; // 30 minutes
+
+export async function issueSupervisedDatabaseCredential(role, agentId, taskId) {
+  const { clientToken } = await mintAgentTaggedChildToken(
+    agentId,
+    SUPERVISED_APPROVAL_WINDOW_SECONDS,
+    ["factory-agent-c-cred-supervised"],
+    taskId,
+  );
+  const data = await vaultRequest("GET", `database/creds/${role}`, {
+    token: clientToken,
+  });
+  if (!data.wrap_info) {
+    throw new Error(
+      "issueSupervisedDatabaseCredential: expected a Control-Group wrap_info response but Vault returned a credential directly — the supervised policy's control_group block may be missing or misconfigured",
+    );
+  }
+  return {
+    wrapToken: data.wrap_info.token,
+    wrapAccessor: data.wrap_info.accessor,
+    wrapTtl: data.wrap_info.ttl,
+  };
+}
+
+/**
+ * Authorizes one pending Control Group request, called only at the
+ * moment a human clicks "Authorize" in the dashboard. Logs in fresh as
+ * the control-group-authorizer AppRole identity for this one call —
+ * that identity is never held standing (see .env's own comment on its
+ * short TTL) — then revokes that token immediately after, so it exists
+ * for the shortest possible window.
+ */
+export async function authorizeControlGroupRequest(accessor) {
+  const roleId = config.controlGroup.authorizerRoleId;
+  const secretId = config.controlGroup.authorizerSecretId;
+  if (!roleId || !secretId) {
+    throw new Error(
+      "authorizeControlGroupRequest: CONTROL_GROUP_AUTHORIZER_ROLE_ID/SECRET_ID not configured",
+    );
+  }
+  const login = await vaultRequest("POST", "auth/approle/login", {
+    body: { role_id: roleId, secret_id: secretId },
+  });
+  const authorizerToken = login.auth.client_token;
+  try {
+    const result = await vaultRequest("PUT", "sys/control-group/authorize", {
+      token: authorizerToken,
+      body: { accessor },
+    });
+    return { approved: result.data?.approved === true };
+  } finally {
+    await vaultRequest("PUT", "auth/token/revoke-self", {
+      token: authorizerToken,
+    }).catch(() => {});
+  }
+}
+
+/**
+ * Unwraps a Control Group wrapping token after authorization to
+ * retrieve the actual database credential — the wrapping token itself
+ * IS the authentication for this one call (it was never meant to be
+ * combined with any other token), matching `vault unwrap`'s own
+ * behavior.
+ */
+export async function unwrapCredential(wrapToken) {
+  const data = await vaultRequest("POST", "sys/wrapping/unwrap", {
+    token: wrapToken,
+  });
+  return {
+    username: data.data.username,
+    password: data.data.password,
+    leaseId: data.lease_id,
+    leaseDuration: data.lease_duration,
+  };
+}
+
 /** Renews a dynamic lease by its exact lease_id and increment. */
 export async function renewLease(leaseId, incrementSeconds = 120) {
   const parentToken = await readAgentToken();

@@ -149,3 +149,31 @@ export function clearActiveAgentCCredential() {
     renewalTimer = null;
   }
 }
+
+// prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4:
+// requests routed through the Control-Group-gated supervised path,
+// awaiting a human's authorization. approvalId -> { wrapAccessor,
+// wrapToken, role, actorId, taskId, runId, requestedAt }. Same
+// in-memory, single-process design as `tasks` above — cleared on
+// reset/profile-switch alongside it.
+const pendingApprovals = new Map();
+
+export function createPendingApproval(approvalId, details) {
+  pendingApprovals.set(approvalId, { approvalId, ...details });
+}
+
+export function getPendingApproval(approvalId) {
+  return pendingApprovals.get(approvalId) || null;
+}
+
+export function listPendingApprovals() {
+  return Array.from(pendingApprovals.values());
+}
+
+export function clearPendingApproval(approvalId) {
+  pendingApprovals.delete(approvalId);
+}
+
+export function clearPendingApprovals() {
+  pendingApprovals.clear();
+}

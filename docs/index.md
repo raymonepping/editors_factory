@@ -5,7 +5,7 @@ The Factory shows how authority can expand across an agent delegation chain and 
 ## Guided path
 
 1. [Getting started](getting-started.md) prepares a clean checkout and starts the stack.
-2. [Architecture](architecture.md) explains the components and control flow.
+2. [Architecture](architecture.md) explains the components and control flow; the [architecture diagram](architecture_diagram.md) maps the runtime, identity, credential, and evidence paths.
 3. [Security model](security-model.md) defines authority, credentials, and enforcement boundaries.
 4. [Demo guide](demo-guide.md) runs the BAD and GOOD profiles and interprets the evidence.
 5. [Operations](operations.md) covers routine lifecycle, reset, backup, and diagnostics.

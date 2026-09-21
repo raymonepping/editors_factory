@@ -262,5 +262,46 @@ resource "vault_policy" "vault_admin" {
     path "factory/secret/metadata/*" {
       capabilities = ["read", "list", "delete"]
     }
+
+    # prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4:
+    # the identity group + entity a human authorizer's own AppRole login
+    # aliases into, and the new supervised policy/AppRole for the
+    # anomaly-triggered Control Group path — managed the same routine way
+    # as every other resource above.
+    path "factory/identity/entity" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/identity/entity/name/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/identity/entity-alias" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/identity/group" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/identity/group/name/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/auth/approle/role/control-group-authorizer" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/auth/approle/role/control-group-authorizer/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/sys/policies/acl/control-group-authorizer" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "factory/sys/policies/acl/factory-agent-c-cred-supervised" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
   EOT
 }

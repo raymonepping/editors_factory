@@ -86,6 +86,15 @@ export const config = {
     tokenFile: optional("VAULT_AGENT_TOKEN_FILE", "/vault/secrets/token"),
   },
 
+  // prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4:
+  // a separate AppRole identity, never held standing, used only at the
+  // moment a human authorizes a supervised (Control-Group-gated)
+  // credential request — see vault.js's authorizeControlGroupRequest().
+  controlGroup: {
+    authorizerRoleId: optional("CONTROL_GROUP_AUTHORIZER_ROLE_ID", null),
+    authorizerSecretId: optional("CONTROL_GROUP_AUTHORIZER_SECRET_ID", null),
+  },
+
   postgres: {
     host: optional("POSTGRES_HOST", "postgres"),
     port: Number(optional("POSTGRES_PORT", "5432")),

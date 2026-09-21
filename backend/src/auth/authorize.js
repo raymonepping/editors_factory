@@ -23,6 +23,12 @@ const POLICY = {
     start_task: false,
     switch_profile: false,
     reset_demo: false,
+    // prompts/improvements/01_08_agentic_iam_inspired_hardening.md
+    // Phase 4: authorizing a supervised (Control-Group-gated)
+    // credential request is a demo-control action, same tier as
+    // switch_profile/reset_demo — an operator capability, not a
+    // viewer one.
+    authorize_credential: false,
   },
   "factory-operator": {
     read_dashboard: true,
@@ -30,6 +36,7 @@ const POLICY = {
     start_task: true,
     switch_profile: true,
     reset_demo: true,
+    authorize_credential: true,
   },
 };
 

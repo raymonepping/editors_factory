@@ -12,10 +12,23 @@ resource "vault_auth_backend" "approle" {
 # never gets Transit, PKI, or any other engine access, because Factory
 # doesn't use them.
 resource "vault_approle_auth_backend_role" "factory_api" {
-  namespace      = vault_namespace.factory.path
-  backend        = vault_auth_backend.approle.path
-  role_name      = "factory-api"
-  token_policies = [vault_policy.factory_api.name, vault_policy.factory_agent_c_cred.name]
+  namespace = vault_namespace.factory.path
+  backend   = vault_auth_backend.approle.path
+  role_name = "factory-api"
+  # factory_agent_c_cred_supervised (01_08 Phase 4): Vault requires a
+  # child token's policies to be a subset of its parent's — found live,
+  # "child policies must be subset of parent" — so factory-api's own
+  # token must hold this too, the same structural reason it already
+  # holds factory_agent_c_cred. factory-api's own token is never used
+  # directly to read database/creds/*, only to mint a scoped-down child
+  # token first, and the supervised policy is itself gated further by a
+  # Control Group — holding it here does not widen what factory-api can
+  # do unsupervised.
+  token_policies = [
+    vault_policy.factory_api.name,
+    vault_policy.factory_agent_c_cred.name,
+    vault_policy.factory_agent_c_cred_supervised.name,
+  ]
   token_ttl      = 3600  # 1h — independent of the DB dynamic-cred TTLs
   token_max_ttl  = 14400 # 4h
 
