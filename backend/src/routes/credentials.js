@@ -88,7 +88,11 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
       // of issuing directly — Vault returns a wrap_info, not a
       // credential, until a human authorizes it (POST
       // /credentials/pending/:id/authorize below).
-      const wrap = await issueSupervisedDatabaseCredential(role, actorId, taskId);
+      const wrap = await issueSupervisedDatabaseCredential(
+        role,
+        actorId,
+        taskId,
+      );
       const approvalId = randomUUID();
       state.createPendingApproval(approvalId, {
         wrapAccessor: wrap.wrapAccessor,
