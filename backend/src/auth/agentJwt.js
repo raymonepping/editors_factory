@@ -46,8 +46,25 @@ function sign(data) {
  * it was issued for. `taskId` is null for agent-d, which is never part
  * of the delegation chain and so never has one — see verifyAgentToken's
  * own comment on how each case is revoked.
+ *
+ * `delegatedBy` (prompts/improvements/01_08_agentic_iam_inspired_hardening.md
+ * Phase 3) is additive and optional — state.js's own createTask() already
+ * records it for every task (the human user identifier for agent-a's own
+ * first task, the upstream agent's actorId for every later delegation),
+ * this just threads that same value into the token so it becomes a
+ * self-contained, verifiable claim about who this specific request
+ * descends from, not only something reconstructable after the fact from
+ * the delegations table. Never presented to Vault — see the article's
+ * own "agent layer / task layer / Vault layer" account of why this stays
+ * entirely at the backend.
  */
-export function signAgentToken({ actorId, runId, taskId, ttlSeconds }) {
+export function signAgentToken({
+  actorId,
+  runId,
+  taskId,
+  delegatedBy = null,
+  ttlSeconds,
+}) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "HS256", typ: "JWT" };
   const payload = {
@@ -59,6 +76,7 @@ export function signAgentToken({ actorId, runId, taskId, ttlSeconds }) {
     jti: randomUUID(),
     run_id: runId,
     task_id: taskId,
+    delegated_by: delegatedBy,
   };
   const encodedHeader = base64url(JSON.stringify(header));
   const encodedPayload = base64url(JSON.stringify(payload));

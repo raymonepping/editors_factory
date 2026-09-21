@@ -29,7 +29,7 @@ agentTokenRouter.post("/agents/token", agentAuth, (req, res) => {
     return res.json({ token, ttlSeconds: config.auth.agentJwtTtlSeconds });
   }
 
-  const { taskId } = state.getCausalContext(actorId);
+  const { taskId, delegatedBy } = state.getCausalContext(actorId);
   if (!taskId) {
     // Verifies the expected workload/task context before issuing
     // anything (section 15 of the improvement prompt) — a bootstrap
@@ -43,6 +43,7 @@ agentTokenRouter.post("/agents/token", agentAuth, (req, res) => {
     actorId,
     runId,
     taskId,
+    delegatedBy,
     ttlSeconds: config.auth.agentJwtTtlSeconds,
   });
   res.json({ token, ttlSeconds: config.auth.agentJwtTtlSeconds });

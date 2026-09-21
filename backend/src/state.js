@@ -91,13 +91,22 @@ export function completeTask(taskId) {
   return task;
 }
 
-/** The causal context (trace_id/task_id) for actorId's currently active
- * task, or all-null fields if it has none — callers spread this directly
- * into an audit.record*() call rather than branching on presence. */
+/** The causal context (trace_id/task_id/delegated_by) for actorId's
+ * currently active task, or all-null fields if it has none — callers
+ * spread this directly into an audit.record*() call rather than
+ * branching on presence. delegatedBy is createTask()'s own field —
+ * the human user identifier for agent-a's own first task, or the
+ * upstream agent's actorId for every later delegation — added to this
+ * return value in prompts/improvements/01_08_agentic_iam_inspired_hardening.md
+ * Phase 3 so it can be threaded into the task-bound JWT. */
 export function getCausalContext(actorId) {
   const taskId = actorToTaskId.get(actorId) || null;
   const task = taskId ? tasks.get(taskId) : null;
-  return { taskId, traceId: task?.traceId ?? null };
+  return {
+    taskId,
+    traceId: task?.traceId ?? null,
+    delegatedBy: task?.delegatedBy ?? null,
+  };
 }
 
 export function clearTasks() {
