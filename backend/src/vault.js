@@ -142,12 +142,27 @@ export async function mintAgentTaggedChildToken(
   agentId,
   ttlSeconds,
   policies = null,
+  taskId = null,
 ) {
   const parentToken = await readAgentToken();
+  const meta = { factory_agent: agentId };
+  // prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 2:
+  // require-agent-c-for-db-creds now also requires this metadata key to
+  // be present and non-empty (verified live) — closes the narrow gap
+  // where a factory_agent=agent-c child token could exist without any
+  // task binding at all. Vault token metadata values must be strings;
+  // taskId is already a UUID string, no conversion needed. Omitted
+  // entirely (not set to an empty string) when there is no task — the
+  // Sentinel rule's own `else ""` only needs to handle the key being
+  // absent, and factory-backend-role's own credential path (this
+  // function's other caller, db.js) isn't gated by that EGP at all.
+  if (taskId) {
+    meta.factory_task = taskId;
+  }
   const body = {
     orphan: false,
     ttl: `${ttlSeconds}s`,
-    meta: { factory_agent: agentId },
+    meta,
     no_default_policy: true,
   };
   if (policies && policies.length) {
@@ -173,9 +188,12 @@ const DB_ROLE_TOKEN_TTL_SECONDS = {
 /**
  * Issues a dynamic PostgreSQL credential from the given database role
  * (factory-bad-role | factory-good-role | factory-backend-role), using a
- * scoped child token tagged for the calling agent.
+ * scoped child token tagged for the calling agent. `taskId` is required
+ * in practice for factory-bad-role/factory-good-role — the Sentinel EGP
+ * now denies the request without it (see mintAgentTaggedChildToken's own
+ * comment) — and irrelevant for factory-backend-role, which has no task.
  */
-export async function issueDatabaseCredential(role, agentId) {
+export async function issueDatabaseCredential(role, agentId, taskId = null) {
   const ttlSeconds = DB_ROLE_TOKEN_TTL_SECONDS[role];
   if (!ttlSeconds) {
     throw new Error(
@@ -191,6 +209,7 @@ export async function issueDatabaseCredential(role, agentId) {
     agentId,
     ttlSeconds,
     policies,
+    taskId,
   );
   const data = await vaultRequest("GET", `database/creds/${role}`, {
     token: clientToken,

@@ -59,6 +59,29 @@ resource "vault_egp_policy" "require_agent_c_for_db_creds" {
   # evidence-table bookkeeping (terraform/vault-database/database.tf),
   # which is not an action taken "on agent-c's behalf" and must not be
   # gated by this EGP.
+  #
+  # prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 2:
+  # `has_task` closes a real, narrow gap — the previous version only
+  # checked the metadata *role* tag, not whether the child token was
+  # actually minted for a specific task. Be honest about what this does
+  # and does not prove: Sentinel evaluates only what's in the request/
+  # token at policy-check time, with no way to consult the application's
+  # own database, so it cannot verify this is the CORRECT current task —
+  # only that backend/src/vault.js's mintAgentTaggedChildToken minted
+  # this specific token WITH some task bound to it, making a task-less
+  # (or accidentally-reused, task-blank) credential request structurally
+  # impossible rather than merely discouraged by application discipline.
+  # Confirming the task ID is the RIGHT one is what
+  # scripts/vault-audit-crosscheck.py's independent cross-check against
+  # credential_events.task_id is for — that's the layer that can
+  # actually consult the database this policy deliberately cannot.
+  #
+  # Verified live before writing this: `token.metadata["factory_task"]
+  # else "" is not ""` correctly denies a real child token minted
+  # without factory_task set, and allows the identical request once
+  # factory_task carries any non-empty value — tested against this
+  # cluster using factory-api's own real Vault Agent-rendered token as
+  # the parent, not a synthetic case.
   paths             = ["database/creds/factory-bad-role", "database/creds/factory-good-role"]
   enforcement_level = "hard-mandatory"
   policy            = <<-EOT
@@ -66,8 +89,12 @@ resource "vault_egp_policy" "require_agent_c_for_db_creds" {
         token.metadata["factory_agent"] is "agent-c"
     }
 
+    has_task = rule {
+        token.metadata["factory_task"] else "" is not ""
+    }
+
     main = rule {
-        metadata_ok
+        metadata_ok and has_task
     }
   EOT
 }

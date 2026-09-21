@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """scripts/vault-audit-crosscheck.py —
-prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 1.
+prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 1
+(app/Vault agreement) and Phase 2 (task-id verification).
 
 Cross-checks the app's own credential_events rows for one run against
 Vault's own audit log. The two are independently generated — Vault
@@ -8,6 +9,13 @@ audits what it actually did regardless of what the backend writes to
 its own evidence tables — so docs/security-model.md's "Preserve the
 chain of evidence" and the article's "second witness" claim should be
 verifiable, not just asserted. This makes it so.
+
+Also confirms Phase 2's own limit is respected correctly: Sentinel's
+require-agent-c-for-db-creds EGP can only verify a task_id was PRESENT
+on the child token, not that it was the CORRECT one — this script is
+what actually checks correctness, by comparing the task_id Vault's
+audit log recorded in the token's own metadata against
+credential_events.task_id for the same lease.
 
 Reads the audit log directly off each Vault node's own container
 filesystem. Only the Raft node that was ACTUALLY LEADER at the moment
@@ -128,15 +136,19 @@ def main():
     print(f"Cross-checking run {run_id}...\n")
 
     db_rows = psql(
-        f"SELECT vault_role, lease_id, actor_id FROM credential_events "
+        f"SELECT vault_role, lease_id, actor_id, task_id FROM credential_events "
         f"WHERE run_id='{run_id}' AND lease_id IS NOT NULL",
         pguser,
         pgdb,
     )
     db_leases = {}
     for row in db_rows:
-        vault_role, lease_id, actor_id = row.split("|")
-        db_leases[lease_id] = {"vault_role": vault_role, "actor_id": actor_id}
+        vault_role, lease_id, actor_id, task_id = row.split("|")
+        db_leases[lease_id] = {
+            "vault_role": vault_role,
+            "actor_id": actor_id,
+            "task_id": task_id or None,
+        }
 
     if not db_leases:
         print(
@@ -160,16 +172,23 @@ def main():
             continue
         req_entry = requests_by_id.get(e.get("request", {}).get("id"))
         agent = None
+        task_id = None
         sentinel_checked = False
         if req_entry:
-            agent = req_entry.get("auth", {}).get("metadata", {}).get("factory_agent")
+            metadata = req_entry.get("auth", {}).get("metadata", {}) or {}
+            agent = metadata.get("factory_agent")
+            task_id = metadata.get("factory_task")
             granting = (
                 req_entry.get("auth", {})
                 .get("policy_results", {})
                 .get("granting_policies", [])
             )
             sentinel_checked = any(p.get("name") == SENTINEL_POLICY for p in granting)
-        audit_leases[lease_id] = {"agent": agent, "sentinel_checked": sentinel_checked}
+        audit_leases[lease_id] = {
+            "agent": agent,
+            "task_id": task_id,
+            "sentinel_checked": sentinel_checked,
+        }
 
     ok = True
     print(f"{'lease_id':<68} {'app':<8} {'vault':<8} {'sentinel':<9} note")
@@ -179,18 +198,22 @@ def main():
             print(f"{lease_id:<68} {'FOUND':<8} {'MISSING':<8} {'-':<9}")
             ok = False
             continue
-        agent_match = vault_info["agent"] == db_info["actor_id"]
-        note = ""
-        if not agent_match:
-            note = (
+        notes = []
+        if vault_info["agent"] != db_info["actor_id"]:
+            notes.append(
                 f"agent mismatch: app={db_info['actor_id']} vault={vault_info['agent']}"
+            )
+            ok = False
+        if db_info["task_id"] and vault_info["task_id"] != db_info["task_id"]:
+            notes.append(
+                f"task mismatch: app={db_info['task_id']} vault={vault_info['task_id']}"
             )
             ok = False
         if not vault_info["sentinel_checked"]:
             ok = False
         print(
             f"{lease_id:<68} {'FOUND':<8} {'FOUND':<8} "
-            f"{'yes' if vault_info['sentinel_checked'] else 'NO':<9} {note}"
+            f"{'yes' if vault_info['sentinel_checked'] else 'NO':<9} {'; '.join(notes)}"
         )
 
     print()

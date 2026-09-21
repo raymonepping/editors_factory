@@ -34,7 +34,9 @@ Every agent tool request passes through bearer-token authentication and an autho
 
 ### Vault policy and Sentinel
 
-Vault Agent authenticates the API through AppRole and renews its parent token. When Agent C requests a database credential, the API creates a short-lived child token tagged with `factory_agent=agent-c`. A hard-mandatory Sentinel endpoint policy requires that metadata for the two Agent C credential paths.
+Vault Agent authenticates the API through AppRole and renews its parent token. When Agent C requests a database credential, the API creates a short-lived child token tagged with `factory_agent=agent-c` and `factory_task=<the current task's ID>`. A hard-mandatory Sentinel endpoint policy requires both pieces of metadata for the two Agent C credential paths — not just the role tag.
+
+Be precise about what the task-id check actually proves. Sentinel evaluates only what's present in the request and the token at policy-check time; it has no way to query the application's own database, so it cannot confirm this is the *correct* current task — only that some non-empty task ID was bound to the token when it was minted, which makes a task-less (or accidentally blank) credential request structurally impossible rather than merely discouraged by application-code discipline. Confirming the task ID is the *right* one is `scripts/vault-audit-crosscheck.py`'s job: it independently compares the task ID Vault's own audit log recorded against `credential_events.task_id` for the same lease, live-verified to catch a mismatch — that script, not Sentinel, is the layer with an actual database to check against.
 
 Sentinel does not inspect an HTTP header here. Live testing showed that Vault's Sentinel request object does not expose request headers for this purpose. Token metadata is the enforced mechanism.
 

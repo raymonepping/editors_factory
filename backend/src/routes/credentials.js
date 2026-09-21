@@ -52,7 +52,7 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
     }
 
     const role = profile === "bad" ? "factory-bad-role" : "factory-good-role";
-    const credential = await issueDatabaseCredential(role, actorId);
+    const credential = await issueDatabaseCredential(role, actorId, taskId);
 
     // taskId makes cleanupTaskCredentials' own ownership check real
     // (services/revocation.js) — previously never set, so that check's
