@@ -40,15 +40,10 @@ async function sweep() {
       node_key: row.node_key,
       attempt_id: row.attempt_id,
     });
-    const revoked = await revokeAttempt(row.attempt_id, "watchdog_timeout");
-    if (revoked.ok) {
-      publishEvent("EVIDENCE_LEASE_REVOKED", {
-        run_id: row.run_id,
-        node_id: row.node_id,
-        attempt_id: row.attempt_id,
-        reason: "watchdog_timeout",
-      });
-    }
+    // revokeAttempt() itself now always emits EVIDENCE_LEASE_REVOKED
+    // (services/revocation.js, found live during 02_05) — no separate
+    // publish needed here.
+    await revokeAttempt(row.attempt_id, "watchdog_timeout");
     affectedRuns.add(row.run_id);
   }
 

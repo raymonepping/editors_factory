@@ -98,15 +98,21 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
     existing behavior provably untouched (see decision 11). Rejected:
     replacing the fixed-chain engine outright. Full detail: `prompts/v2/02_00_*.md`.
 
-11. **Sentinel cannot silently require v2-only attempt metadata on a policy shared with v1 traffic.**
+11. **Sentinel cannot silently require v2-only attempt metadata on a policy shared with v1 traffic — and, found only while actually implementing it, `has_task` cannot be a universal requirement either.**
     Why: `require-agent-c-for-db-creds` guards the same credential paths
-    both workflow modes use; unconditionally requiring
-    `factory_attempt_id` would break every existing v1 request. Every
-    minted child token — v1 and v2 alike — now carries a
-    `factory_workflow_mode` tag, and Sentinel only requires the attempt
-    fields when that tag is `recoverable_dag`. This was found during the
-    v2 prompt grounding pass, not by the original v2 design proposal.
-    Full detail: `prompts/v2/02_03_v2_vault_authority_lifecycle_on_retry.md`.
+    both workflow modes use. The grounding pass caught that requiring
+    `factory_attempt_id` unconditionally would break v1; implementing it
+    then surfaced a second problem the grounding pass missed — v2 has no
+    `task_id` concept at all, so `factory_task` is never set on *any* v2
+    attempt, not just retries, and `has_task AND (...)` would reject
+    every v2 request including the first attempt. The actual policy
+    branches per mode instead: `(fixed_chain AND has_task) OR
+    (recoverable_dag AND has_attempt_fields)` — each mode's own binding
+    proof, not one shared requirement plus an addition. Every minted
+    child token carries `factory_workflow_mode` unconditionally so
+    Sentinel can tell which branch applies. Full detail:
+    `terraform/vault-sentinel/main.tf`'s `require_agent_c_for_db_creds`
+    resource, `prompts/v2/02_03_v2_vault_authority_lifecycle_on_retry.md`.
 
 12. **The v2 dual-engine contract (`FixedChainEngine` /
     `RecoverableMicroDagEngine`) is a registry of plain-function engines,
@@ -119,6 +125,27 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
     contract structurally at registration time instead, matching the
     rest of the codebase. Rejected: implementing the class as shown, for
     consistency's sake alone. Full detail: `backend/src/orchestrator/index.js`.
+
+13. **v2 attempt-credential revocation is unconditional across both BAD
+    and GOOD profiles — not profile-branched, even though `02_03`'s own
+    prompt text describes a BAD-mode demo path that "deliberately skips
+    lease revocation" so Attempt 2 can reuse Attempt 1's still-active
+    lease.** Why: this project holds a stronger, already-proven
+    principle — application code never branches on profile for
+    security-relevant behavior; Vault policy, Sentinel, and PostgreSQL
+    grants do the differentiating instead (`agents/identities/agent-c.js`'s
+    own header comment: "this file must not be mode-aware"). Adding an
+    `if (profile === 'bad') skip revocation` inside `completeAttempt`/
+    `failAttempt` would violate that. Rejected: implementing 02_03
+    section 5 literally. `revokeAttempt()` (`backend/src/services/revocation.js`)
+    always runs, both profiles — the real BAD-vs-GOOD difference for v2
+    remains what it always was for v1: role capability and TTL bounds
+    (`terraform/vault-database/database.tf`'s `DB_ROLE_TOKEN_TTL_SECONDS`),
+    not a fabricated code branch. A consequence worth knowing: Discovery's
+    D-103 (`agents/identities/agent-d.js`, `prompts/v2/02_05`) — "credential
+    lease reuse detected" — should never legitimately fire under this
+    implementation; if it does, that is a real bug, not the intended
+    BAD-mode showcase 02_03 originally described.
 
 ## How to use this file
 

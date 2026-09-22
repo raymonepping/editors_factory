@@ -135,7 +135,29 @@ export async function revokeAttempt(attemptId, reason) {
       RETURNING *`,
     [attemptId, reason],
   );
-  if (updated[0]) publishEvent("dag_node_attempts", updated[0]);
+  if (updated[0]) {
+    publishEvent("dag_node_attempts", updated[0]);
+    // v2 (prompts/v2/02_05, found live): this is the ONE choke point
+    // every attempt revocation goes through — completeAttempt,
+    // failAttempt, AND the watchdog all call revokeAttempt(). Emitting
+    // EVIDENCE_LEASE_REVOKED only from the watchdog's own call site (as
+    // 02_02 literally specified) would leave Discovery's "NORMAL" case
+    // (a clean revocation shortly after a completed/failed transition)
+    // permanently unobservable — that is the common case, not the rare
+    // one. Centralizing it here instead makes the event fire
+    // consistently regardless of why the attempt ended.
+    const { rows: nodeRows } = await getPool().query(
+      `SELECT run_id, node_key FROM dag_nodes WHERE node_id = $1`,
+      [updated[0].node_id],
+    );
+    publishEvent("EVIDENCE_LEASE_REVOKED", {
+      run_id: nodeRows[0]?.run_id ?? null,
+      node_id: updated[0].node_id,
+      node_key: nodeRows[0]?.node_key ?? null,
+      attempt_id: attemptId,
+      reason,
+    });
+  }
   return { ok: true };
 }
 

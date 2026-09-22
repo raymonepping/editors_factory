@@ -311,6 +311,17 @@ export async function claimNode(actorId, runId) {
     status: "running",
     claimed_by: actorId,
   });
+  // Distinctly-named alongside the generic table-mirror event above —
+  // matches DAG_ATTEMPT_TIMED_OUT/EVIDENCE_LEASE_REVOKED's own pattern,
+  // and is what agent-d's classify() (02_05) actually matches on.
+  publishEvent("DAG_NODE_CLAIMED", {
+    run_id: runId,
+    node_id: claim.node_id,
+    node_key: claim.node_key,
+    attempt_id: claim.attempt_id,
+    attempt_number: claim.attempt_number,
+    agent_id: actorId,
+  });
 
   return {
     nodeId: claim.node_id,
@@ -510,8 +521,10 @@ export async function retryNode(runId, nodeKey, operatorId) {
     [target.node_id],
   );
 
+  const actuallyInvalidated = [];
   for (const node of downstream) {
     if (["completed", "running", "runnable"].includes(node.status)) {
+      actuallyInvalidated.push(node.node_key);
       await pool.query(
         `UPDATE dag_nodes SET status = 'invalidated', updated_at = now() WHERE node_id = $1`,
         [node.node_id],
@@ -521,6 +534,13 @@ export async function retryNode(runId, nodeKey, operatorId) {
         node_id: node.node_id,
         node_key: node.node_key,
         status: "invalidated",
+      });
+      // Distinctly-named (02_05) — agent-d's classify() matches on this,
+      // not the generic table-mirror event above.
+      publishEvent("DAG_NODE_INVALIDATED", {
+        run_id: runId,
+        node_id: node.node_id,
+        node_key: node.node_key,
       });
       const { rows: activeAttempts } = await pool.query(
         `SELECT attempt_id FROM dag_node_attempts WHERE node_id = $1 AND authority_status = 'active'`,
@@ -568,7 +588,12 @@ export async function retryNode(runId, nodeKey, operatorId) {
   return {
     ok: true,
     retried: nodeKey,
-    invalidatedDownstream: downstream.map((d) => d.node_key),
+    // Found live (02_05): this used to report the FULL downstream set
+    // (every node reachable via dag_edges), including ones still
+    // 'pending' that were never actually touched — misleading callers
+    // into believing a state change happened where none did. Now
+    // reports only nodes that genuinely transitioned to 'invalidated'.
+    invalidatedDownstream: actuallyInvalidated,
   };
 }
 

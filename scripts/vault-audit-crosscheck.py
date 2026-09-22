@@ -30,6 +30,20 @@ in Vault's audit log by default; usernames and passwords are HMAC'd —
 confirmed live by inspecting a real entry before writing this, not
 assumed from documentation.
 
+v2 (prompts/v2/02_05): extends the same issuance-side cross-check with
+factory_attempt_id (mirroring factory_task exactly — same cleartext
+auth.metadata on the same database/creds/* request entry), and adds a
+GOOD-mode duplicate-lease check across a node's own attempts. Does NOT
+attempt to match individual sys/leases/revoke audit entries back to a
+specific lease_id — confirmed live before writing this that
+request.data.lease_id on a revoke call is HMAC-salted (unlike the
+cleartext response.secret.lease_id on issuance), so a revoke entry
+cannot be tied to one lease from the audit log's own cleartext fields
+without Vault's internal HMAC salt, which is not exposed to this
+script. Revocation is instead checked the honest way available: against
+the app's own dag_node_attempts.authority_status, which is not
+independent Vault corroboration, and is reported as such.
+
 Usage:
   ./scripts/vault-audit-crosscheck.py <run_id>
   ./scripts/vault-audit-crosscheck.py --latest
@@ -156,6 +170,28 @@ def main():
         )
         sys.exit(0)
 
+    # v2 (02_05): dag_node_attempts rows for this run with an issued
+    # lease, keyed by lease_id — the attempt_id this lease SHOULD carry
+    # in Vault's own token metadata, per node's own current attempt.
+    dag_attempt_rows = psql(
+        f"SELECT a.vault_lease_id, a.attempt_id, a.attempt_number, n.node_key, n.node_id "
+        f"FROM dag_node_attempts a JOIN dag_nodes n ON n.node_id = a.node_id "
+        f"WHERE n.run_id='{run_id}' AND a.vault_lease_id IS NOT NULL",
+        pguser,
+        pgdb,
+    )
+    dag_attempts_by_lease = {}
+    node_leases = {}  # node_id -> [(attempt_id, lease_id), ...]
+    for row in dag_attempt_rows:
+        lease_id, attempt_id, attempt_number, node_key, node_id = row.split("|")
+        dag_attempts_by_lease[lease_id] = {
+            "attempt_id": attempt_id,
+            "attempt_number": attempt_number,
+            "node_key": node_key,
+            "node_id": node_id,
+        }
+        node_leases.setdefault(node_id, []).append((attempt_id, lease_id))
+
     entries = load_all_entries()
     requests_by_id = {
         e["request"]["id"]: e
@@ -175,10 +211,12 @@ def main():
         agent = None
         task_id = None
         sentinel_checked = False
+        attempt_id = None
         if req_entry:
             metadata = req_entry.get("auth", {}).get("metadata", {}) or {}
             agent = metadata.get("factory_agent")
             task_id = metadata.get("factory_task")
+            attempt_id = metadata.get("factory_attempt_id")
             granting = (
                 req_entry.get("auth", {})
                 .get("policy_results", {})
@@ -200,6 +238,7 @@ def main():
         audit_leases[lease_id] = {
             "agent": agent,
             "task_id": task_id,
+            "attempt_id": attempt_id,
             "sentinel_checked": sentinel_checked,
             "via_unwrap": via_unwrap,
         }
@@ -235,12 +274,81 @@ def main():
                 f"task mismatch: app={db_info['task_id']} vault={vault_info['task_id']}"
             )
             ok = False
+        # v2 (02_05): same comparison, following the task_id pattern
+        # exactly, for the lease's dag_node_attempts row when this lease
+        # belongs to a recoverable_dag attempt (dag_attempts_by_lease has
+        # no entry at all for a fixed_chain / v1 lease).
+        dag_info = dag_attempts_by_lease.get(lease_id)
+        if dag_info and vault_info["attempt_id"] != dag_info["attempt_id"]:
+            notes.append(
+                f"attempt mismatch: app={dag_info['attempt_id']} vault={vault_info['attempt_id']}"
+            )
+            ok = False
         if not vault_info["sentinel_checked"]:
             ok = False
         print(
             f"{lease_id:<68} {'FOUND':<8} {'FOUND':<8} "
             f"{'yes' if vault_info['sentinel_checked'] else 'NO':<9} {'; '.join(notes)}"
         )
+
+    # v2 (02_05, item 4): "Fail validation if any Attempt 2 event shares
+    # a lease_id with Attempt 1 in GOOD mode" — checkable directly from
+    # this run's own dag_node_attempts rows, no Vault audit log needed.
+    # Under this project's actual implementation (backend/src/vault.js's
+    # mintAgentTaggedChildToken mints a genuinely fresh lease on every
+    # issueDatabaseCredential call) this should never fire for a real
+    # attempt — a match here indicates a real bug, not an intended
+    # BAD-mode demonstration (see .claude/DESIGN.md's own entry on why
+    # revocation and fresh-lease issuance are unconditional across both
+    # profiles in this implementation, not profile-branched).
+    good_role_leases = psql(
+        f"SELECT lease_id FROM credential_events WHERE run_id='{run_id}' "
+        f"AND vault_role='factory-good-role' AND lease_id IS NOT NULL",
+        pguser,
+        pgdb,
+    )
+    good_role_lease_set = set(good_role_leases)
+    for node_id, pairs in node_leases.items():
+        good_pairs = [p for p in pairs if p[1] in good_role_lease_set]
+        seen_leases = {}
+        for attempt_id, lease_id in good_pairs:
+            if lease_id in seen_leases and seen_leases[lease_id] != attempt_id:
+                print(
+                    f"FAIL — GOOD-mode lease reuse: node {node_id} attempts "
+                    f"{seen_leases[lease_id]} and {attempt_id} both used lease {lease_id}."
+                )
+                ok = False
+            seen_leases[lease_id] = attempt_id
+
+    # v2 (02_05, item 2's revocation half): not independently checkable
+    # against the Vault audit log itself (see module docstring), so this
+    # reports the app's own dag_node_attempts.authority_status honestly
+    # as an application-level check, not Vault corroboration.
+    if dag_attempts_by_lease:
+        unrevoked_terminal = psql(
+            f"SELECT a.attempt_id, n.node_key FROM dag_node_attempts a "
+            f"JOIN dag_nodes n ON n.node_id = a.node_id "
+            f"WHERE n.run_id='{run_id}' AND a.vault_lease_id IS NOT NULL "
+            f"AND a.execution_status IN ('completed','failed','timed_out') "
+            f"AND a.authority_status != 'revoked'",
+            pguser,
+            pgdb,
+        )
+        if unrevoked_terminal:
+            for row in unrevoked_terminal:
+                attempt_id, node_key = row.split("|")
+                print(
+                    f'FAIL — attempt {attempt_id} of "{node_key}" reached a terminal '
+                    f"execution_status with its authority still not revoked (app-level "
+                    f"check, not independent Vault corroboration — see module docstring)."
+                )
+            ok = False
+        else:
+            print(
+                f"App-level check: all {len(dag_attempts_by_lease)} v2 attempt(s) with a "
+                f"lease in run {run_id} show authority_status='revoked' after reaching a "
+                f"terminal state (not independent Vault corroboration)."
+            )
 
     unwrap_count = sum(
         1 for l in db_leases if audit_leases.get(l, {}).get("via_unwrap")

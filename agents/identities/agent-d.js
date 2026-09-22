@@ -29,6 +29,29 @@ import { recordFinding, correlate } from "../src/observerRuntime.js";
 
 const SEVERITY_RANK = { NORMAL: 0, ELEVATED: 1, CONTAINED: 1, CRITICAL: 2 };
 
+// v2 (prompts/v2/02_05): multi-attempt risk classification, inferred
+// entirely from the backend's own SSE event stream — DAG_NODE_CLAIMED,
+// DAG_NODE_INVALIDATED, DAG_ATTEMPT_TIMED_OUT, EVIDENCE_LEASE_REVOKED,
+// and dag_node_attempts row updates. This agent never queries Vault
+// directly (security/authority-model.md, CLAUDE.md's own hard boundary)
+// — ground truth for anything claimed here is confirmed independently,
+// out-of-band, by scripts/vault-audit-crosscheck.py, which DOES read
+// Vault's own audit log and is not part of the agent fleet. Everything
+// below is a live, best-effort signal for the dashboard, not the
+// authoritative record.
+const LEASE_REVOCATION_GRACE_MS = 10_000;
+// node_id -> lease_id -> attempt_id, for the reuse check below. Given
+// this project's own architecture always mints a genuinely fresh Vault
+// lease per attempt (backend/src/vault.js's mintAgentTaggedChildToken,
+// called fresh on every issueDatabaseCredential), a match here would
+// indicate a real bug, not an intended BAD-mode showcase — see
+// .claude/DESIGN.md's own entry on why revocation is unconditional
+// across both profiles in this implementation.
+const nodeLeaseHistory = new Map();
+// attempt_id -> Node.js Timeout, cleared the moment EVIDENCE_LEASE_REVOKED
+// or a revoked dag_node_attempts row is observed for that attempt.
+const pendingRevocationTimers = new Map();
+
 // Destructive actions whose denial is worth a CONTAINED finding — a
 // DENY of a merely-informational action (like credential.request itself
 // failing) isn't part of this story.
@@ -193,7 +216,122 @@ export function classify({ type, payload }) {
     };
   }
 
+  // ── v2 (prompts/v2/02_05) — recoverable micro-DAG signals ────────────
+
+  if (type === "DAG_NODE_CLAIMED" && Number(payload.attempt_number) >= 2) {
+    return {
+      code: "D-101",
+      severity: "ELEVATED",
+      title: `Node retry in progress: "${payload.node_key}" attempt ${payload.attempt_number}. Fresh mandate evaluation required — no authority carries over from the prior attempt.`,
+    };
+  }
+
+  if (type === "DAG_NODE_INVALIDATED") {
+    return {
+      code: "D-102",
+      severity: "ELEVATED",
+      title: `Downstream node invalidated following an upstream retry: "${payload.node_key}". Its prior evidence and authority are no longer trusted.`,
+    };
+  }
+
+  if (
+    type === "dag_node_attempts" &&
+    payload.vault_lease_id &&
+    payload.authority_status === "active"
+  ) {
+    // Credential-issuance signal for one DAG attempt — records the
+    // lease -> attempt mapping for the reuse check below. Not itself a
+    // finding-worthy event on its own (v1's existing D-004/D-005/D-004b
+    // block above already classifies the underlying credential_events
+    // row for both v1 and v2 traffic alike).
+    const seen = nodeLeaseHistory.get(payload.node_id) || new Map();
+    const priorAttempt = seen.get(payload.vault_lease_id);
+    if (priorAttempt && priorAttempt !== payload.attempt_id) {
+      return {
+        code: "D-103",
+        severity: "CRITICAL",
+        title: `Credential lease reuse detected: attempt ${payload.attempt_id} of "${payload.node_key}" was issued the same lease as a prior attempt. Authority did not reset between attempts.`,
+      };
+    }
+    seen.set(payload.vault_lease_id, payload.attempt_id);
+    nodeLeaseHistory.set(payload.node_id, seen);
+    return null;
+  }
+
   return null;
+}
+
+/**
+ * v2 (prompts/v2/02_05): the timing half of the CRITICAL "lingering
+ * lease" check — an attempt that held a lease reached a terminal
+ * transition, but no EVIDENCE_LEASE_REVOKED followed within
+ * LEASE_REVOCATION_GRACE_MS. Not expressible as a single classify()
+ * mapping (it depends on the ABSENCE of a later event, not the presence
+ * of one), so this runs alongside it, driven from the same onEvent
+ * stream, and calls recordFinding() directly rather than returning a
+ * signal for onEvent to record.
+ */
+export function trackLeaseLifecycle(event) {
+  const { type, payload } = event;
+
+  if (
+    type === "dag_node_attempts" &&
+    payload.vault_lease_id &&
+    payload.authority_status === "active"
+  ) {
+    // Only attempts that actually hold a lease need a revocation watch —
+    // triage/investigate never request a credential and would otherwise
+    // always false-positive here.
+    scheduleRevocationCheck(
+      payload.attempt_id,
+      payload.node_id,
+      payload.node_key,
+    );
+    return;
+  }
+
+  if (
+    (type === "EVIDENCE_LEASE_REVOKED" || type === "DAG_ATTEMPT_TIMED_OUT") &&
+    payload.attempt_id
+  ) {
+    clearPendingRevocationCheck(payload.attempt_id);
+    return;
+  }
+
+  if (
+    type === "dag_node_attempts" &&
+    payload.authority_status === "revoked" &&
+    payload.attempt_id
+  ) {
+    clearPendingRevocationCheck(payload.attempt_id);
+  }
+}
+
+function clearPendingRevocationCheck(attemptId) {
+  const timer = pendingRevocationTimers.get(attemptId);
+  if (timer) {
+    clearTimeout(timer);
+    pendingRevocationTimers.delete(attemptId);
+  }
+}
+
+function scheduleRevocationCheck(attemptId, nodeId, nodeKey) {
+  clearPendingRevocationCheck(attemptId); // defensive — should not double-fire
+  const timer = setTimeout(() => {
+    pendingRevocationTimers.delete(attemptId);
+    recordFinding({
+      severity: "critical",
+      title: `D-104: Lingering lease suspected: attempt ${attemptId} of "${nodeKey}" held a database credential with no observed revocation ${LEASE_REVOCATION_GRACE_MS / 1000}s after its own credential issuance. Confirm against scripts/vault-audit-crosscheck.py.`,
+      detail: null,
+      correlatesWithEventId: nodeId,
+      correlatesWithEventType: "dag_node_attempts",
+    }).catch(() => {
+      // Best-effort — a failed finding write here must not crash the
+      // observer loop's own event processing.
+    });
+  }, LEASE_REVOCATION_GRACE_MS);
+  timer.unref?.();
+  pendingRevocationTimers.set(attemptId, timer);
 }
 
 /** Applies the matrix's own escalation rule: state only ever moves up in
@@ -251,6 +389,8 @@ export default {
   // subscribeEvents awaits this return value, so returning it here is
   // what makes Agent D process one signal fully before the next.
   async onEvent(event) {
+    trackLeaseLifecycle(event);
+
     const signal = classify(event);
     if (!signal) return;
 

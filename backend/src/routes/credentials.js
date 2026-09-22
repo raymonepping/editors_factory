@@ -9,6 +9,7 @@ import {
   unwrapCredential,
 } from "../vault.js";
 import { getPool } from "../db.js";
+import { publishEvent } from "../events.js";
 import * as audit from "../audit.js";
 import * as state from "../state.js";
 import { checkAuthority, effectiveAuthorityFor } from "../policy.js";
@@ -102,10 +103,16 @@ async function issueAndRecordAttemptCredential({
     null,
     dagContext,
   );
-  await getPool().query(
-    `UPDATE dag_node_attempts SET vault_lease_id = $2, vault_token_accessor = $3 WHERE attempt_id = $1`,
+  const { rows: attemptRows } = await getPool().query(
+    `UPDATE dag_node_attempts SET vault_lease_id = $2, vault_token_accessor = $3 WHERE attempt_id = $1 RETURNING *`,
     [dagContext.attemptId, credential.leaseId, credential.tokenAccessor],
   );
+  // Found live building 02_05: with no publish here, Discovery
+  // (agent-d) had no way to ever observe which lease_id was issued to
+  // which attempt/node — credential_events (below) carries a lease_id
+  // but no node_id/attempt_id at all, so it alone can't support the
+  // lease-reuse-across-attempts check 02_05 asks classify() to make.
+  if (attemptRows[0]) publishEvent("dag_node_attempts", attemptRows[0]);
   state.setActiveAgentCCredential({
     ...credential,
     role,
