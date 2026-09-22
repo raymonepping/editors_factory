@@ -122,7 +122,23 @@ make vault-up
 
 Do not start all Vault services directly with Compose. `make vault-up` preserves the required transit-token bootstrap order.
 
-Both AppRoles' `secret_id`s expire after 90 days (`terraform/vault-platform/auth.tf`'s `secret_id_ttl`), unlike every other credential in this system, which is short-lived by design. Regenerate them before then by repeating the relevant `vault write -f auth/approle/role/<role>/secret-id` step above (using the admin token, not root), updating the matching `.env` value, and restarting the Vault stack the same way.
+Every AppRole's `secret_id` in this project expires after 90 days
+(`secret_id_ttl` on the role — `terraform/vault-platform/auth.tf` for
+`factory-api` and `identity-secrets`, `terraform/vault-platform/control_groups.tf`
+for `control-group-authorizer`), unlike every other credential in this
+system, which is short-lived by design. Found live while auditing this
+after `01_08`'s own Phase 4 work: setting `secret_id_ttl` on a role
+does not retroactively bound a `secret_id` minted before that change —
+an already-issued one keeps whatever TTL (or lack of one) it was
+minted with. Regenerate before the 90 days elapse by repeating the
+relevant `vault write -f auth/approle/role/<role>/secret-id` step
+above (using the admin token, not root), updating the matching `.env`
+value, and restarting the affected service — `make vault-down && make
+vault-up` for `factory-api`'s own AppRole (Vault Agent needs a fresh
+login), `./scripts/compose.sh api up -d --force-recreate` for
+`control-group-authorizer` (the backend logs in directly, no Vault
+Agent involved), and either for `identity-secrets` since it's only
+read at `identity-secrets-init`'s own next run.
 
 Seed Vault KV with the per-agent bearer tokens, the JWT signing secret,
 the CLI operator token, and the two identity-service admin passwords —
