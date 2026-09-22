@@ -44,6 +44,15 @@ resource "vault_approle_auth_backend_role" "control_group_authorizer" {
   token_policies = [vault_policy.control_group_authorizer.name]
   token_ttl      = 300
   token_max_ttl  = 600
+  # secret_id_ttl (found live missing here — defaulted to 0s, i.e.
+  # never expires, unlike factory-api's and identity-secrets' own 90
+  # days): the TOKEN this role issues is short-lived on purpose (used
+  # once, right after a human clicks Authorize), but the role_id/
+  # secret_id PAIR that logs in to get that token is a standing
+  # credential sitting in .env like every other AppRole pair in this
+  # project, and needs the same rotation discipline, not an exemption
+  # just because what it produces is short-lived.
+  secret_id_ttl = 7776000 # 90 days, matching factory-api and identity-secrets
   # Short-lived on purpose — this identity is used for exactly one
   # action (authorize one pending request), immediately after a human
   # clicks a button, never held standing the way factory-api's own
