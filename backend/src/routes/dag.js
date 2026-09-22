@@ -36,7 +36,9 @@ dagRouter.post(
     try {
       const runId = state.getCurrentRunId();
       if (!runId) {
-        return res.status(409).json({ error: "No active run — reset or start one first" });
+        return res
+          .status(409)
+          .json({ error: "No active run — reset or start one first" });
       }
       const { rows } = await getPool().query(
         `SELECT profile, workflow_mode FROM demo_runs WHERE run_id = $1`,
@@ -97,12 +99,15 @@ dagRouter.post(
   async (req, res, next) => {
     try {
       if (req.nodeId !== req.params.nodeId) {
-        return res.status(403).json({ error: "Attempt token is not bound to this node" });
+        return res
+          .status(403)
+          .json({ error: "Attempt token is not bound to this node" });
       }
       const result = await renewHeartbeat(req.nodeId, req.fencingToken);
       res.json(result);
     } catch (err) {
-      if (err.status) return res.status(err.status).json({ error: err.message });
+      if (err.status)
+        return res.status(err.status).json({ error: err.message });
       next(err);
     }
   },
@@ -113,8 +118,13 @@ dagRouter.post(
   agentAttemptJwtAuth,
   async (req, res, next) => {
     try {
-      if (req.nodeId !== req.params.nodeId || req.attemptId !== req.params.attemptId) {
-        return res.status(403).json({ error: "Attempt token is not bound to this node/attempt" });
+      if (
+        req.nodeId !== req.params.nodeId ||
+        req.attemptId !== req.params.attemptId
+      ) {
+        return res
+          .status(403)
+          .json({ error: "Attempt token is not bound to this node/attempt" });
       }
       const { outputEvidence } = req.body || {};
       const result = await completeAttempt(
@@ -126,7 +136,8 @@ dagRouter.post(
       );
       res.json(result);
     } catch (err) {
-      if (err.status) return res.status(err.status).json({ error: err.message });
+      if (err.status)
+        return res.status(err.status).json({ error: err.message });
       next(err);
     }
   },
@@ -137,8 +148,13 @@ dagRouter.post(
   agentAttemptJwtAuth,
   async (req, res, next) => {
     try {
-      if (req.nodeId !== req.params.nodeId || req.attemptId !== req.params.attemptId) {
-        return res.status(403).json({ error: "Attempt token is not bound to this node/attempt" });
+      if (
+        req.nodeId !== req.params.nodeId ||
+        req.attemptId !== req.params.attemptId
+      ) {
+        return res
+          .status(403)
+          .json({ error: "Attempt token is not bound to this node/attempt" });
       }
       const { errorDetails } = req.body || {};
       const result = await failAttempt(
@@ -150,7 +166,8 @@ dagRouter.post(
       );
       res.json(result);
     } catch (err) {
-      if (err.status) return res.status(err.status).json({ error: err.message });
+      if (err.status)
+        return res.status(err.status).json({ error: err.message });
       next(err);
     }
   },
@@ -169,10 +186,15 @@ dagRouter.post(
   async (req, res, next) => {
     try {
       const operatorId = req.identity?.user || "operator";
-      const result = await retryNode(req.params.id, req.params.nodeKey, operatorId);
+      const result = await retryNode(
+        req.params.id,
+        req.params.nodeKey,
+        operatorId,
+      );
       res.json(result);
     } catch (err) {
-      if (err.status) return res.status(err.status).json({ error: err.message });
+      if (err.status)
+        return res.status(err.status).json({ error: err.message });
       next(err);
     }
   },

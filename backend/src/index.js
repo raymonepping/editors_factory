@@ -85,7 +85,10 @@ async function main() {
     state.setProfile(existingRun.profile);
     state.setWorkflowMode(existingRun.workflow_mode);
   } else {
-    const runId = await audit.startRun(state.getProfile(), state.getWorkflowMode());
+    const runId = await audit.startRun(
+      state.getProfile(),
+      state.getWorkflowMode(),
+    );
     state.setCurrentRunId(runId);
   }
 

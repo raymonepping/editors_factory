@@ -39,7 +39,10 @@ tasksRouter.post(
 
       let runId = state.getCurrentRunId();
       if (!runId) {
-        runId = await audit.startRun(state.getProfile(), state.getWorkflowMode());
+        runId = await audit.startRun(
+          state.getProfile(),
+          state.getWorkflowMode(),
+        );
         state.setCurrentRunId(runId);
       }
 

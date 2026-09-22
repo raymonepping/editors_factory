@@ -66,10 +66,15 @@ demoRouter.put(
   async (req, res, next) => {
     try {
       const { workflowMode } = req.body || {};
-      if (workflowMode !== "fixed_chain" && workflowMode !== "recoverable_dag") {
+      if (
+        workflowMode !== "fixed_chain" &&
+        workflowMode !== "recoverable_dag"
+      ) {
         return res
           .status(400)
-          .json({ error: 'workflowMode must be "fixed_chain" or "recoverable_dag"' });
+          .json({
+            error: 'workflowMode must be "fixed_chain" or "recoverable_dag"',
+          });
       }
       const runId = state.getCurrentRunId();
       if (runId) {
@@ -79,7 +84,8 @@ demoRouter.put(
         );
         if (rows[0]?.status === "running") {
           return res.status(409).json({
-            error: "A v2 DAG run is currently in progress for the active run — reset or let it finish before switching workflow_mode.",
+            error:
+              "A v2 DAG run is currently in progress for the active run — reset or let it finish before switching workflow_mode.",
           });
         }
       }
@@ -153,7 +159,10 @@ demoRouter.post(
       state.clearActiveAgentCCredential();
       state.clearPendingApprovals();
 
-      const newRunId = await audit.startRun(state.getProfile(), state.getWorkflowMode());
+      const newRunId = await audit.startRun(
+        state.getProfile(),
+        state.getWorkflowMode(),
+      );
       state.setCurrentRunId(newRunId);
 
       res.json({

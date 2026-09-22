@@ -175,7 +175,12 @@ export async function executeBackendNode(runId, nodeKey) {
       `UPDATE dag_nodes SET status = 'completed', updated_at = now() WHERE node_id = $1`,
       [node.node_id],
     );
-    publishEvent("dag_nodes", { run_id: runId, node_id: node.node_id, node_key: nodeKey, status: "completed" });
+    publishEvent("dag_nodes", {
+      run_id: runId,
+      node_id: node.node_id,
+      node_key: nodeKey,
+      status: "completed",
+    });
   } catch (err) {
     await pool.query(
       `UPDATE dag_node_attempts SET execution_status = 'failed', error_details = $2, ended_at = now() WHERE attempt_id = $1`,
@@ -185,7 +190,12 @@ export async function executeBackendNode(runId, nodeKey) {
       `UPDATE dag_nodes SET status = 'failed', updated_at = now() WHERE node_id = $1`,
       [node.node_id],
     );
-    publishEvent("dag_nodes", { run_id: runId, node_id: node.node_id, node_key: nodeKey, status: "failed" });
+    publishEvent("dag_nodes", {
+      run_id: runId,
+      node_id: node.node_id,
+      node_key: nodeKey,
+      status: "failed",
+    });
   }
   // Backend-internal nodes never hold a Vault credential, so there is
   // nothing for revokeAttempt to revoke — authority_status stays 'active'
@@ -228,7 +238,9 @@ async function runBackendNodeLogic(runId, nodeKey) {
     );
     return { verified: true, counts: rows[0] };
   }
-  throw new Error(`No backend-internal execution logic registered for node "${nodeKey}"`);
+  throw new Error(
+    `No backend-internal execution logic registered for node "${nodeKey}"`,
+  );
 }
 
 /**
@@ -323,7 +335,9 @@ export async function renewHeartbeat(nodeId, fencingToken) {
     [nodeId, fencingToken],
   );
   if (!rows[0]) {
-    const err = new Error("Stale fencing token — this attempt is no longer current");
+    const err = new Error(
+      "Stale fencing token — this attempt is no longer current",
+    );
     err.status = 409;
     throw err;
   }
@@ -356,7 +370,9 @@ async function assertCurrentFencingToken(nodeId, attemptId, fencingToken) {
     Number(row.current_fencing_token) !== Number(fencingToken) ||
     row.execution_status !== "running"
   ) {
-    const err = new Error("Stale fencing token — this attempt is no longer current");
+    const err = new Error(
+      "Stale fencing token — this attempt is no longer current",
+    );
     err.status = 409;
     throw err;
   }
@@ -368,7 +384,13 @@ async function assertCurrentFencingToken(nodeId, attemptId, fencingToken) {
  * past the work it was issued for), and cascades to whatever the
  * completion just unblocked.
  */
-export async function completeAttempt(runId, nodeId, attemptId, fencingToken, outputEvidence) {
+export async function completeAttempt(
+  runId,
+  nodeId,
+  attemptId,
+  fencingToken,
+  outputEvidence,
+) {
   await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
   const pool = getPool();
   await pool.query(
@@ -379,14 +401,25 @@ export async function completeAttempt(runId, nodeId, attemptId, fencingToken, ou
     `UPDATE dag_nodes SET status = 'completed', updated_at = now() WHERE node_id = $1 RETURNING node_key`,
     [nodeId],
   );
-  publishEvent("dag_nodes", { run_id: runId, node_id: nodeId, node_key: rows[0]?.node_key, status: "completed" });
+  publishEvent("dag_nodes", {
+    run_id: runId,
+    node_id: nodeId,
+    node_key: rows[0]?.node_key,
+    status: "completed",
+  });
   await revokeAttempt(attemptId, "attempt_completed");
   await evaluateRunnableNodes(runId);
   return { ok: true };
 }
 
 /** Marks an attempt (and its node) failed and revokes its authority immediately. */
-export async function failAttempt(runId, nodeId, attemptId, fencingToken, errorDetails) {
+export async function failAttempt(
+  runId,
+  nodeId,
+  attemptId,
+  fencingToken,
+  errorDetails,
+) {
   await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
   const pool = getPool();
   await pool.query(
@@ -397,7 +430,12 @@ export async function failAttempt(runId, nodeId, attemptId, fencingToken, errorD
     `UPDATE dag_nodes SET status = 'failed', updated_at = now() WHERE node_id = $1 RETURNING node_key`,
     [nodeId],
   );
-  publishEvent("dag_nodes", { run_id: runId, node_id: nodeId, node_key: rows[0]?.node_key, status: "failed" });
+  publishEvent("dag_nodes", {
+    run_id: runId,
+    node_id: nodeId,
+    node_key: rows[0]?.node_key,
+    status: "failed",
+  });
   await revokeAttempt(attemptId, "attempt_failed");
   await evaluateRunCompletion(runId);
   return { ok: true };
@@ -425,7 +463,9 @@ export async function retryNode(runId, nodeKey, operatorId) {
     throw err;
   }
   if (target.status !== "failed") {
-    const err = new Error(`Node "${nodeKey}" is "${target.status}", not "failed" — only a failed node can be retried`);
+    const err = new Error(
+      `Node "${nodeKey}" is "${target.status}", not "failed" — only a failed node can be retried`,
+    );
     err.status = 409;
     throw err;
   }
@@ -447,7 +487,12 @@ export async function retryNode(runId, nodeKey, operatorId) {
         `UPDATE dag_nodes SET status = 'invalidated', updated_at = now() WHERE node_id = $1`,
         [node.node_id],
       );
-      publishEvent("dag_nodes", { run_id: runId, node_id: node.node_id, node_key: node.node_key, status: "invalidated" });
+      publishEvent("dag_nodes", {
+        run_id: runId,
+        node_id: node.node_id,
+        node_key: node.node_key,
+        status: "invalidated",
+      });
       const { rows: activeAttempts } = await pool.query(
         `SELECT attempt_id FROM dag_node_attempts WHERE node_id = $1 AND authority_status = 'active'`,
         [node.node_id],
@@ -468,7 +513,12 @@ export async function retryNode(runId, nodeKey, operatorId) {
     `UPDATE dag_nodes SET status = 'pending', updated_at = now() WHERE node_id = $1`,
     [target.node_id],
   );
-  publishEvent("dag_nodes", { run_id: runId, node_id: target.node_id, node_key: nodeKey, status: "pending" });
+  publishEvent("dag_nodes", {
+    run_id: runId,
+    node_id: target.node_id,
+    node_key: nodeKey,
+    status: "pending",
+  });
   await audit.recordAuditEvent({
     runId,
     traceId: randomUUID(),
@@ -479,12 +529,18 @@ export async function retryNode(runId, nodeKey, operatorId) {
     target: nodeKey,
   });
 
-  await pool.query(`UPDATE dag_runs SET status = 'running' WHERE run_id = $1`, [runId]);
+  await pool.query(`UPDATE dag_runs SET status = 'running' WHERE run_id = $1`, [
+    runId,
+  ]);
   // A retried backend-internal node (e.g. `notify`) has no agent worker
   // to claim it — evaluateRunnableNodes is what actually executes it,
   // same as the very first time it became runnable during initializeRun.
   await evaluateRunnableNodes(runId);
-  return { ok: true, retried: nodeKey, invalidatedDownstream: downstream.map((d) => d.node_key) };
+  return {
+    ok: true,
+    retried: nodeKey,
+    invalidatedDownstream: downstream.map((d) => d.node_key),
+  };
 }
 
 /**
@@ -510,7 +566,9 @@ async function evaluateRunCompletion(runId) {
     return;
   }
   const hasFailedWithNoRecovery = rows.some((n) => n.status === "failed");
-  const hasAnythingStillRunnable = rows.some((n) => ["runnable", "running", "pending"].includes(n.status));
+  const hasAnythingStillRunnable = rows.some((n) =>
+    ["runnable", "running", "pending"].includes(n.status),
+  );
   if (hasFailedWithNoRecovery && !hasAnythingStillRunnable) {
     await pool.query(
       `UPDATE dag_runs SET status = 'failed', completed_at = now() WHERE run_id = $1 AND status NOT IN ('completed', 'failed')`,
@@ -573,11 +631,29 @@ const RecoverableMicroDagEngine = {
   async claimTask(authenticatedAgent, options) {
     return claimNode(authenticatedAgent, options?.runId);
   },
-  async completeAttempt(nodeId, attemptId, fencingToken, outputEvidence, options) {
-    return completeAttempt(options?.runId, nodeId, attemptId, fencingToken, outputEvidence);
+  async completeAttempt(
+    nodeId,
+    attemptId,
+    fencingToken,
+    outputEvidence,
+    options,
+  ) {
+    return completeAttempt(
+      options?.runId,
+      nodeId,
+      attemptId,
+      fencingToken,
+      outputEvidence,
+    );
   },
   async failAttempt(nodeId, attemptId, fencingToken, errorDetails, options) {
-    return failAttempt(options?.runId, nodeId, attemptId, fencingToken, errorDetails);
+    return failAttempt(
+      options?.runId,
+      nodeId,
+      attemptId,
+      fencingToken,
+      errorDetails,
+    );
   },
   async retryNode(runId, nodeKey, operatorId) {
     return retryNode(runId, nodeKey, operatorId);

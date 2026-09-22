@@ -118,7 +118,8 @@ export async function revokeAttempt(attemptId, reason) {
   );
   const attempt = rows[0];
   if (!attempt) return { ok: false, error: "attempt not found" };
-  if (attempt.authority_status === "revoked") return { ok: true, status: "already_revoked" };
+  if (attempt.authority_status === "revoked")
+    return { ok: true, status: "already_revoked" };
 
   if (attempt.vault_lease_id) {
     await revokeCredentialLease(attempt.vault_lease_id, reason);
