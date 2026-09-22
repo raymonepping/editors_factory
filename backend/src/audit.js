@@ -6,10 +6,10 @@
 import { getPool } from "./db.js";
 import { publishEvent } from "./events.js";
 
-export async function startRun(profile) {
+export async function startRun(profile, workflowMode = "fixed_chain") {
   const { rows } = await getPool().query(
-    `INSERT INTO demo_runs (profile, status) VALUES ($1, 'running') RETURNING run_id`,
-    [profile],
+    `INSERT INTO demo_runs (profile, status, workflow_mode) VALUES ($1, 'running', $2) RETURNING run_id`,
+    [profile, workflowMode],
   );
   return rows[0].run_id;
 }
@@ -23,7 +23,7 @@ export async function endRun(runId, status) {
 
 export async function getActiveRun() {
   const { rows } = await getPool().query(
-    `SELECT run_id, profile FROM demo_runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`,
+    `SELECT run_id, profile, workflow_mode FROM demo_runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`,
   );
   return rows[0] || null;
 }

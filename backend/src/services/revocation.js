@@ -7,6 +7,8 @@ import {
 } from "../vault.js";
 import * as audit from "../audit.js";
 import * as state from "../state.js";
+import { getPool } from "../db.js";
+import { publishEvent } from "../events.js";
 
 /**
  * Revokes an explicit lease by leaseId, updates evidence records,
@@ -95,6 +97,45 @@ export function startCredentialRenewal({ leaseId, ttlSeconds, tokenAccessor }) {
     }
   }, intervalMs);
   state.setRenewalTimer(timer);
+}
+
+/**
+ * v2 (prompts/v2/02_02/02_03): revokes one DAG node attempt's Vault
+ * lease and child-token accessor (if any were ever issued for it — a
+ * `triage`/`investigate` attempt with no credential need has neither),
+ * and marks it revoked in dag_node_attempts. Called immediately on
+ * completeAttempt/failAttempt and by the heartbeat watchdog on timeout
+ * ("retry the work, not the authority" — an attempt's authority never
+ * outlives the attempt itself, success or failure). Idempotent: reuses
+ * revokeCredentialLease/revokeTokenAccessor's own idempotent Vault calls,
+ * and the UPDATE is a no-op if already revoked.
+ */
+export async function revokeAttempt(attemptId, reason) {
+  const { rows } = await getPool().query(
+    `SELECT vault_lease_id, vault_token_accessor, authority_status
+       FROM dag_node_attempts WHERE attempt_id = $1`,
+    [attemptId],
+  );
+  const attempt = rows[0];
+  if (!attempt) return { ok: false, error: "attempt not found" };
+  if (attempt.authority_status === "revoked") return { ok: true, status: "already_revoked" };
+
+  if (attempt.vault_lease_id) {
+    await revokeCredentialLease(attempt.vault_lease_id, reason);
+  }
+  if (attempt.vault_token_accessor) {
+    await revokeTokenAccessor(attempt.vault_token_accessor).catch(() => {});
+  }
+
+  const { rows: updated } = await getPool().query(
+    `UPDATE dag_node_attempts
+        SET authority_status = 'revoked', lease_revoked_at = now(), revocation_reason = $2
+      WHERE attempt_id = $1
+      RETURNING *`,
+    [attemptId, reason],
+  );
+  if (updated[0]) publishEvent("dag_node_attempts", updated[0]);
+  return { ok: true };
 }
 
 /**

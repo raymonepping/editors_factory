@@ -31,13 +31,60 @@ demoRouter.put(
       }
 
       state.setProfile(profile);
-      const runId = await audit.startRun(profile);
+      const runId = await audit.startRun(profile, state.getWorkflowMode());
       state.setCurrentRunId(runId);
       state.clearTasks();
       state.clearActiveAgentCCredential();
       state.clearPendingApprovals();
 
       res.json({ profile, runId });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+demoRouter.get("/demo/workflow-mode", (req, res) => {
+  res.json({ workflowMode: state.getWorkflowMode() });
+});
+
+/**
+ * v2 (prompts/v2/02_02 grounding pass): mirrors PUT /demo/mode's own
+ * requireHumanSession + requireRole pattern exactly. Deliberately does
+ * NOT start a new run or touch `profile` — workflow_mode and
+ * authority_profile are orthogonal controls (02_00) and must never be
+ * coupled. Rejects with 409 while a v2 DAG run is genuinely in flight
+ * (dag_runs.status = 'running' for the current run) — switching modes
+ * mid-DAG would leave that run's own dag_nodes/dag_node_attempts
+ * orphaned from demo_runs.workflow_mode. Switching while only v1 work is
+ * in flight is unaffected — v1 has no dag_runs row to check.
+ */
+demoRouter.put(
+  "/demo/workflow-mode",
+  requireHumanSession,
+  requireRole("switch_workflow_mode"),
+  async (req, res, next) => {
+    try {
+      const { workflowMode } = req.body || {};
+      if (workflowMode !== "fixed_chain" && workflowMode !== "recoverable_dag") {
+        return res
+          .status(400)
+          .json({ error: 'workflowMode must be "fixed_chain" or "recoverable_dag"' });
+      }
+      const runId = state.getCurrentRunId();
+      if (runId) {
+        const { rows } = await getPool().query(
+          `SELECT status FROM dag_runs WHERE run_id = $1`,
+          [runId],
+        );
+        if (rows[0]?.status === "running") {
+          return res.status(409).json({
+            error: "A v2 DAG run is currently in progress for the active run — reset or let it finish before switching workflow_mode.",
+          });
+        }
+      }
+      state.setWorkflowMode(workflowMode);
+      res.json({ workflowMode });
     } catch (err) {
       next(err);
     }
@@ -106,7 +153,7 @@ demoRouter.post(
       state.clearActiveAgentCCredential();
       state.clearPendingApprovals();
 
-      const newRunId = await audit.startRun(state.getProfile());
+      const newRunId = await audit.startRun(state.getProfile(), state.getWorkflowMode());
       state.setCurrentRunId(newRunId);
 
       res.json({

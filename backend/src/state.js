@@ -8,6 +8,10 @@ import { config } from "./config.js";
 
 let currentProfile = config.demo.defaultProfile;
 let currentRunId = null;
+// v2 (prompts/v2/02_02): orthogonal to currentProfile, per 02_00's
+// "Orthogonal Demo Controls" — switching this never touches profile,
+// and switching profile (setProfile) never touches this.
+let currentWorkflowMode = "fixed_chain";
 
 export function getProfile() {
   return currentProfile;
@@ -26,6 +30,17 @@ export function getCurrentRunId() {
 
 export function setCurrentRunId(runId) {
   currentRunId = runId;
+}
+
+export function getWorkflowMode() {
+  return currentWorkflowMode;
+}
+
+export function setWorkflowMode(mode) {
+  if (mode !== "fixed_chain" && mode !== "recoverable_dag") {
+    throw new Error(`Invalid workflow_mode: ${mode}`);
+  }
+  currentWorkflowMode = mode;
 }
 
 // taskId -> { actorId, delegatedBy, delegationDepth, effectiveAuthority, traceId, parentTaskId, goal }

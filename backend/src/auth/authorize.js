@@ -29,6 +29,10 @@ const POLICY = {
     // switch_profile/reset_demo — an operator capability, not a
     // viewer one.
     authorize_credential: false,
+    // prompts/v2/02_02: same tier as switch_profile — orthogonal control,
+    // same operator-only gate.
+    switch_workflow_mode: false,
+    retry_dag_node: false,
   },
   "factory-operator": {
     read_dashboard: true,
@@ -37,6 +41,8 @@ const POLICY = {
     switch_profile: true,
     reset_demo: true,
     authorize_credential: true,
+    switch_workflow_mode: true,
+    retry_dag_node: true,
   },
 };
 

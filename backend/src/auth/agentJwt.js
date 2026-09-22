@@ -58,12 +58,25 @@ function sign(data) {
  * own "agent layer / task layer / Vault layer" account of why this stays
  * entirely at the backend.
  */
+/**
+ * `attemptId`/`nodeId`/`fencingToken` (v2, prompts/v2/02_02) are optional
+ * and additive — omitted entirely for an ordinary task-bound token, so
+ * v1's own token shape is unchanged. When present, they mark this token
+ * as attempt-bound: middleware/agentAttemptJwtAuth.js requires all three
+ * before honoring it, the same way agentJwtAuth.js requires task_id/
+ * run_id for a task-bound one. Reuses this exact signing path rather
+ * than adding a second JWT mechanism (prompts/v2/02_02's own grounding
+ * pass).
+ */
 export function signAgentToken({
   actorId,
   runId,
   taskId,
   delegatedBy = null,
   ttlSeconds,
+  attemptId = null,
+  nodeId = null,
+  fencingToken = null,
 }) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "HS256", typ: "JWT" };
@@ -77,6 +90,13 @@ export function signAgentToken({
     run_id: runId,
     task_id: taskId,
     delegated_by: delegatedBy,
+    ...(attemptId !== null
+      ? {
+          attempt_id: attemptId,
+          node_id: nodeId,
+          fencing_token: fencingToken,
+        }
+      : {}),
   };
   const encodedHeader = base64url(JSON.stringify(header));
   const encodedPayload = base64url(JSON.stringify(payload));

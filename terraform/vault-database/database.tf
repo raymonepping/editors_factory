@@ -151,8 +151,17 @@ resource "vault_database_secret_backend_role" "factory_backend_role" {
 
   # See factory_bad_role's own comment above for why this is one
   # multi-statement array element, not one element per statement.
+  #
+  # v2 (prompts/v2/02_02, found live): dag_runs/dag_nodes/dag_edges/
+  # dag_node_attempts/dag_business_effects are evidence tables in exactly
+  # the same sense as demo_runs/audit_events/etc — written only by
+  # factory-api's own operational pool, never by an agent-issued
+  # credential — and were missing from this explicit list. `GRANT SELECT
+  # ON ALL TABLES IN SCHEMA public` alone covers reads (which is why
+  # GET /api/dag/runs/:id worked before this), but writes need the
+  # table named here explicitly, same as every other evidence table.
   creation_statements = [
-    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT INSERT, UPDATE, DELETE ON demo_runs, audit_events, delegations, authority_decisions, credential_events, database_changes, findings, sessions TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
+    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT INSERT, UPDATE, DELETE ON demo_runs, audit_events, delegations, authority_decisions, credential_events, database_changes, findings, sessions, dag_runs, dag_nodes, dag_edges, dag_node_attempts, dag_business_effects TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
   ]
 
   revocation_statements = [

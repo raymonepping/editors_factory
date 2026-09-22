@@ -17,6 +17,10 @@ import { eventsRouter } from "./routes/events.js";
 import { demoRouter } from "./routes/demo.js";
 import { factoryStateRouter } from "./routes/factoryState.js";
 import { factoryRecordsRouter } from "./routes/factoryRecords.js";
+import { dagRouter } from "./routes/dag.js";
+import "./orchestrator/fixed-chain-engine.js"; // side-effecting: registers itself with orchestrator/index.js
+import "./orchestrator/dag-engine.js"; // side-effecting: registers itself with orchestrator/index.js
+import { startWatchdog } from "./services/watchdog.js";
 import * as audit from "./audit.js";
 import * as state from "./state.js";
 
@@ -58,6 +62,7 @@ app.use("/api", eventsRouter);
 app.use("/api", demoRouter);
 app.use("/api", factoryStateRouter);
 app.use("/api", factoryRecordsRouter);
+app.use("/api", dagRouter);
 
 app.use(errorHandler);
 
@@ -78,10 +83,13 @@ async function main() {
     await cleanupRunCredentials(existingRun.run_id, "startup_recovery");
     state.setCurrentRunId(existingRun.run_id);
     state.setProfile(existingRun.profile);
+    state.setWorkflowMode(existingRun.workflow_mode);
   } else {
-    const runId = await audit.startRun(state.getProfile());
+    const runId = await audit.startRun(state.getProfile(), state.getWorkflowMode());
     state.setCurrentRunId(runId);
   }
+
+  startWatchdog();
 
   app.listen(config.port, () => {
     console.log(
