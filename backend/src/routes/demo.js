@@ -70,11 +70,9 @@ demoRouter.put(
         workflowMode !== "fixed_chain" &&
         workflowMode !== "recoverable_dag"
       ) {
-        return res
-          .status(400)
-          .json({
-            error: 'workflowMode must be "fixed_chain" or "recoverable_dag"',
-          });
+        return res.status(400).json({
+          error: 'workflowMode must be "fixed_chain" or "recoverable_dag"',
+        });
       }
       const runId = state.getCurrentRunId();
       if (runId) {
