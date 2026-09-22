@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-22_pre-v2-02-00-architecture"
+  purpose: "Before implementing 02_00: v2 dual-engine orchestration contract scaffold (backend/src/orchestrator/)"
+  captured_at: "2026-09-22T12:46:42Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-22_pre-v2-00-architecture-b"
+  git:
+    commit: "97d5ed5ea5240cbed7d341cc7b69f60a9b001c41"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: false
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: UNKNOWN
+  ollama-model: UNKNOWN
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: PARTIAL
+    components: CAPTURED
+    verification: CAPTURED

@@ -1,0 +1,17 @@
+[
+  {
+    "check": "backend-health",
+    "result": "UNKNOWN",
+    "detail": "not run — Podman not reachable"
+  },
+  {
+    "check": "ollama-model",
+    "result": "UNKNOWN",
+    "detail": "not run — Podman not reachable"
+  },
+  {
+    "check": "mutating-scenarios",
+    "result": "UNKNOWN",
+    "detail": "not run — mutating scenario requires --with-scenarios"
+  }
+]
