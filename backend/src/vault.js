@@ -138,11 +138,23 @@ export async function loadSecretsFromVault(config) {
  * to bound it — so lengthening the TTL to match the credential's own
  * lifetime doesn't widen this token's authority, only its lifespan.
  */
+/**
+ * `dagContext` (v2, prompts/v2/02_03) is optional and additive — every
+ * existing v1 call site passes none, and gets exactly the same token
+ * shape as before plus one new always-present tag. Shape:
+ * `{ workflowMode, runId, nodeId, nodeKey, attemptId, attemptNumber, profile }`.
+ * `factory_workflow_mode` is the one field set unconditionally — Sentinel
+ * (terraform/vault-sentinel/main.tf) branches on it to decide whether the
+ * rest of the attempt fields are required, so unlike factory_task it
+ * can't be conditionally omitted; "fixed_chain" is the correct default
+ * for every caller that passes no dagContext at all.
+ */
 export async function mintAgentTaggedChildToken(
   agentId,
   ttlSeconds,
   policies = null,
   taskId = null,
+  dagContext = null,
 ) {
   const parentToken = await readAgentToken();
   const meta = { factory_agent: agentId };
@@ -158,6 +170,15 @@ export async function mintAgentTaggedChildToken(
   // function's other caller, db.js) isn't gated by that EGP at all.
   if (taskId) {
     meta.factory_task = taskId;
+  }
+  meta.factory_workflow_mode = dagContext?.workflowMode || "fixed_chain";
+  if (dagContext?.workflowMode === "recoverable_dag") {
+    meta.factory_run_id = dagContext.runId;
+    meta.factory_node_id = dagContext.nodeId;
+    meta.factory_node_key = dagContext.nodeKey;
+    meta.factory_attempt_id = dagContext.attemptId;
+    meta.factory_attempt_number = String(dagContext.attemptNumber);
+    meta.factory_profile = dagContext.profile;
   }
   const body = {
     orphan: false,
@@ -193,7 +214,12 @@ const DB_ROLE_TOKEN_TTL_SECONDS = {
  * now denies the request without it (see mintAgentTaggedChildToken's own
  * comment) — and irrelevant for factory-backend-role, which has no task.
  */
-export async function issueDatabaseCredential(role, agentId, taskId = null) {
+export async function issueDatabaseCredential(
+  role,
+  agentId,
+  taskId = null,
+  dagContext = null,
+) {
   const ttlSeconds = DB_ROLE_TOKEN_TTL_SECONDS[role];
   if (!ttlSeconds) {
     throw new Error(
@@ -210,6 +236,7 @@ export async function issueDatabaseCredential(role, agentId, taskId = null) {
     ttlSeconds,
     policies,
     taskId,
+    dagContext,
   );
   const data = await vaultRequest("GET", `database/creds/${role}`, {
     token: clientToken,

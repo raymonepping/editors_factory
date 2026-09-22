@@ -7,11 +7,21 @@
 //
 // Sets req.actorId exactly like agentAuth.js did, so every route handler
 // downstream (which already reads req.actorId) needed no changes.
+//
+// v2 (prompts/v2/02_03): also recognizes an attempt-bound token (one
+// carrying attempt_id — minted only by orchestrator/dag-engine.js's
+// claimNode, never by routes/agentToken.js's ordinary bootstrap) for
+// routes/credentials.js's own credential-request route, which a v2
+// remediate attempt must call using its attempt JWT (it has no task_id
+// at all — v2 has no task concept). A v1 agent never holds an
+// attempt-bound token, so this is purely additive to every existing
+// caller of this middleware.
 
 import { verifyAgentToken } from "../auth/agentJwt.js";
 import * as state from "../state.js";
+import { getPool } from "../db.js";
 
-export function agentJwtAuth(req, res, next) {
+export async function agentJwtAuth(req, res, next) {
   const header = req.get("authorization") || "";
   const match = header.match(/^Bearer (.+)$/);
   if (!match) {
@@ -27,6 +37,32 @@ export function agentJwtAuth(req, res, next) {
     return res
       .status(401)
       .json({ error: `Invalid agent token: ${err.message}` });
+  }
+
+  if (claims.attempt_id) {
+    try {
+      const { rows } = await getPool().query(
+        `SELECT n.current_fencing_token FROM dag_nodes n
+           JOIN dag_node_attempts a ON a.node_id = n.node_id
+          WHERE a.attempt_id = $1`,
+        [claims.attempt_id],
+      );
+      const row = rows[0];
+      if (!row || Number(row.current_fencing_token) !== Number(claims.fencing_token)) {
+        return res.status(409).json({
+          error: "Stale fencing token — this attempt is no longer current",
+        });
+      }
+    } catch (err) {
+      return next(err);
+    }
+    req.actorId = claims.sub;
+    req.runId = claims.run_id;
+    req.taskId = null;
+    req.attemptId = claims.attempt_id;
+    req.nodeId = claims.node_id;
+    req.fencingToken = claims.fencing_token;
+    return next();
   }
 
   // Structural revocation, not a separate revoked-jti store: a JWT bound
@@ -53,5 +89,6 @@ export function agentJwtAuth(req, res, next) {
   req.actorId = claims.sub;
   req.taskId = claims.task_id;
   req.runId = claims.run_id;
+  req.attemptId = null;
   next();
 }

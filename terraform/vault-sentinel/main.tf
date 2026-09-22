@@ -82,6 +82,19 @@ resource "vault_egp_policy" "require_agent_c_for_db_creds" {
   # factory_task carries any non-empty value — tested against this
   # cluster using factory-api's own real Vault Agent-rendered token as
   # the parent, not a synthetic case.
+  # v2 (prompts/v2/02_03), found working out the actual implementation —
+  # not merely as originally drafted in the prompt: `has_task` cannot be
+  # the universal requirement across both workflow modes, because a v2
+  # (recoverable_dag) credential request has no task_id at all — v2 has
+  # no task concept, only attempts. Sentinel branches on the one signal
+  # both modes always carry: `factory_workflow_mode`, set unconditionally
+  # by mintAgentTaggedChildToken (backend/src/vault.js) on every child
+  # token it mints, v1 and v2 alike. fixed_chain traffic keeps the
+  # original has_task requirement byte-for-byte; recoverable_dag traffic
+  # substitutes the attempt fields (factory_attempt_id/
+  # factory_attempt_number), its own functional equivalent of "this
+  # child token was minted bound to one specific unit of work" — for
+  # EVERY attempt, including the first, not only a retry.
   paths             = ["database/creds/factory-bad-role", "database/creds/factory-good-role"]
   enforcement_level = "hard-mandatory"
   policy            = <<-EOT
@@ -93,8 +106,28 @@ resource "vault_egp_policy" "require_agent_c_for_db_creds" {
         token.metadata["factory_task"] else "" is not ""
     }
 
+    workflow_mode_is_fixed_chain = rule {
+        token.metadata["factory_workflow_mode"] else "" is "fixed_chain"
+    }
+
+    workflow_mode_is_recoverable_dag = rule {
+        token.metadata["factory_workflow_mode"] else "" is "recoverable_dag"
+    }
+
+    has_attempt_id = rule {
+        token.metadata["factory_attempt_id"] else "" is not ""
+    }
+
+    has_attempt_number = rule {
+        token.metadata["factory_attempt_number"] else "" matches "^[0-9]+$"
+    }
+
+    has_attempt_fields = rule {
+        has_attempt_id and has_attempt_number
+    }
+
     main = rule {
-        metadata_ok and has_task
+        metadata_ok and ((workflow_mode_is_fixed_chain and has_task) or (workflow_mode_is_recoverable_dag and has_attempt_fields))
     }
   EOT
 }
