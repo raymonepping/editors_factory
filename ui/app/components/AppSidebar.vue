@@ -42,6 +42,7 @@ interface SidebarItem {
 const items = computed<SidebarItem[]>(() => {
   const base: SidebarItem[] = [
     { to: '/', label: 'Overview', exact: true },
+    { to: '/dag', label: 'Micro-DAG' },
     { to: '/records', label: 'Records' },
     { to: '/credentials', label: 'Credentials', badge: credentialBadge.value },
     { to: '/timeline', label: 'Timeline', count: props.eventCount },

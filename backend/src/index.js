@@ -84,10 +84,12 @@ async function main() {
     state.setCurrentRunId(existingRun.run_id);
     state.setProfile(existingRun.profile);
     state.setWorkflowMode(existingRun.workflow_mode);
+    state.setFaultInjectionMode(existingRun.fault_injection_mode);
   } else {
     const runId = await audit.startRun(
       state.getProfile(),
       state.getWorkflowMode(),
+      state.getFaultInjectionMode(),
     );
     state.setCurrentRunId(runId);
   }

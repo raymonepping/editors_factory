@@ -31,7 +31,11 @@ demoRouter.put(
       }
 
       state.setProfile(profile);
-      const runId = await audit.startRun(profile, state.getWorkflowMode());
+      const runId = await audit.startRun(
+        profile,
+        state.getWorkflowMode(),
+        state.getFaultInjectionMode(),
+      );
       state.setCurrentRunId(runId);
       state.clearTasks();
       state.clearActiveAgentCCredential();
@@ -89,6 +93,58 @@ demoRouter.put(
       }
       state.setWorkflowMode(workflowMode);
       res.json({ workflowMode });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+demoRouter.get("/demo/fault-injection-mode", (req, res) => {
+  res.json({ faultInjectionMode: state.getFaultInjectionMode() });
+});
+
+const VALID_FAULT_MODES = [
+  "none",
+  "fail_before_mutation",
+  "fail_after_mutation",
+  "lock_timeout",
+];
+
+/**
+ * v2 (prompts/v2/02_06/02_07): same pattern as PUT /demo/workflow-mode
+ * exactly — sets demo_runs.fault_injection_mode for the next triggered
+ * run. The actual fault-injection enforcement point (reading this value
+ * during remediate's mutation) is 02_07's own deliverable; this control
+ * exists and persists per-run starting now, same as workflow_mode's own
+ * column existed in 02_01 before 02_02 built anything that read it.
+ */
+demoRouter.put(
+  "/demo/fault-injection-mode",
+  requireHumanSession,
+  requireRole("switch_workflow_mode"),
+  async (req, res, next) => {
+    try {
+      const { faultInjectionMode } = req.body || {};
+      if (!VALID_FAULT_MODES.includes(faultInjectionMode)) {
+        return res.status(400).json({
+          error: `faultInjectionMode must be one of: ${VALID_FAULT_MODES.join(", ")}`,
+        });
+      }
+      const runId = state.getCurrentRunId();
+      if (runId) {
+        const { rows } = await getPool().query(
+          `SELECT status FROM dag_runs WHERE run_id = $1`,
+          [runId],
+        );
+        if (rows[0]?.status === "running") {
+          return res.status(409).json({
+            error:
+              "A v2 DAG run is currently in progress for the active run — reset or let it finish before switching fault_injection_mode.",
+          });
+        }
+      }
+      state.setFaultInjectionMode(faultInjectionMode);
+      res.json({ faultInjectionMode });
     } catch (err) {
       next(err);
     }
@@ -160,6 +216,7 @@ demoRouter.post(
       const newRunId = await audit.startRun(
         state.getProfile(),
         state.getWorkflowMode(),
+        state.getFaultInjectionMode(),
       );
       state.setCurrentRunId(newRunId);
 

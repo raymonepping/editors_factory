@@ -3,14 +3,18 @@
 
 import type {
   AuthorityMap,
+  DagRunTopology,
   DemoMode,
   FactoryRecordsPage,
   FactoryState,
+  FaultInjectionMode,
   PendingApproval,
   Profile,
   Task,
   TimelineEntry,
   Finding,
+  WorkflowMode,
+  WorkflowModeResponse,
 } from '~/types/factory'
 
 export interface UserSession {
@@ -104,6 +108,45 @@ export function useDemoApi() {
     )
   }
 
+  // ── v2 (prompts/v2/02_06) — recoverable micro-DAG ─────────────────────
+
+  async function getWorkflowMode() {
+    return $fetch<WorkflowModeResponse>(`${base}/api/demo/workflow-mode`)
+  }
+
+  async function setWorkflowMode(workflowMode: WorkflowMode) {
+    return $fetch<WorkflowModeResponse>(`${base}/api/demo/workflow-mode`, {
+      method: 'PUT',
+      body: { workflowMode },
+    })
+  }
+
+  async function getFaultInjectionMode() {
+    return $fetch<{ faultInjectionMode: FaultInjectionMode }>(`${base}/api/demo/fault-injection-mode`)
+  }
+
+  async function setFaultInjectionMode(faultInjectionMode: FaultInjectionMode) {
+    return $fetch<{ faultInjectionMode: FaultInjectionMode }>(`${base}/api/demo/fault-injection-mode`, {
+      method: 'PUT',
+      body: { faultInjectionMode },
+    })
+  }
+
+  async function initDagRun() {
+    return $fetch<DagRunTopology>(`${base}/api/dag/runs`, { method: 'POST' })
+  }
+
+  async function getDagRun(runId: string) {
+    return $fetch<DagRunTopology>(`${base}/api/dag/runs/${runId}`)
+  }
+
+  async function retryDagNode(runId: string, nodeKey: string) {
+    return $fetch<{ ok: boolean; retried: string; invalidatedDownstream: string[] }>(
+      `${base}/api/dag/runs/${runId}/nodes/${nodeKey}/retry`,
+      { method: 'POST' },
+    )
+  }
+
   return {
     base,
     FIXED_TRIGGER_PROMPT,
@@ -120,5 +163,12 @@ export function useDemoApi() {
     getFactoryRecords,
     getPendingApprovals,
     authorizeCredential,
+    getWorkflowMode,
+    setWorkflowMode,
+    getFaultInjectionMode,
+    setFaultInjectionMode,
+    initDagRun,
+    getDagRun,
+    retryDagNode,
   }
 }

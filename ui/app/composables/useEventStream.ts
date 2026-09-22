@@ -13,6 +13,7 @@ import type {
   AgentNodeStatus,
   AuthorityMap,
   CredentialEvent,
+  DagRunTopology,
   DemoMode,
   FactoryState,
   Finding,
@@ -181,6 +182,39 @@ const amplificationEventId = ref<string | null>(null)
 // to its own later "revoked" update. Powers CredentialLedger.vue.
 const credentialEvents = reactive(new Map<string, CredentialEvent>())
 
+// v2 (prompts/v2/02_06): the recoverable micro-DAG's own live state.
+// SSE payloads for dag_nodes/dag_node_attempts carry only a partial
+// patch (whatever the emitting call site happened to have in hand —
+// see backend/src/orchestrator/dag-engine.js's own publishEvent calls),
+// not the full row, so this follows the same pattern database_changes
+// already uses below (refreshFactoryState() on each event) rather than
+// hand-merging partial payloads: any DAG-related event schedules one
+// debounced full re-fetch of the run's topology via GET
+// /api/dag/runs/:id, which always returns the complete, authoritative
+// current state.
+const dagTopology = ref<DagRunTopology | null>(null)
+let dagRefreshPending = false
+let dagRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleDagTopologyRefresh(runId: string | null | undefined) {
+  if (!runId) return
+  if (dagRefreshTimer) return
+  dagRefreshPending = true
+  dagRefreshTimer = setTimeout(async () => {
+    dagRefreshTimer = null
+    if (!dagRefreshPending) return
+    dagRefreshPending = false
+    const { getDagRun } = useDemoApi()
+    try {
+      dagTopology.value = await getDagRun(runId)
+    } catch {
+      // A DAG run that hasn't been initialized yet (v2 mode selected but
+      // POST /api/dag/runs not yet called) 404s here — not an error
+      // worth surfacing, just means there's nothing to show yet.
+    }
+  }, 150)
+}
+
 let source: EventSource | null = null
 let doneTimer: ReturnType<typeof setTimeout> | null = null
 let initialized = false
@@ -337,6 +371,34 @@ function connect(apiBase: string) {
       }
     })
   }
+
+  // v2 (prompts/v2/02_06): dag_runs/dag_nodes/dag_node_attempts are the
+  // generic table-mirror events (backend/src/events.js's own
+  // publishEvent convention, same as the v1 channels above);
+  // DAG_NODE_CLAIMED/DAG_NODE_INVALIDATED/DAG_ATTEMPT_TIMED_OUT/
+  // EVIDENCE_LEASE_REVOKED are the distinctly-named ones added in 02_02/
+  // 02_05 specifically so agent-d's classify() (and this dashboard) have
+  // something more specific to match on than a generic status field.
+  // Every one of them just triggers the same debounced re-fetch above.
+  const dagChannels = [
+    'dag_runs',
+    'dag_nodes',
+    'dag_node_attempts',
+    'DAG_NODE_CLAIMED',
+    'DAG_NODE_INVALIDATED',
+    'DAG_ATTEMPT_TIMED_OUT',
+    'EVIDENCE_LEASE_REVOKED',
+  ] as const
+  for (const channel of dagChannels) {
+    source.addEventListener(channel, (evt: MessageEvent) => {
+      try {
+        const payload = JSON.parse(evt.data)
+        scheduleDagTopologyRefresh(payload.run_id ?? dagTopology.value?.run?.run_id)
+      } catch {
+        // Malformed frame — skip.
+      }
+    })
+  }
 }
 
 export function useEventStream() {
@@ -381,6 +443,10 @@ export function useEventStream() {
       timeline.value = []
       findings.value = []
       resetChainState()
+      dagTopology.value = null
     },
+    // v2 (02_06)
+    dagTopology,
+    refreshDagTopology: (runId: string) => scheduleDagTopologyRefresh(runId),
   }
 }

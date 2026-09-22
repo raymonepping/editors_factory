@@ -43,6 +43,30 @@ export function setWorkflowMode(mode) {
   currentWorkflowMode = mode;
 }
 
+// v2 (prompts/v2/02_06/02_07): set here, read by the future fault-injection
+// point in the remediate mutation path (02_07) — the control exists and
+// persists per-run (demo_runs.fault_injection_mode) starting now, its
+// consumer lands separately, mirroring how workflow_mode's own column
+// existed in 02_01 before 02_02 built anything that read it.
+let currentFaultInjectionMode = "none";
+const VALID_FAULT_MODES = [
+  "none",
+  "fail_before_mutation",
+  "fail_after_mutation",
+  "lock_timeout",
+];
+
+export function getFaultInjectionMode() {
+  return currentFaultInjectionMode;
+}
+
+export function setFaultInjectionMode(mode) {
+  if (!VALID_FAULT_MODES.includes(mode)) {
+    throw new Error(`Invalid fault_injection_mode: ${mode}`);
+  }
+  currentFaultInjectionMode = mode;
+}
+
 // taskId -> { actorId, delegatedBy, delegationDepth, effectiveAuthority, traceId, parentTaskId, goal }
 const tasks = new Map();
 

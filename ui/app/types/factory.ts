@@ -172,3 +172,77 @@ export const DESTRUCTIVE_ACTIONS = new Set([
   'products.update_price',
   'products.insert',
 ])
+
+// v2 (prompts/v2/02_06) — the recoverable micro-DAG's own shapes,
+// mirroring backend/src/orchestrator/dag-engine.js's row shapes exactly,
+// same "raw column names, no client renaming" rule as everything above.
+
+export type WorkflowMode = 'fixed_chain' | 'recoverable_dag'
+export type FaultInjectionMode = 'none' | 'fail_before_mutation' | 'fail_after_mutation' | 'lock_timeout'
+export type DagNodeKey = 'triage' | 'investigate' | 'remediate' | 'notify' | 'verify'
+export type DagNodeStatus =
+  | 'pending'
+  | 'runnable'
+  | 'claimed'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'blocked'
+  | 'invalidated'
+  | 'cancelled'
+export type DagRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface DagRun {
+  run_id: string
+  workflow_definition_key: string
+  status: DagRunStatus
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface DagNode {
+  node_id: string
+  run_id: string
+  node_key: DagNodeKey
+  agent_role: string
+  status: DagNodeStatus
+  current_attempt_number: number
+  current_fencing_token: number
+  claimed_by: string | null
+  claimed_at: string | null
+  heartbeat_expires_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DagNodeAttempt {
+  attempt_id: string
+  node_id: string
+  attempt_number: number
+  fencing_token: number
+  agent_identity: string
+  vault_lease_id: string | null
+  vault_token_accessor: string | null
+  attempt_idempotency_key: string
+  business_effect_key: string | null
+  execution_status: 'running' | 'completed' | 'failed' | 'timed_out'
+  authority_status: 'active' | 'revoked' | 'expired'
+  lease_revoked_at: string | null
+  revocation_reason: string | null
+  input_evidence: unknown
+  output_evidence: unknown
+  error_details: unknown
+  started_at: string
+  ended_at: string | null
+}
+
+export interface DagRunTopology {
+  run: DagRun | null
+  nodes: DagNode[]
+  edges: { from_node_id: string; to_node_id: string }[]
+  attempts: DagNodeAttempt[]
+}
+
+export interface WorkflowModeResponse {
+  workflowMode: WorkflowMode
+}

@@ -323,6 +323,21 @@ export async function claimNode(actorId, runId) {
     agent_id: actorId,
   });
 
+  const upstreamEvidence = await getUpstreamEvidence(claim.node_id);
+  // Found live building 02_06: dag_node_attempts.input_evidence (the
+  // schema column, since 009_v2_dag_tables.sql) was never actually
+  // written anywhere — claimNode computed upstreamEvidence to hand to
+  // the worker, but nothing persisted it back onto the attempt's own
+  // row, which is what the frontend's evidence-hash verification badge
+  // needs to compare against. Written here, once, at claim time — it is
+  // immutable input, not something later steps update.
+  if (Object.keys(upstreamEvidence).length) {
+    await pool.query(
+      `UPDATE dag_node_attempts SET input_evidence = $2 WHERE attempt_id = $1`,
+      [claim.attempt_id, JSON.stringify(upstreamEvidence)],
+    );
+  }
+
   return {
     nodeId: claim.node_id,
     nodeKey: claim.node_key,
@@ -333,7 +348,7 @@ export async function claimNode(actorId, runId) {
     attemptToken,
     ttlSeconds: config.auth.agentJwtTtlSeconds,
     heartbeatIntervalSeconds: 5,
-    upstreamEvidence: await getUpstreamEvidence(claim.node_id),
+    upstreamEvidence,
   };
 }
 
