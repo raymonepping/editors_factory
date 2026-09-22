@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-22_agentic-iam-hardening-phase4"
+  purpose: "01_08 Phase 4: Vault Control Groups supervised credential path complete. A second credential request in one run is withheld by Vault (wrap_info, not the credential) until a human authorizes it via a dedicated control-group-authorizer identity, never held standing. Two real bugs found and fixed live: Control Group approval requires the original requesting child token to stay valid through unwrap (fixed with a dedicated 30-min approval window, not the DB role's own short TTL), and the authorizer's own token must survive through unwrap too (fixed by not revoking it early). New dashboard UI (PendingApprovals.vue) verified via Playwright screenshots. Audit cross-check tool extended to honestly report the Control-Group delivery path. Live-verified end to end through the real API, dashboard, and both test suites (24/24 backend, 10/10 agents)."
+  captured_at: "2026-09-22T10:51:50Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-21_agentic-iam-hardening-phase3"
+  git:
+    commit: "0090d89f677c92a2d6c60ad525247d085e214199"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
