@@ -96,7 +96,12 @@ async function issueAndRecordAttemptCredential({
   traceId,
   dagContext,
 }) {
-  const credential = await issueDatabaseCredential(role, actorId, null, dagContext);
+  const credential = await issueDatabaseCredential(
+    role,
+    actorId,
+    null,
+    dagContext,
+  );
   await getPool().query(
     `UPDATE dag_node_attempts SET vault_lease_id = $2, vault_token_accessor = $3 WHERE attempt_id = $1`,
     [dagContext.attemptId, credential.leaseId, credential.tokenAccessor],

@@ -48,7 +48,10 @@ export async function agentJwtAuth(req, res, next) {
         [claims.attempt_id],
       );
       const row = rows[0];
-      if (!row || Number(row.current_fencing_token) !== Number(claims.fencing_token)) {
+      if (
+        !row ||
+        Number(row.current_fencing_token) !== Number(claims.fencing_token)
+      ) {
         return res.status(409).json({
           error: "Stale fencing token — this attempt is no longer current",
         });
