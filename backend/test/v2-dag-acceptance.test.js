@@ -148,7 +148,11 @@ describe("v2: run-status transitions follow node state, not asserted in isolatio
 
     await claimAndComplete(AGENT_A_TOKEN, { report: "triage done" });
     let state = await getDagRun(runId);
-    assert.equal(state.run.status, "running", "must not complete before verify does");
+    assert.equal(
+      state.run.status,
+      "running",
+      "must not complete before verify does",
+    );
 
     await claimAndComplete(AGENT_B_TOKEN, { report: "investigate done" });
     state = await getDagRun(runId);
@@ -243,7 +247,11 @@ describe("v2: retry issues a fresh credential and business-effect idempotency pr
       token: claim2.data.attemptToken,
     });
     assert.equal(cred1.status, 201);
-    assert.equal(cred1.data.attemptNumber, 2, "attempt 2 issued directly, not routed to Control Groups");
+    assert.equal(
+      cred1.data.attemptNumber,
+      2,
+      "attempt 2 issued directly, not routed to Control Groups",
+    );
 
     const mutate1 = await apiFetch("/api/actions/orders/1/status", {
       method: "PATCH",
@@ -270,7 +278,11 @@ describe("v2: retry issues a fresh credential and business-effect idempotency pr
 
     await apiFetch(
       `/api/dag/tasks/${claim2.data.nodeId}/attempts/${claim2.data.attemptId}/complete`,
-      { method: "POST", token: claim2.data.attemptToken, body: { outputEvidence: {} } },
+      {
+        method: "POST",
+        token: claim2.data.attemptToken,
+        body: { outputEvidence: {} },
+      },
     );
   });
 });
