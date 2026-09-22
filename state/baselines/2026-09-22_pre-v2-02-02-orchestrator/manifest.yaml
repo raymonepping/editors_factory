@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-22_pre-v2-02-02-orchestrator"
+  purpose: "Before implementing 02_02: backend DAG orchestration engine, routes, watchdog, fencing"
+  captured_at: "2026-09-22T13:32:10Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-22_post-v2-02-01-schema"
+  git:
+    commit: "9c45a4893008581a0ecb9352ccd41b14d8cdb9ec"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
