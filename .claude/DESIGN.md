@@ -108,6 +108,18 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
     v2 prompt grounding pass, not by the original v2 design proposal.
     Full detail: `prompts/v2/02_03_v2_vault_authority_lifecycle_on_retry.md`.
 
+12. **The v2 dual-engine contract (`FixedChainEngine` /
+    `RecoverableMicroDagEngine`) is a registry of plain-function engines,
+    not an ES class hierarchy.** Why: `02_00`'s own illustrative code
+    sample shows the contract as `class BaseWorkflowEngine` with throwing
+    stub methods, but explicitly offers "class inheritance or standard
+    factory dispatch" as an either/or — and no other backend module uses
+    `class` (`vault.js`, `revocation.js`, `state.js` are all plain
+    function exports). `registerEngine()` enforces the six-method
+    contract structurally at registration time instead, matching the
+    rest of the codebase. Rejected: implementing the class as shown, for
+    consistency's sake alone. Full detail: `backend/src/orchestrator/index.js`.
+
 ## How to use this file
 
 Adding a new deliberate trade-off, discovered live or decided
