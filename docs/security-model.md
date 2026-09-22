@@ -78,6 +78,17 @@ for the real procedure, including the genuine caveat that OpenLDAP's and
 Keycloak's own bootstrap images only apply a password change on true
 first initialization, not on every restart.
 
+The mount itself (`terraform/vault-secrets/main.tf`'s
+`vault_kv_secret_backend_v2` resource, added in a later posture audit)
+requires check-and-set on every write and caps version history at 10 —
+a write that doesn't name the version it's replacing is rejected
+outright, verified live rather than assumed (confirmed both that an
+unversioned write genuinely fails and that a correctly-versioned one
+still succeeds, and that Terraform's own `vault_kv_secret_v2` resources
+keep applying cleanly under it). `docs/operations.md`'s own rotation
+commands were updated to match — every `vault kv put` there now reads
+the current version first.
+
 ### Supervised credential approval (Vault Control Groups)
 
 `prompts/improvements/01_08_agentic_iam_inspired_hardening.md` Phase 4

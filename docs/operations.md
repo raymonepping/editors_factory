@@ -74,6 +74,8 @@ make reset
 
 Reset requires a reachable API and PostgreSQL container. It revokes active demo leases, clears evidence, starts a fresh run, and reapplies the seed data. It does not rebuild images, recreate Vault, or pull the model again.
 
+Before clearing anything, it also runs the [audit cross-check](#verifying-the-evidence-trail-against-vaults-own-audit-log) against whatever run is about to be reset — a discrepancy is printed as a warning, never blocks the reset itself (a reset is often how you recover from a broken state; failing it closed on a verification concern would defeat that). Nothing to check (no run yet, or no credential requested) is silent, not an error.
+
 Use reset before switching from BAD to GOOD when comparing results.
 
 ## Database maintenance
@@ -182,8 +184,10 @@ credential the app recorded was never actually issued by Vault
 (impossible under normal operation — worth investigating immediately
 if it ever happens), or a credential Vault issued was never recorded
 by the app (a gap in the application's own evidence-writing code).
-Run it after any demo run you want an audited record of, or as a
-one-off sanity check after changing anything in the
+`make reset` now runs this automatically against whatever run it's
+about to clear (see [Reset](#reset)), so most of the time you'll see
+it happen without asking. Run it manually for a run you haven't reset
+yet, or as a one-off sanity check after changing anything in the
 credential-issuance path.
 
 ## Vault KV secrets rotation
@@ -202,12 +206,23 @@ export VAULT_CACERT="$PWD/vault-tls/ca-chain.pem"
 export VAULT_NAMESPACE=factory
 ```
 
+The `secret/` mount requires check-and-set on every write (Vault
+posture audit, 2026-09-22 — `terraform/vault-secrets/main.tf`'s
+`vault_kv_secret_backend_v2` resource, `cas_required = true`): a write
+that doesn't name the version it's replacing is rejected outright,
+which is what actually stops a rotation from silently clobbering a
+concurrent change. Get the current version first:
+
+```sh
+vault kv get -field=version secret/agents/bearer-tokens
+```
+
 **Per-agent bearer tokens, JWT signing secret, CLI operator token**
 (`secret/agents/bearer-tokens`, `secret/backend/jwt-signing-secret`,
 `secret/backend/cli-operator-token`):
 
 ```sh
-vault kv put secret/agents/bearer-tokens \
+vault kv put -cas=<version from above> secret/agents/bearer-tokens \
   agent_a="$(openssl rand -hex 24)" agent_b=<unchanged> agent_c=<unchanged> agent_d=<unchanged>
 ```
 
@@ -237,7 +252,8 @@ syncs Vault's current value onto the *existing* client on every run
 (`clients/$uuid` update), not only at first creation:
 
 ```sh
-vault kv put secret/identity/oidc-client-secret value="$(openssl rand -hex 24)"
+vault kv put -cas=$(vault kv get -field=version secret/identity/oidc-client-secret) \
+  secret/identity/oidc-client-secret value="$(openssl rand -hex 24)"
 ./scripts/compose.sh identity --profile init run --rm keycloak-bootstrap
 ./scripts/compose.sh api up -d --force-recreate
 ```
@@ -256,7 +272,8 @@ retroactively change the running service's actual credential. To
 rotate for real:
 
 ```sh
-vault kv put secret/identity/ldap-admin-password value="$(openssl rand -hex 16)"
+vault kv put -cas=$(vault kv get -field=version secret/identity/ldap-admin-password) \
+  secret/identity/ldap-admin-password value="$(openssl rand -hex 16)"
 ```
 
 then change the **live** OpenLDAP admin password to match, using the

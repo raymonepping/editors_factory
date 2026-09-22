@@ -263,6 +263,13 @@ resource "vault_policy" "vault_admin" {
       capabilities = ["read", "list", "delete"]
     }
 
+    # Vault posture audit (2026-09-22): the mount-level KV v2 config
+    # itself (max_versions, cas_required) — a distinct path from the
+    # per-secret metadata paths above.
+    path "factory/secret/config" {
+      capabilities = ["read", "update"]
+    }
+
     # prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4:
     # the identity group + entity a human authorizer's own AppRole login
     # aliases into, and the new supervised policy/AppRole for the

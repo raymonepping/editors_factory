@@ -184,6 +184,13 @@ CLI_AUTH_HEADER = -H "X-Factory-Cli-Token: $$(grep '^FACTORY_CLI_OPERATOR_TOKEN=
 
 reset: ## Restore PostgreSQL data, Vault leases, and demo/audit state to baseline
 	@echo "Resetting The Factory to baseline..."
+	@RUNID=$$(curl -fsS -m 5 "http://localhost:$(API_PORT)/api/demo/mode" 2>/dev/null \
+		| python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('runId') or '')" 2>/dev/null || true); \
+	if [ -n "$$RUNID" ] && [ "$$RUNID" != "None" ]; then \
+		echo "Verifying run $$RUNID against Vault's own audit log before its evidence is cleared..."; \
+		./scripts/vault-audit-crosscheck.py "$$RUNID" || \
+			echo "WARNING: audit cross-check did not pass cleanly for run $$RUNID (see output above) — resetting anyway."; \
+	fi
 	@if curl -fsS -m 10 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/reset" >/dev/null 2>&1; then \
 		echo "Evidence tables + Vault leases reset (POST /api/demo/reset)."; \
 	else \

@@ -35,3 +35,16 @@ resource "vault_mount" "secret" {
   type        = "kv-v2"
   description = "Static secrets migrated out of .env (prompts/improvements/01_07)"
 }
+
+# Vault posture audit (2026-09-22): bounds version sprawl and requires
+# every write to prove it saw the current version first — verified
+# live before adding this that Terraform's own vault_kv_secret_v2
+# resources and this project's existing `vault kv put -cas=<version>`
+# rotation flow both keep working under cas_required (docs/operations.md
+# updated to show the -cas flag rotation now genuinely needs).
+resource "vault_kv_secret_backend_v2" "secret" {
+  mount                = vault_mount.secret.path
+  max_versions         = 10
+  cas_required         = true
+  delete_version_after = 0
+}
