@@ -28,9 +28,14 @@ async function request(
   method,
   path,
   body,
-  { useStaticToken = false, tokenOverride = null, attemptIdempotencyKey = null } = {},
+  {
+    useStaticToken = false,
+    tokenOverride = null,
+    attemptIdempotencyKey = null,
+  } = {},
 ) {
-  const token = tokenOverride || (useStaticToken ? config.agentToken : currentAgentToken);
+  const token =
+    tokenOverride || (useStaticToken ? config.agentToken : currentAgentToken);
   if (!token) {
     throw new Error(
       `request(${method} ${path}) called before an agent token was bootstrapped`,
@@ -45,7 +50,8 @@ async function request(
   // attemptIdempotency middleware dedups a retried network call within
   // this SAME attempt, distinct from the business-effect ledger (Level
   // 2), which is about a whole new attempt repeating Attempt 1's work.
-  if (attemptIdempotencyKey) headers["X-Attempt-Idempotency-Key"] = attemptIdempotencyKey;
+  if (attemptIdempotencyKey)
+    headers["X-Attempt-Idempotency-Key"] = attemptIdempotencyKey;
   const res = await fetch(`${config.backend.url}${path}`, {
     method,
     headers,
@@ -180,7 +186,8 @@ export function createAttemptToolClient(token, attemptIdempotencyKey = null) {
     getHealth: () => request("GET", "/api/actions/health", undefined, opts),
     listOrders: (filter = {}) =>
       request("GET", `/api/actions/orders${query(filter)}`, undefined, opts),
-    getOrder: (id) => request("GET", `/api/actions/orders/${id}`, undefined, opts),
+    getOrder: (id) =>
+      request("GET", `/api/actions/orders/${id}`, undefined, opts),
     listProducts: (filter = {}) =>
       request("GET", `/api/actions/products${query(filter)}`, undefined, opts),
     updateOrderStatus: (id, status) =>
@@ -194,8 +201,14 @@ export function createAttemptToolClient(token, attemptIdempotencyKey = null) {
     deleteProducts: (filter) =>
       request("DELETE", "/api/actions/products", { filter }, opts),
     restartOrderProcessor: () =>
-      request("POST", "/api/actions/services/order-processor/restart", undefined, opts),
-    requestCredential: () => request("POST", "/api/credentials", undefined, opts),
+      request(
+        "POST",
+        "/api/actions/services/order-processor/restart",
+        undefined,
+        opts,
+      ),
+    requestCredential: () =>
+      request("POST", "/api/credentials", undefined, opts),
   };
 }
 

@@ -33,7 +33,8 @@ function attemptIdempotency(req, res, next) {
   if (cached) return res.status(cached.status).json(cached.body);
   const originalJson = res.json.bind(res);
   res.json = (body) => {
-    if (res.statusCode < 300) attemptCallCache.set(key, { status: res.statusCode, body });
+    if (res.statusCode < 300)
+      attemptCallCache.set(key, { status: res.statusCode, body });
     return originalJson(body);
   };
   next();
@@ -71,7 +72,9 @@ async function claimBusinessEffect(req, { operation, target, payload }) {
     .update(JSON.stringify(payload ?? {}))
     .digest("hex");
   const businessEffectKey = createHash("sha256")
-    .update(`${node.run_id}:${node.node_key}:${operation}:${target}:${payloadHash}`)
+    .update(
+      `${node.run_id}:${node.node_key}:${operation}:${target}:${payloadHash}`,
+    )
     .digest("hex");
   const { rows: claimed } = await getPool().query(
     `INSERT INTO dag_business_effects
@@ -79,14 +82,25 @@ async function claimBusinessEffect(req, { operation, target, payload }) {
      VALUES ($1,$2,$3,$4,$5,$6)
      ON CONFLICT (business_effect_key) DO NOTHING
      RETURNING *`,
-    [businessEffectKey, node.run_id, node.node_key, operation, target, payloadHash],
+    [
+      businessEffectKey,
+      node.run_id,
+      node.node_key,
+      operation,
+      target,
+      payloadHash,
+    ],
   );
   if (claimed[0]) return { applicable: true, claimed: true, businessEffectKey };
   const { rows: existing } = await getPool().query(
     `SELECT result FROM dag_business_effects WHERE business_effect_key = $1`,
     [businessEffectKey],
   );
-  return { applicable: true, claimed: false, cachedResult: existing[0]?.result ?? null };
+  return {
+    applicable: true,
+    claimed: false,
+    cachedResult: existing[0]?.result ?? null,
+  };
 }
 
 async function recordBusinessEffectResult(businessEffectKey, result) {
@@ -359,7 +373,10 @@ actionsRouter.patch(
       });
 
       if (effect.applicable) {
-        await recordBusinessEffectResult(effect.businessEffectKey, result.rows[0]);
+        await recordBusinessEffectResult(
+          effect.businessEffectKey,
+          result.rows[0],
+        );
       }
       res.json(result.rows[0]);
     } catch (err) {
@@ -434,7 +451,10 @@ actionsRouter.delete(
 
       const responseBody = { deleted: result.rowCount };
       if (effect.applicable) {
-        await recordBusinessEffectResult(effect.businessEffectKey, responseBody);
+        await recordBusinessEffectResult(
+          effect.businessEffectKey,
+          responseBody,
+        );
       }
       res.json(responseBody);
     } catch (err) {
@@ -503,7 +523,10 @@ actionsRouter.patch(
       });
 
       if (effect.applicable) {
-        await recordBusinessEffectResult(effect.businessEffectKey, result.rows[0]);
+        await recordBusinessEffectResult(
+          effect.businessEffectKey,
+          result.rows[0],
+        );
       }
       res.json(result.rows[0]);
     } catch (err) {
@@ -568,7 +591,10 @@ actionsRouter.post(
       });
 
       if (effect.applicable) {
-        await recordBusinessEffectResult(effect.businessEffectKey, result.rows[0]);
+        await recordBusinessEffectResult(
+          effect.businessEffectKey,
+          result.rows[0],
+        );
       }
       res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -639,7 +665,10 @@ actionsRouter.delete(
 
       const responseBody = { deleted: result.rowCount };
       if (effect.applicable) {
-        await recordBusinessEffectResult(effect.businessEffectKey, responseBody);
+        await recordBusinessEffectResult(
+          effect.businessEffectKey,
+          responseBody,
+        );
       }
       res.json(responseBody);
     } catch (err) {

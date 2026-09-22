@@ -76,7 +76,10 @@ export async function startDagWorker({ signal } = {}) {
     try {
       claim = await dagClient.claimDagTask();
     } catch (err) {
-      console.error(`[${config.identity}] dagWorker claim failed:`, err.message);
+      console.error(
+        `[${config.identity}] dagWorker claim failed:`,
+        err.message,
+      );
       claim = null;
     }
 
@@ -125,8 +128,15 @@ async function handleAttempt(nodeConfig, claim, signal) {
     });
   }, HEARTBEAT_INTERVAL_MS);
 
-  const client = createAttemptToolClient(claim.attemptToken, claim.attemptIdempotencyKey);
-  const ctx = { identity: config.identity, client, task: { effectiveAuthority: [] } };
+  const client = createAttemptToolClient(
+    claim.attemptToken,
+    claim.attemptIdempotencyKey,
+  );
+  const ctx = {
+    identity: config.identity,
+    client,
+    task: { effectiveAuthority: [] },
+  };
 
   try {
     const outputEvidence = await runNodeLoop(nodeConfig, claim, ctx, signal);
@@ -145,9 +155,14 @@ async function handleAttempt(nodeConfig, claim, signal) {
       err.message,
     );
     try {
-      await dagClient.failAttempt(claim.nodeId, claim.attemptId, claim.attemptToken, {
-        message: err.message,
-      });
+      await dagClient.failAttempt(
+        claim.nodeId,
+        claim.attemptId,
+        claim.attemptToken,
+        {
+          message: err.message,
+        },
+      );
     } catch (failErr) {
       // The attempt may already be terminal (e.g. the watchdog beat us
       // to it) — logged, not thrown; this loop moves on to poll again
@@ -189,7 +204,10 @@ async function runNodeLoop(nodeConfig, claim, ctx, signal) {
     const message = await chat({ messages, tools: toolSchemas });
 
     if (!message.toolCalls.length) {
-      if (nudgeCount < MAX_NUDGES && mentionsATool(message.content, nodeConfig.tools)) {
+      if (
+        nudgeCount < MAX_NUDGES &&
+        mentionsATool(message.content, nodeConfig.tools)
+      ) {
         nudgeCount += 1;
         messages.push({ role: "assistant", content: message.content });
         messages.push({
