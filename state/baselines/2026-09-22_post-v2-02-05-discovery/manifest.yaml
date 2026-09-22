@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-22_post-v2-02-05-discovery"
+  purpose: "After 02_05: Discovery multi-attempt classification (D-101/102/103/104), audit-crosscheck attempt_id extension — live-verified D-101 firing from a real forced retry, crosscheck PASS against a real v2 lease; fixed two gaps found only while wiring this (EVIDENCE_LEASE_REVOKED not firing for normal completions, retryNode over-reporting invalidatedDownstream)"
+  captured_at: "2026-09-22T16:25:51Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-22_pre-v2-02-05-discovery"
+  git:
+    commit: "fc40d5288df89164e0c67e0ff4618acb53f16afa"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
