@@ -31,6 +31,7 @@ const rootEnv = parseEnvFile(rootEnvPath);
 
 export const API_BASE = `http://localhost:${rootEnv.API_PORT || "3001"}`;
 export const AGENT_A_TOKEN = rootEnv.AGENT_A_TOKEN;
+export const AGENT_B_TOKEN = rootEnv.AGENT_B_TOKEN;
 export const AGENT_C_TOKEN = rootEnv.AGENT_C_TOKEN;
 export const CLI_TOKEN = rootEnv.FACTORY_CLI_OPERATOR_TOKEN;
 

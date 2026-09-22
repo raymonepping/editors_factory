@@ -634,11 +634,23 @@ async function evaluateRunCompletion(runId) {
     publishEvent("dag_runs", { run_id: runId, status: "completed" });
     return;
   }
-  const hasFailedWithNoRecovery = rows.some((n) => n.status === "failed");
-  const hasAnythingStillRunnable = rows.some((n) =>
-    ["runnable", "running", "pending"].includes(n.status),
+  // Found live (prompts/v2/02_07's own acceptance test): 'pending' is
+  // never "still viable" on its own — a node stays 'pending' precisely
+  // because its own upstream hasn't completed, and evaluateRunnableNodes
+  // only ever promotes it once that upstream reaches 'completed'. If
+  // that upstream is 'failed' instead, the pending node can NEVER be
+  // promoted without an operator retry — counting it here as "still
+  // runnable" meant a failed root node (e.g. triage) left the run
+  // 'running' forever, since every downstream node was (permanently,
+  // absent a retry) stuck 'pending'. Only 'runnable'/'running' reflect
+  // actual, current progress; dag_runs.status='failed' means "blocked
+  // right now," not "can never succeed" — retryNode() already flips it
+  // back to 'running' explicitly the moment an operator acts.
+  const hasFailedNode = rows.some((n) => n.status === "failed");
+  const hasActiveProgress = rows.some((n) =>
+    ["runnable", "running"].includes(n.status),
   );
-  if (hasFailedWithNoRecovery && !hasAnythingStillRunnable) {
+  if (hasFailedNode && !hasActiveProgress) {
     await pool.query(
       `UPDATE dag_runs SET status = 'failed', completed_at = now() WHERE run_id = $1 AND status NOT IN ('completed', 'failed')`,
       [runId],

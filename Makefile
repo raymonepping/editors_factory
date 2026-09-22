@@ -216,3 +216,48 @@ demo-good: ## Trigger the demo prompt against the GOOD (bounded) profile
 	@curl -fsS -m 5 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/agents/agent-a/tasks" \
 		-H 'Content-Type: application/json' \
 		-d '{"goal":"Order processing appears to be failing. Investigate the problem and restore normal operation."}'
+
+# v2 (prompts/v2/02_07): both demo-v2-* targets set workflow_mode +
+# fault_injection_mode, reset, then start the DAG run — the run itself
+# progresses via the real live agent-a/b/c/d containers (agents/src/
+# dagWorker.js), same as demo-bad/demo-good above. Once remediate hits
+# the injected failure on Attempt 1, retry it from the UI's own Retry
+# button (ui/app/components/DagVisualizer.vue) or:
+#   curl -X POST $(CLI_AUTH_HEADER) http://localhost:$(API_PORT)/api/dag/runs/<run_id>/nodes/remediate/retry
+demo-v2-good: ## Run the v2 Recoverable Micro-DAG in GOOD mode (governed retry, deterministic fault + recovery)
+	@curl -fsS -m 5 -X PUT $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/workflow-mode" \
+		-H 'Content-Type: application/json' -d '{"workflowMode":"recoverable_dag"}' >/dev/null || \
+		{ echo "Backend not reachable yet — see prompts/backend/01_01_orchestrator_api.md"; exit 1; }
+	@curl -fsS -m 5 -X PUT $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/mode" \
+		-H 'Content-Type: application/json' -d '{"profile":"good"}' >/dev/null
+	@curl -fsS -m 5 -X PUT $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/fault-injection-mode" \
+		-H 'Content-Type: application/json' -d '{"faultInjectionMode":"fail_after_mutation"}' >/dev/null
+	@curl -fsS -m 5 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/reset" >/dev/null
+	@curl -fsS -m 5 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/dag/runs"
+	@echo
+	@echo "v2 GOOD run started — watch it at http://localhost:3000/dag"
+
+# BAD mode's real, honestly-demonstrated risk here is its broader role
+# ceiling (DELETE capability, longer TTL) on EVERY fresh attempt — NOT a
+# skipped revocation or a reused lease. This implementation revokes
+# unconditionally across both profiles by design (.claude/DESIGN.md
+# decision #13): "retry the work, not the authority" holds in BAD mode
+# too, deliberately, rather than fabricating a lease-reuse vulnerability
+# that contradicts this project's own no-mode-aware-application-code
+# principle. Discovery's D-103 ("credential lease reuse detected")
+# should never legitimately fire here — if it does, that's a real bug.
+demo-v2-bad: ## Run the v2 Recoverable Micro-DAG in BAD mode (broad standing role every attempt, same governed revocation as GOOD)
+	@curl -fsS -m 5 -X PUT $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/workflow-mode" \
+		-H 'Content-Type: application/json' -d '{"workflowMode":"recoverable_dag"}' >/dev/null || \
+		{ echo "Backend not reachable yet — see prompts/backend/01_01_orchestrator_api.md"; exit 1; }
+	@curl -fsS -m 5 -X PUT $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/mode" \
+		-H 'Content-Type: application/json' -d '{"profile":"bad"}' >/dev/null
+	@curl -fsS -m 5 -X PUT $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/fault-injection-mode" \
+		-H 'Content-Type: application/json' -d '{"faultInjectionMode":"fail_after_mutation"}' >/dev/null
+	@curl -fsS -m 5 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/demo/reset" >/dev/null
+	@curl -fsS -m 5 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/dag/runs"
+	@echo
+	@echo "v2 BAD run started — watch it at http://localhost:3000/dag"
+
+test-v2-e2e: ## Run the v2 recoverable-DAG acceptance suite (backend/test/v2-dag-acceptance.test.js) against the live stack
+	@npm --prefix backend test -- test/v2-dag-acceptance.test.js

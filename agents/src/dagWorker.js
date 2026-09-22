@@ -256,10 +256,18 @@ async function executeTool(call, allowedToolNames, ctx) {
   try {
     return await tool.run(call.arguments || {}, ctx);
   } catch (err) {
-    // A DENY or a real PostgreSQL permission error both surface here as
-    // a thrown error from backendClient (non-2xx) — returned to the
-    // model as a normal tool result, not a crash, matching runtime.js's
-    // own v1 behavior.
+    // A DENY (403) or a real PostgreSQL permission error both surface
+    // here as a thrown error from backendClient (non-2xx) — fed back to
+    // the model as a normal, reasonable-to-work-around tool result,
+    // matching runtime.js's own v1 behavior. A 5xx is different in kind
+    // — genuinely means "the platform itself broke mid-call," which is
+    // exactly what fault_injection_mode simulates (prompts/v2/02_07,
+    // backend/src/routes/actions.js's own checkFaultInjection) — the
+    // model has no reasonable action to take in response to that, so
+    // this re-throws instead of returning a result, letting runNodeLoop
+    // fail the whole attempt rather than have the model try to reason
+    // its way around a simulated platform crash.
+    if (err.status && err.status >= 500) throw err;
     return { error: err.message };
   }
 }

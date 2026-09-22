@@ -103,6 +103,38 @@ async function claimBusinessEffect(req, { operation, target, payload }) {
   };
 }
 
+// v2 (prompts/v2/02_07): deterministic fault injection — the piece
+// Scenario 2 (a governed retry actually needing a real failure to
+// retry from) depends on, deferred from 02_02/02_04/02_06, where the
+// fault_injection_mode column/controls were added without a consumer.
+// Only ever fires on attempt_number === 1 — Scenario 2's own "Attempt 2
+// completes successfully" requires the retry to actually succeed, or
+// the demo loops forever. Thrown errors here carry status 500
+// specifically so agents/src/dagWorker.js's executeTool re-throws
+// instead of feeding it back to the model as an ordinary, reasonable-
+// to-work-around denial (this is meant to simulate the platform itself
+// breaking mid-call, not a policy decision).
+async function checkFaultInjection(req, matchModes) {
+  if (!req.attemptId) return; // v1 traffic — no fault injection
+  const { rows } = await getPool().query(
+    `SELECT a.attempt_number, dr.fault_injection_mode
+       FROM dag_node_attempts a
+       JOIN dag_nodes n ON n.node_id = a.node_id
+       JOIN demo_runs dr ON dr.run_id = n.run_id
+      WHERE a.attempt_id = $1`,
+    [req.attemptId],
+  );
+  const row = rows[0];
+  if (!row || Number(row.attempt_number) !== 1) return;
+  if (matchModes.includes(row.fault_injection_mode)) {
+    const err = new Error(
+      `Fault injected (fault_injection_mode=${row.fault_injection_mode}) on attempt 1 — deliberate, deterministic failure per the v2 demo scenario (prompts/v2/02_07). Retry this node to continue.`,
+    );
+    err.status = 500;
+    throw err;
+  }
+}
+
 async function recordBusinessEffectResult(businessEffectKey, result) {
   await getPool().query(
     `UPDATE dag_business_effects SET result = $2 WHERE business_effect_key = $1`,
@@ -333,6 +365,8 @@ actionsRouter.patch(
         );
       }
 
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
+
       const before = await getPool().query(
         "SELECT * FROM orders WHERE id = $1",
         [req.params.id],
@@ -349,6 +383,8 @@ actionsRouter.patch(
           status,
         ]),
       );
+
+      await checkFaultInjection(req, ["fail_after_mutation"]);
 
       await audit.recordDatabaseChange({
         runId: decision.runId,
@@ -415,6 +451,8 @@ actionsRouter.delete(
         );
       }
 
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
+
       const before = await getPool().query(
         `SELECT * FROM orders ${where}`,
         values,
@@ -426,6 +464,8 @@ actionsRouter.delete(
       const result = await withAgentCredential(cred, (client) =>
         client.query(`DELETE FROM orders ${where}`, values),
       );
+
+      await checkFaultInjection(req, ["fail_after_mutation"]);
 
       await audit.recordDatabaseChange({
         runId: decision.runId,
@@ -489,6 +529,8 @@ actionsRouter.patch(
         );
       }
 
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
+
       const before = await getPool().query(
         "SELECT * FROM products WHERE sku = $1",
         [req.params.sku],
@@ -499,6 +541,8 @@ actionsRouter.patch(
           [price, req.params.sku],
         ),
       );
+
+      await checkFaultInjection(req, ["fail_after_mutation"]);
 
       await audit.recordDatabaseChange({
         runId: decision.runId,
@@ -561,12 +605,16 @@ actionsRouter.post(
         );
       }
 
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
+
       const result = await withAgentCredential(cred, (client) =>
         client.query(
           "INSERT INTO products (sku, name, category, price) VALUES ($1,$2,$3,$4) RETURNING *",
           [sku, name, category, price],
         ),
       );
+
+      await checkFaultInjection(req, ["fail_after_mutation"]);
 
       await audit.recordDatabaseChange({
         runId: decision.runId,
@@ -633,6 +681,8 @@ actionsRouter.delete(
         );
       }
 
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
+
       const before = await getPool().query(
         `SELECT * FROM products ${where}`,
         values,
@@ -640,6 +690,8 @@ actionsRouter.delete(
       const result = await withAgentCredential(cred, (client) =>
         client.query(`DELETE FROM products ${where}`, values),
       );
+
+      await checkFaultInjection(req, ["fail_after_mutation"]);
 
       await audit.recordDatabaseChange({
         runId: decision.runId,
