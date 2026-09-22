@@ -1,0 +1,17 @@
+[
+  {
+    "check": "backend-health",
+    "result": "PASS",
+    "detail": "GET /api/health responded"
+  },
+  {
+    "check": "ollama-model",
+    "result": "UNKNOWN",
+    "detail": "not run — factory-ollama is not running"
+  },
+  {
+    "check": "mutating-scenarios",
+    "result": "UNKNOWN",
+    "detail": "not run — mutating scenario requires --with-scenarios"
+  }
+]
