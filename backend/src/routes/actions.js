@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
 import { getPool, withAgentCredential } from "../db.js";
 import { cleanupTaskCredentials } from "../services/revocation.js";
@@ -12,6 +12,89 @@ import {
 } from "../policy.js";
 
 export const actionsRouter = Router();
+
+// ── Two-level idempotency (v2, prompts/v2/02_04) ───────────────────────────
+//
+// Level 1 — attempt idempotency: an `X-Attempt-Idempotency-Key` header
+// (set by agents/src/dagWorker.js from the claim response's own
+// attemptIdempotencyKey) dedups a retried HTTP call within the SAME
+// attempt — a network blip resending the identical request, not a whole
+// new attempt. Purely in-memory and short-lived by design, same as every
+// other in-memory piece of this project's runtime state — an attempt
+// doesn't survive an API restart either way (index.js's own startup
+// recovery). Only caches a successful (< 300) response: a genuine
+// failure must be retriable fresh, not replayed forever.
+const attemptCallCache = new Map();
+
+function attemptIdempotency(req, res, next) {
+  const key = req.get("x-attempt-idempotency-key");
+  if (!key) return next();
+  const cached = attemptCallCache.get(key);
+  if (cached) return res.status(cached.status).json(cached.body);
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    if (res.statusCode < 300) attemptCallCache.set(key, { status: res.statusCode, body });
+    return originalJson(body);
+  };
+  next();
+}
+
+// Level 2 — business-effect idempotency: prevents a whole new ATTEMPT
+// (Attempt 2 of `remediate`, a fresh attempt_id — not a retried HTTP
+// call within Attempt 1) from repeating an irreversible mutation Attempt
+// 1 already committed before it crashed. Backed by the dag_business_effects
+// ledger table (009_v2_dag_tables.sql). Only applies to a v2
+// (attempt-bound) request — req.attemptId is null for v1 traffic, which
+// has no dag_node_attempts row to key against and relies on its own
+// existing "one task, one remediation" design instead.
+//
+// Deliberately NOT the literal same Postgres transaction as the mutation
+// itself, despite 02_04's own wording — the mutation runs on Agent C's
+// own Vault-issued factory-bad-role/factory-good-role connection (a
+// separate PostgreSQL role, deliberately never granted write access to
+// evidence tables — security/authority-model.md), while this ledger
+// lives on the backend's own factory-backend-role connection; spanning
+// both in one transaction would require widening that grant, which is
+// not worth doing for bookkeeping. The claim step
+// (INSERT ... ON CONFLICT DO NOTHING) still atomically decides which
+// attempt "wins" the effect before either one touches the domain data,
+// which is what actually matters for correctness here.
+async function claimBusinessEffect(req, { operation, target, payload }) {
+  if (!req.attemptId) return { applicable: false };
+  const { rows } = await getPool().query(
+    `SELECT run_id, node_key FROM dag_nodes WHERE node_id = $1`,
+    [req.nodeId],
+  );
+  const node = rows[0];
+  if (!node) return { applicable: false };
+  const payloadHash = createHash("sha256")
+    .update(JSON.stringify(payload ?? {}))
+    .digest("hex");
+  const businessEffectKey = createHash("sha256")
+    .update(`${node.run_id}:${node.node_key}:${operation}:${target}:${payloadHash}`)
+    .digest("hex");
+  const { rows: claimed } = await getPool().query(
+    `INSERT INTO dag_business_effects
+       (business_effect_key, run_id, node_key, operation, target, payload_hash)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (business_effect_key) DO NOTHING
+     RETURNING *`,
+    [businessEffectKey, node.run_id, node.node_key, operation, target, payloadHash],
+  );
+  if (claimed[0]) return { applicable: true, claimed: true, businessEffectKey };
+  const { rows: existing } = await getPool().query(
+    `SELECT result FROM dag_business_effects WHERE business_effect_key = $1`,
+    [businessEffectKey],
+  );
+  return { applicable: true, claimed: false, cachedResult: existing[0]?.result ?? null };
+}
+
+async function recordBusinessEffectResult(businessEffectKey, result) {
+  await getPool().query(
+    `UPDATE dag_business_effects SET result = $2 WHERE business_effect_key = $1`,
+    [businessEffectKey, JSON.stringify(result)],
+  );
+}
 
 // Structured filters only — never a raw SQL string from the model
 // (prompts/api/01_01_factory_schema_and_tools.md's own Non-goals).
@@ -213,6 +296,7 @@ actionsRouter.get("/products", agentJwtAuth, async (req, res, next) => {
 actionsRouter.patch(
   "/orders/:id/status",
   agentJwtAuth,
+  attemptIdempotency,
   async (req, res, next) => {
     try {
       const decision = await authorize(req, "update_order_status");
@@ -220,11 +304,25 @@ actionsRouter.patch(
       const cred = requireActiveCredential(res, decision.actorId);
       if (!cred) return;
 
+      const { status } = req.body || {};
+
+      const effect = await claimBusinessEffect(req, {
+        operation: "update_order_status",
+        target: `orders/${req.params.id}`,
+        payload: { status },
+      });
+      if (effect.applicable && !effect.claimed) {
+        return res.json(
+          effect.cachedResult ?? {
+            note: "already applied by a prior attempt",
+          },
+        );
+      }
+
       const before = await getPool().query(
         "SELECT * FROM orders WHERE id = $1",
         [req.params.id],
       );
-      const { status } = req.body || {};
       // Calls set_order_status(id, status) rather than a raw UPDATE — see
       // terraform/vault-database/database.tf's factory_good_role comment
       // for why (a column-level GRANT UPDATE (status) was found to be
@@ -260,6 +358,9 @@ actionsRouter.patch(
         rowsAffected: result.rowCount,
       });
 
+      if (effect.applicable) {
+        await recordBusinessEffectResult(effect.businessEffectKey, result.rows[0]);
+      }
       res.json(result.rows[0]);
     } catch (err) {
       next(err);
@@ -267,60 +368,85 @@ actionsRouter.patch(
   },
 );
 
-actionsRouter.delete("/orders", agentJwtAuth, async (req, res, next) => {
-  try {
-    const decision = await authorize(req, "delete_orders");
-    if (decision.result === "DENY") return denyResponse(res, decision);
-    const cred = requireActiveCredential(res, decision.actorId);
-    if (!cred) return;
+actionsRouter.delete(
+  "/orders",
+  agentJwtAuth,
+  attemptIdempotency,
+  async (req, res, next) => {
+    try {
+      const decision = await authorize(req, "delete_orders");
+      if (decision.result === "DENY") return denyResponse(res, decision);
+      const cred = requireActiveCredential(res, decision.actorId);
+      if (!cred) return;
 
-    const { where, values } = buildWhere(
-      req.body?.filter,
-      ORDER_FILTER_COLUMNS,
-    );
-    const before = await getPool().query(
-      `SELECT * FROM orders ${where}`,
-      values,
-    );
-    // GOOD mode never reaches here successfully — factory-good-role has
-    // no DELETE grant on orders, so this throws a real PostgreSQL
-    // permission error, independent of the policy check above
-    // (security/authority-model.md's defense-in-depth).
-    const result = await withAgentCredential(cred, (client) =>
-      client.query(`DELETE FROM orders ${where}`, values),
-    );
+      const { where, values } = buildWhere(
+        req.body?.filter,
+        ORDER_FILTER_COLUMNS,
+      );
 
-    await audit.recordDatabaseChange({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      tableName: "orders",
-      action: "DELETE",
-      before: before.rows,
-      after: null,
-      rowsAffected: result.rowCount,
-    });
-    await recordToolCall({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      toolName: "delete_orders",
-      target: "orders",
-      result: "ALLOW",
-      rowsAffected: result.rowCount,
-    });
+      const effect = await claimBusinessEffect(req, {
+        operation: "delete_orders",
+        target: "orders",
+        payload: req.body?.filter,
+      });
+      if (effect.applicable && !effect.claimed) {
+        return res.json(
+          effect.cachedResult ?? {
+            deleted: 0,
+            note: "already applied by a prior attempt",
+          },
+        );
+      }
 
-    res.json({ deleted: result.rowCount });
-  } catch (err) {
-    next(err);
-  }
-});
+      const before = await getPool().query(
+        `SELECT * FROM orders ${where}`,
+        values,
+      );
+      // GOOD mode never reaches here successfully — factory-good-role has
+      // no DELETE grant on orders, so this throws a real PostgreSQL
+      // permission error, independent of the policy check above
+      // (security/authority-model.md's defense-in-depth).
+      const result = await withAgentCredential(cred, (client) =>
+        client.query(`DELETE FROM orders ${where}`, values),
+      );
+
+      await audit.recordDatabaseChange({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        tableName: "orders",
+        action: "DELETE",
+        before: before.rows,
+        after: null,
+        rowsAffected: result.rowCount,
+      });
+      await recordToolCall({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        toolName: "delete_orders",
+        target: "orders",
+        result: "ALLOW",
+        rowsAffected: result.rowCount,
+      });
+
+      const responseBody = { deleted: result.rowCount };
+      if (effect.applicable) {
+        await recordBusinessEffectResult(effect.businessEffectKey, responseBody);
+      }
+      res.json(responseBody);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 actionsRouter.patch(
   "/products/:sku/price",
   agentJwtAuth,
+  attemptIdempotency,
   async (req, res, next) => {
     try {
       const decision = await authorize(req, "update_price");
@@ -328,11 +454,25 @@ actionsRouter.patch(
       const cred = requireActiveCredential(res, decision.actorId);
       if (!cred) return;
 
+      const { price } = req.body || {};
+
+      const effect = await claimBusinessEffect(req, {
+        operation: "update_price",
+        target: `products/${req.params.sku}`,
+        payload: { price },
+      });
+      if (effect.applicable && !effect.claimed) {
+        return res.json(
+          effect.cachedResult ?? {
+            note: "already applied by a prior attempt",
+          },
+        );
+      }
+
       const before = await getPool().query(
         "SELECT * FROM products WHERE sku = $1",
         [req.params.sku],
       );
-      const { price } = req.body || {};
       const result = await withAgentCredential(cred, (client) =>
         client.query(
           "UPDATE products SET price = $1, updated_at = now() WHERE sku = $2 RETURNING *",
@@ -362,6 +502,9 @@ actionsRouter.patch(
         rowsAffected: result.rowCount,
       });
 
+      if (effect.applicable) {
+        await recordBusinessEffectResult(effect.businessEffectKey, result.rows[0]);
+      }
       res.json(result.rows[0]);
     } catch (err) {
       next(err);
@@ -369,95 +512,141 @@ actionsRouter.patch(
   },
 );
 
-actionsRouter.post("/products", agentJwtAuth, async (req, res, next) => {
-  try {
-    const decision = await authorize(req, "insert_product");
-    if (decision.result === "DENY") return denyResponse(res, decision);
-    const cred = requireActiveCredential(res, decision.actorId);
-    if (!cred) return;
+actionsRouter.post(
+  "/products",
+  agentJwtAuth,
+  attemptIdempotency,
+  async (req, res, next) => {
+    try {
+      const decision = await authorize(req, "insert_product");
+      if (decision.result === "DENY") return denyResponse(res, decision);
+      const cred = requireActiveCredential(res, decision.actorId);
+      if (!cred) return;
 
-    const { sku, name, category, price } = req.body || {};
-    const result = await withAgentCredential(cred, (client) =>
-      client.query(
-        "INSERT INTO products (sku, name, category, price) VALUES ($1,$2,$3,$4) RETURNING *",
-        [sku, name, category, price],
-      ),
-    );
+      const { sku, name, category, price } = req.body || {};
 
-    await audit.recordDatabaseChange({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      tableName: "products",
-      action: "INSERT",
-      before: null,
-      after: result.rows[0],
-      rowsAffected: result.rowCount,
-    });
-    await recordToolCall({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      toolName: "insert_product",
-      target: sku,
-      result: "ALLOW",
-      rowsAffected: result.rowCount,
-    });
+      const effect = await claimBusinessEffect(req, {
+        operation: "insert_product",
+        target: sku,
+        payload: { sku, name, category, price },
+      });
+      if (effect.applicable && !effect.claimed) {
+        return res.status(200).json(
+          effect.cachedResult ?? {
+            note: "already applied by a prior attempt",
+          },
+        );
+      }
 
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    next(err);
-  }
-});
+      const result = await withAgentCredential(cred, (client) =>
+        client.query(
+          "INSERT INTO products (sku, name, category, price) VALUES ($1,$2,$3,$4) RETURNING *",
+          [sku, name, category, price],
+        ),
+      );
 
-actionsRouter.delete("/products", agentJwtAuth, async (req, res, next) => {
-  try {
-    const decision = await authorize(req, "delete_products");
-    if (decision.result === "DENY") return denyResponse(res, decision);
-    const cred = requireActiveCredential(res, decision.actorId);
-    if (!cred) return;
+      await audit.recordDatabaseChange({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        tableName: "products",
+        action: "INSERT",
+        before: null,
+        after: result.rows[0],
+        rowsAffected: result.rowCount,
+      });
+      await recordToolCall({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        toolName: "insert_product",
+        target: sku,
+        result: "ALLOW",
+        rowsAffected: result.rowCount,
+      });
 
-    const { where, values } = buildWhere(
-      req.body?.filter,
-      PRODUCT_FILTER_COLUMNS,
-    );
-    const before = await getPool().query(
-      `SELECT * FROM products ${where}`,
-      values,
-    );
-    const result = await withAgentCredential(cred, (client) =>
-      client.query(`DELETE FROM products ${where}`, values),
-    );
+      if (effect.applicable) {
+        await recordBusinessEffectResult(effect.businessEffectKey, result.rows[0]);
+      }
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
-    await audit.recordDatabaseChange({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      tableName: "products",
-      action: "DELETE",
-      before: before.rows,
-      after: null,
-      rowsAffected: result.rowCount,
-    });
-    await recordToolCall({
-      runId: decision.runId,
-      actorId: decision.actorId,
-      traceId: decision.traceId,
-      taskId: decision.taskId,
-      toolName: "delete_products",
-      target: "products",
-      result: "ALLOW",
-      rowsAffected: result.rowCount,
-    });
+actionsRouter.delete(
+  "/products",
+  agentJwtAuth,
+  attemptIdempotency,
+  async (req, res, next) => {
+    try {
+      const decision = await authorize(req, "delete_products");
+      if (decision.result === "DENY") return denyResponse(res, decision);
+      const cred = requireActiveCredential(res, decision.actorId);
+      if (!cred) return;
 
-    res.json({ deleted: result.rowCount });
-  } catch (err) {
-    next(err);
-  }
-});
+      const { where, values } = buildWhere(
+        req.body?.filter,
+        PRODUCT_FILTER_COLUMNS,
+      );
+
+      const effect = await claimBusinessEffect(req, {
+        operation: "delete_products",
+        target: "products",
+        payload: req.body?.filter,
+      });
+      if (effect.applicable && !effect.claimed) {
+        return res.json(
+          effect.cachedResult ?? {
+            deleted: 0,
+            note: "already applied by a prior attempt",
+          },
+        );
+      }
+
+      const before = await getPool().query(
+        `SELECT * FROM products ${where}`,
+        values,
+      );
+      const result = await withAgentCredential(cred, (client) =>
+        client.query(`DELETE FROM products ${where}`, values),
+      );
+
+      await audit.recordDatabaseChange({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        tableName: "products",
+        action: "DELETE",
+        before: before.rows,
+        after: null,
+        rowsAffected: result.rowCount,
+      });
+      await recordToolCall({
+        runId: decision.runId,
+        actorId: decision.actorId,
+        traceId: decision.traceId,
+        taskId: decision.taskId,
+        toolName: "delete_products",
+        target: "products",
+        result: "ALLOW",
+        rowsAffected: result.rowCount,
+      });
+
+      const responseBody = { deleted: result.rowCount };
+      if (effect.applicable) {
+        await recordBusinessEffectResult(effect.businessEffectKey, responseBody);
+      }
+      res.json(responseBody);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 actionsRouter.post(
   "/services/order-processor/restart",

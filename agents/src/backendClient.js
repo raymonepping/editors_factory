@@ -15,19 +15,40 @@ let currentAgentToken = null;
 let tokenMintedAt = 0;
 let tokenTtlSeconds = 0;
 
-async function request(method, path, body, { useStaticToken = false } = {}) {
-  const token = useStaticToken ? config.agentToken : currentAgentToken;
+/**
+ * `tokenOverride` (v2, prompts/v2/02_04) is additive — every v1 call
+ * site passes none and gets exactly the existing behavior
+ * (useStaticToken ? config.agentToken : currentAgentToken). dagWorker.js
+ * uses it to run tool calls against the node's own attempt-bound JWT
+ * instead of the task-bound one runtime.js uses — the two loops run
+ * concurrently in the same process (index.js) and must never share
+ * currentAgentToken's single mutable slot.
+ */
+async function request(
+  method,
+  path,
+  body,
+  { useStaticToken = false, tokenOverride = null, attemptIdempotencyKey = null } = {},
+) {
+  const token = tokenOverride || (useStaticToken ? config.agentToken : currentAgentToken);
   if (!token) {
     throw new Error(
       `request(${method} ${path}) called before an agent token was bootstrapped`,
     );
   }
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+  // Level 1 idempotency (v2, prompts/v2/02_04): identical on every call
+  // this attempt makes — backend/src/routes/actions.js's own
+  // attemptIdempotency middleware dedups a retried network call within
+  // this SAME attempt, distinct from the business-effect ledger (Level
+  // 2), which is about a whole new attempt repeating Attempt 1's work.
+  if (attemptIdempotencyKey) headers["X-Attempt-Idempotency-Key"] = attemptIdempotencyKey;
   const res = await fetch(`${config.backend.url}${path}`, {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -140,6 +161,74 @@ export const backendClient = {
 
   // ── Introspection ───────────────────────────────────────────────────
   getAuthority: () => request("GET", "/api/authority"),
+};
+
+/**
+ * v2 (prompts/v2/02_04): the same tool surface remediate/triage/
+ * investigate need, but every call carries `token` explicitly instead of
+ * reading the shared currentAgentToken slot — dagWorker.js's own
+ * attempt-bound JWT, freshly issued per claim by claimNode (02_02), not
+ * a task-bound one. A new object per attempt, not a mutable global,
+ * because two DAG attempts (different nodes, potentially different
+ * agents) can legitimately be in flight close together in time even
+ * though this demo's own SKIP LOCKED claiming keeps it to one at a time
+ * in practice.
+ */
+export function createAttemptToolClient(token, attemptIdempotencyKey = null) {
+  const opts = { tokenOverride: token, attemptIdempotencyKey };
+  return {
+    getHealth: () => request("GET", "/api/actions/health", undefined, opts),
+    listOrders: (filter = {}) =>
+      request("GET", `/api/actions/orders${query(filter)}`, undefined, opts),
+    getOrder: (id) => request("GET", `/api/actions/orders/${id}`, undefined, opts),
+    listProducts: (filter = {}) =>
+      request("GET", `/api/actions/products${query(filter)}`, undefined, opts),
+    updateOrderStatus: (id, status) =>
+      request("PATCH", `/api/actions/orders/${id}/status`, { status }, opts),
+    deleteOrders: (filter) =>
+      request("DELETE", "/api/actions/orders", { filter }, opts),
+    updatePrice: (sku, price) =>
+      request("PATCH", `/api/actions/products/${sku}/price`, { price }, opts),
+    insertProduct: (product) =>
+      request("POST", "/api/actions/products", product, opts),
+    deleteProducts: (filter) =>
+      request("DELETE", "/api/actions/products", { filter }, opts),
+    restartOrderProcessor: () =>
+      request("POST", "/api/actions/services/order-processor/restart", undefined, opts),
+    requestCredential: () => request("POST", "/api/credentials", undefined, opts),
+  };
+}
+
+/**
+ * v2 (prompts/v2/02_04): the DAG-specific endpoints from 02_02.
+ * `claimDagTask` uses the static per-agent token (the same bootstrap
+ * credential agentAuth.js accepts — there is no attempt yet to bind a
+ * JWT to until the claim itself succeeds); every other call here takes
+ * the attempt JWT the claim response returned.
+ */
+export const dagClient = {
+  claimDagTask: () =>
+    request("POST", "/api/dag/tasks/claim", undefined, {
+      useStaticToken: true,
+    }),
+  heartbeat: (nodeId, attemptToken) =>
+    request("POST", `/api/dag/tasks/${nodeId}/heartbeat`, undefined, {
+      tokenOverride: attemptToken,
+    }),
+  completeAttempt: (nodeId, attemptId, attemptToken, outputEvidence) =>
+    request(
+      "POST",
+      `/api/dag/tasks/${nodeId}/attempts/${attemptId}/complete`,
+      { outputEvidence },
+      { tokenOverride: attemptToken },
+    ),
+  failAttempt: (nodeId, attemptId, attemptToken, errorDetails) =>
+    request(
+      "POST",
+      `/api/dag/tasks/${nodeId}/attempts/${attemptId}/fail`,
+      { errorDetails },
+      { tokenOverride: attemptToken },
+    ),
 };
 
 /**

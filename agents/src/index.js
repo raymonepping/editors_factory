@@ -5,6 +5,7 @@
 import { config, validateConfigOnBoot } from "./config.js";
 import { startTaskRuntime } from "./runtime.js";
 import { startObserverRuntime } from "./observerRuntime.js";
+import { startDagWorker } from "./dagWorker.js";
 import { beat } from "./heartbeat.js";
 
 validateConfigOnBoot();
@@ -62,7 +63,14 @@ async function main() {
   if (config.identity === "agent-d") {
     await startObserverRuntime(identity, { signal: controller.signal });
   } else {
-    await startTaskRuntime(identity, { signal: controller.signal });
+    // v2 (prompts/v2/02_04): runs beside runtime.js's existing v1 loop,
+    // not instead of it — "add beside v1, not inside v1" applies at the
+    // agent level too. Each only ever has real work when the backend's
+    // own workflow_mode actually routes to it; both are always running.
+    await Promise.all([
+      startTaskRuntime(identity, { signal: controller.signal }),
+      startDagWorker({ signal: controller.signal }),
+    ]);
   }
 }
 

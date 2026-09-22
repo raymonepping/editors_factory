@@ -31,6 +31,17 @@
 
 import { backendClient } from "./backendClient.js";
 
+// v2 (prompts/v2/02_04): every `run` below that talks to factory-api
+// takes an optional `ctx.client` — dagWorker.js passes its own
+// attempt-scoped client (backendClient.js's createAttemptToolClient)
+// instead of the shared, task-bound `backendClient` singleton. Falling
+// back to `backendClient` when ctx has no client (or no ctx at all,
+// matching some existing call sites) preserves every v1 call site's
+// behavior exactly.
+function clientFor(ctx) {
+  return ctx?.client || backendClient;
+}
+
 function orderSummary(orders) {
   const byStatus = {};
   for (const o of orders) byStatus[o.status] = (byStatus[o.status] || 0) + 1;
@@ -47,7 +58,7 @@ export const TOOLS = {
         parameters: { type: "object", properties: {}, required: [] },
       },
     },
-    run: async () => backendClient.getHealth(),
+    run: async (args, ctx) => clientFor(ctx).getHealth(),
   },
 
   get_incidents: {
@@ -60,7 +71,8 @@ export const TOOLS = {
         parameters: { type: "object", properties: {}, required: [] },
       },
     },
-    run: async () => backendClient.listOrders({ status: "inconsistent" }),
+    run: async (args, ctx) =>
+      clientFor(ctx).listOrders({ status: "inconsistent" }),
   },
 
   get_order_metrics: {
@@ -72,7 +84,7 @@ export const TOOLS = {
         parameters: { type: "object", properties: {}, required: [] },
       },
     },
-    run: async () => orderSummary(await backendClient.listOrders({})),
+    run: async (args, ctx) => orderSummary(await clientFor(ctx).listOrders({})),
   },
 
   list_orders: {
@@ -94,7 +106,8 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.listOrders({ status: args.status }),
+    run: async (args, ctx) =>
+      clientFor(ctx).listOrders({ status: args.status }),
   },
 
   inspect_order: {
@@ -110,7 +123,7 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.getOrder(args.id),
+    run: async (args, ctx) => clientFor(ctx).getOrder(args.id),
   },
 
   list_products: {
@@ -126,8 +139,8 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) =>
-      backendClient.listProducts({ category: args.category }),
+    run: async (args, ctx) =>
+      clientFor(ctx).listProducts({ category: args.category }),
   },
 
   update_order_status: {
@@ -147,7 +160,8 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.updateOrderStatus(args.id, args.status),
+    run: async (args, ctx) =>
+      clientFor(ctx).updateOrderStatus(args.id, args.status),
   },
 
   update_price: {
@@ -163,7 +177,7 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.updatePrice(args.sku, args.price),
+    run: async (args, ctx) => clientFor(ctx).updatePrice(args.sku, args.price),
   },
 
   insert_product: {
@@ -184,7 +198,7 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.insertProduct(args),
+    run: async (args, ctx) => clientFor(ctx).insertProduct(args),
   },
 
   delete_orders: {
@@ -209,7 +223,7 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.deleteOrders(args.filter),
+    run: async (args, ctx) => clientFor(ctx).deleteOrders(args.filter),
   },
 
   delete_products: {
@@ -235,7 +249,7 @@ export const TOOLS = {
         },
       },
     },
-    run: async (args) => backendClient.deleteProducts(args.filter),
+    run: async (args, ctx) => clientFor(ctx).deleteProducts(args.filter),
   },
 
   restart_order_processor: {
@@ -247,7 +261,7 @@ export const TOOLS = {
         parameters: { type: "object", properties: {}, required: [] },
       },
     },
-    run: async () => backendClient.restartOrderProcessor(),
+    run: async (args, ctx) => clientFor(ctx).restartOrderProcessor(),
   },
 
   request_credential: {
@@ -270,7 +284,7 @@ export const TOOLS = {
         },
       },
     },
-    run: async () => backendClient.requestCredential(),
+    run: async (args, ctx) => clientFor(ctx).requestCredential(),
   },
 
   delegate_task: {

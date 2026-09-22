@@ -322,7 +322,36 @@ export async function claimNode(actorId, runId) {
     attemptToken,
     ttlSeconds: config.auth.agentJwtTtlSeconds,
     heartbeatIntervalSeconds: 5,
+    upstreamEvidence: await getUpstreamEvidence(claim.node_id),
   };
+}
+
+/**
+ * v2 (02_04's "Evidence Preservation & Immutability"): every completed
+ * ancestor node's output_evidence, keyed by node_key, transitively —
+ * not just direct predecessors, so `remediate` sees `triage`'s report
+ * even though its own direct edge is only from `investigate`. Only
+ * `completed` ancestors are included; an `invalidated` one (from a prior
+ * retry — see retryNode) is deliberately excluded, since its evidence is
+ * exactly what the retry decided could no longer be trusted.
+ */
+async function getUpstreamEvidence(nodeId) {
+  const { rows } = await getPool().query(
+    `WITH RECURSIVE ancestors AS (
+       SELECT from_node_id AS node_id FROM dag_edges WHERE to_node_id = $1
+       UNION
+       SELECT de.from_node_id FROM dag_edges de JOIN ancestors a ON de.to_node_id = a.node_id
+     )
+     SELECT dn.node_key, a.output_evidence
+       FROM dag_nodes dn
+       JOIN ancestors anc ON dn.node_id = anc.node_id
+       JOIN dag_node_attempts a ON a.node_id = dn.node_id AND a.attempt_number = dn.current_attempt_number
+      WHERE dn.status = 'completed'`,
+    [nodeId],
+  );
+  const evidence = {};
+  for (const row of rows) evidence[row.node_key] = row.output_evidence;
+  return evidence;
 }
 
 /** Extends heartbeat_expires_at by 15s — must be the attempt's own current fencing token. */
