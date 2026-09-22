@@ -107,6 +107,18 @@ export interface FactoryState {
   inventory: { lowStockCount: number; threshold: number }
 }
 
+// prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4 —
+// routes/credentials.js's own in-memory pending-approval shape (not a DB
+// row, hence camelCase rather than this file's usual raw-column mirror).
+export interface PendingApproval {
+  approvalId: string
+  role: string
+  actorId: ActorId
+  taskId: string
+  runId: string
+  requestedAt: number
+}
+
 export interface OrderRecord {
   id: number
   customer_ref: string

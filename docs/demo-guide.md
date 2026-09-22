@@ -95,6 +95,44 @@ The important result is enforced denial. A model may still propose a destructive
 | PostgreSQL grants | Broad mutation | Read plus narrow status function |
 | Demonstrated outcome | Authority expansion can cause damage | Layered controls contain it |
 
+## A third path: supervised credential approval
+
+BAD and GOOD both run unattended by design — that is the whole point of
+comparing them. `prompts/improvements/01_08_agentic_iam_inspired_hardening.md`
+Phase 4 adds a third, deliberately supervised path alongside them,
+gated by Vault's own Control Groups feature, for one specific
+deterministic trigger: a second credential request within the same
+run. Under this demo's own design, a run only ever needs one credential
+— a second request is a genuine anomaly, not a guess about intent.
+
+This does not happen during a normal `make demo-bad`/`make demo-good`
+run. To see it, request a credential a second time in the same run
+after the first has already been issued — bootstrap the corrector's
+own JWT and call `POST /api/credentials` again:
+
+```sh
+AGENT_C_TOKEN=$(grep '^AGENT_C_TOKEN=' .env | cut -d= -f2-)
+JWT=$(curl -fsS -X POST http://localhost:3001/api/v1/agents/token \
+  -H "Authorization: Bearer $AGENT_C_TOKEN" | python3 -c "import json,sys;print(json.load(sys.stdin)['token'])")
+curl -X POST http://localhost:3001/api/credentials -H "Authorization: Bearer $JWT"
+```
+
+The response is `202 pending_approval`, not a credential — Vault
+withheld it, returning a wrapping token instead of the lease. Sign in
+to the dashboard as `raymon` or `barend` (factory-operator) and open
+**Credentials**: a "Pending credential approval" panel appears with an
+**Authorize** button. Clicking it triggers three real Vault calls
+(authenticate as a separate, narrow `control-group-authorizer`
+identity, submit the approval, unwrap the original wrapping token) —
+the credential is issued only after that completes, and the same
+evidence trail records it: a `findings` row flags the anomaly the
+moment it's detected, and a `credential_events` row is written only
+once the human actually authorizes it.
+
+`GET /api/credentials/pending` is read-only and available to
+`factory-viewer` too — a viewer can see a request is awaiting review,
+only an operator can authorize one.
+
 ## Finish cleanly
 
 Reset after the demonstration if another operator will use the environment:

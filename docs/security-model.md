@@ -78,6 +78,44 @@ for the real procedure, including the genuine caveat that OpenLDAP's and
 Keycloak's own bootstrap images only apply a password change on true
 first initialization, not on every restart.
 
+### Supervised credential approval (Vault Control Groups)
+
+`prompts/improvements/01_08_agentic_iam_inspired_hardening.md` Phase 4
+adds a third, deliberately supervised path alongside BAD/GOOD, gated
+by Vault Enterprise's Control Groups feature (confirmed entitled on
+this license). It never touches the normal unattended demo flow — a
+run only ever needs one credential by design, so `routes/credentials.js`
+treats a second credential request within the same run as a
+deterministic, checkable anomaly and routes it through a different
+policy (`factory-agent-c-cred-supervised`) instead of the normal one.
+
+Under that policy, `database/creds/*` returns a Vault response-wrapping
+token instead of the credential — the credential does not exist
+outside Vault until a human authorizes it. Authorization requires a
+Vault *identity*: a dedicated `control-group-authorizer` AppRole,
+entity, and identity group (`terraform/vault-platform/control_groups.tf`),
+used only at the moment a human clicks Authorize in the dashboard and
+never held standing. The backend, not the human, performs the actual
+Vault calls — no human session ever holds a Vault credential either,
+the same boundary `security/authority-model.md` already draws for
+agents.
+
+Two findings from building this, live-verified rather than assumed:
+
+- A Control Group's approval stays tied to the *original requesting
+  child token* remaining valid, not only to the wrapping token's own
+  (much longer) TTL — authorizing after that child token has expired
+  returns `approved: false` and the request becomes permanently
+  unusable. The child token minted for this path therefore uses a
+  separate, generous window (`SUPERVISED_APPROVAL_WINDOW_SECONDS`,
+  30 minutes) instead of reusing the database role's own short TTL.
+- The authorizing identity's own token must also remain valid through
+  the *unwrap* step, not only through the authorize call itself —
+  revoking it immediately after authorizing (the obvious "hold it for
+  the shortest possible window" instinct) broke every unwrap. Its
+  short AppRole-configured TTL (5 minutes) is what actually bounds it
+  now, not an explicit revoke.
+
 ### Network isolation
 
 Vault servers attach only to `factory-vault-internal`. Agents, PostgreSQL, Ollama, and the dashboard attach to `factory-control`. The API is the only application component on both networks. Host ports bind to `127.0.0.1`.

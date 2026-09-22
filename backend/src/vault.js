@@ -279,9 +279,21 @@ export async function issueSupervisedDatabaseCredential(role, agentId, taskId) {
  * Authorizes one pending Control Group request, called only at the
  * moment a human clicks "Authorize" in the dashboard. Logs in fresh as
  * the control-group-authorizer AppRole identity for this one call —
- * that identity is never held standing (see .env's own comment on its
- * short TTL) — then revokes that token immediately after, so it exists
- * for the shortest possible window.
+ * that identity is never held standing (its own AppRole role_name
+ * token_ttl is 5 minutes, terraform/vault-platform/control_groups.tf —
+ * it expires on its own shortly after, no explicit revoke needed).
+ *
+ * Deliberately does NOT revoke this token before returning, even
+ * though that was the original design. Found live: Vault re-validates
+ * the authorizing identity at UNWRAP time, not only at the moment
+ * authorize() is called — revoking the authorizer's token immediately
+ * after authorizing (the obvious "hold it for the shortest possible
+ * window" instinct) made every subsequent unwrap fail with "Request
+ * needs further authorization", reproduced twice, fixed once by simply
+ * not revoking early. The credentials.js route unwraps immediately
+ * after calling this, so the token only needs to survive that one
+ * extra round trip — its own short TTL already bounds it tightly
+ * enough after that.
  */
 export async function authorizeControlGroupRequest(accessor) {
   const roleId = config.controlGroup.authorizerRoleId;
@@ -295,17 +307,11 @@ export async function authorizeControlGroupRequest(accessor) {
     body: { role_id: roleId, secret_id: secretId },
   });
   const authorizerToken = login.auth.client_token;
-  try {
-    const result = await vaultRequest("PUT", "sys/control-group/authorize", {
-      token: authorizerToken,
-      body: { accessor },
-    });
-    return { approved: result.data?.approved === true };
-  } finally {
-    await vaultRequest("PUT", "auth/token/revoke-self", {
-      token: authorizerToken,
-    }).catch(() => {});
-  }
+  const result = await vaultRequest("PUT", "sys/control-group/authorize", {
+    token: authorizerToken,
+    body: { accessor },
+  });
+  return { approved: result.data?.approved === true };
 }
 
 /**

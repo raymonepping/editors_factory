@@ -10,10 +10,11 @@ const { credentialLedger } = useEventStream()
 
 <template>
   <div class="credentials-page">
+    <PendingApprovals />
     <CredentialLedger :ledger="credentialLedger" />
   </div>
 </template>
 
 <style scoped>
-.credentials-page { max-width: 640px; }
+.credentials-page { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
 </style>

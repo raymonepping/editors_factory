@@ -170,6 +170,7 @@ def main():
         lease_id = e.get("response", {}).get("secret", {}).get("lease_id")
         if not lease_id:
             continue
+        response_path = e.get("request", {}).get("path")
         req_entry = requests_by_id.get(e.get("request", {}).get("id"))
         agent = None
         task_id = None
@@ -184,10 +185,23 @@ def main():
                 .get("granting_policies", [])
             )
             sentinel_checked = any(p.get("name") == SENTINEL_POLICY for p in granting)
+        # 01_08 Phase 4: a Control-Group-gated credential is delivered
+        # via sys/wrapping/unwrap, a genuinely different request/response
+        # pair from the original database/creds/* one that returned
+        # wrap_info instead of the lease — found live that the wrap
+        # token carries none of the original child token's metadata
+        # forward, so agent/task/Sentinel are not independently
+        # re-checkable here for this path, only the lease's existence
+        # is. That is still real corroboration (Vault, not the app,
+        # generated this exact lease id) — just a narrower claim than
+        # the direct-issuance case makes, and reported as such rather
+        # than treated as a match failure.
+        via_unwrap = response_path == "sys/wrapping/unwrap"
         audit_leases[lease_id] = {
             "agent": agent,
             "task_id": task_id,
             "sentinel_checked": sentinel_checked,
+            "via_unwrap": via_unwrap,
         }
 
     ok = True
@@ -197,6 +211,18 @@ def main():
         if vault_info is None:
             print(f"{lease_id:<68} {'FOUND':<8} {'MISSING':<8} {'-':<9}")
             ok = False
+            continue
+        if vault_info["via_unwrap"]:
+            # Control-Group-delivered: the lease itself is corroborated
+            # (Vault, not the app, generated this exact id), but agent/
+            # task/Sentinel metadata isn't independently re-checkable
+            # from this path's own audit entries — see the comment
+            # above. Not a failure; a narrower, honestly-labeled claim.
+            print(
+                f"{lease_id:<68} {'FOUND':<8} {'FOUND':<8} {'n/a':<9} "
+                "delivered via Control Group unwrap — lease corroborated, "
+                "metadata not independently re-checkable this way"
+            )
             continue
         notes = []
         if vault_info["agent"] != db_info["actor_id"]:
@@ -216,12 +242,24 @@ def main():
             f"{'yes' if vault_info['sentinel_checked'] else 'NO':<9} {'; '.join(notes)}"
         )
 
+    unwrap_count = sum(
+        1 for l in db_leases if audit_leases.get(l, {}).get("via_unwrap")
+    )
     print()
     if ok:
+        direct_count = len(db_leases) - unwrap_count
+        detail = (
+            f"{direct_count} directly issued, Sentinel-checked" if direct_count else ""
+        )
+        if unwrap_count:
+            detail += (
+                (", " if detail else "")
+                + f"{unwrap_count} delivered via a Control Group approval (lease corroborated; "
+                "see docs/security-model.md for what that path can and cannot independently re-verify)"
+            )
         print(
             f"PASS — all {len(db_leases)} credential_events row(s) for run {run_id} are "
-            "independently corroborated by Vault's own audit log, with the Sentinel "
-            "policy confirmed evaluated for each."
+            f"independently corroborated by Vault's own audit log ({detail})."
         )
         sys.exit(0)
     print("FAIL — see rows above.")

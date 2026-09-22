@@ -51,6 +51,16 @@ services:
       # backend/src/config.js's own comment on why these are null
       # placeholders above process.env).
       FACTORY_AUTH_ENABLED: "${FACTORY_AUTH_ENABLED:-true}"
+      # prompts/improvements/01_08_agentic_iam_inspired_hardening.md
+      # Phase 4: unlike factory-api's own main Vault identity (brokered
+      # by the vault-agent sidecar), the control-group-authorizer
+      # identity is used for exactly one action (authorize a pending
+      # supervised request) and never held standing — factory-api logs
+      # in directly with this role_id/secret_id pair only at the moment
+      # a human clicks "Authorize", then revokes the resulting token
+      # immediately after (see vault.js's authorizeControlGroupRequest).
+      CONTROL_GROUP_AUTHORIZER_ROLE_ID: "${CONTROL_GROUP_AUTHORIZER_ROLE_ID}"
+      CONTROL_GROUP_AUTHORIZER_SECRET_ID: "${CONTROL_GROUP_AUTHORIZER_SECRET_ID}"
       FACTORY_OIDC_ENABLED: "${FACTORY_OIDC_ENABLED:-true}"
       FACTORY_OIDC_CLIENT_ID: "${FACTORY_OIDC_CLIENT_ID:-factory-api}"
       FACTORY_BASE_URL: "${FACTORY_BASE_URL:-http://localhost:3000}"

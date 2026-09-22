@@ -6,6 +6,7 @@ import type {
   DemoMode,
   FactoryRecordsPage,
   FactoryState,
+  PendingApproval,
   Profile,
   Task,
   TimelineEntry,
@@ -88,6 +89,21 @@ export function useDemoApi() {
     })
   }
 
+  // prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4
+  // — the supervised, Control-Group-gated credential path. Read is a
+  // viewer-level action (matches the backend's own read_dashboard
+  // scope); authorizing is operator-only there too.
+  async function getPendingApprovals() {
+    return $fetch<{ pending: PendingApproval[] }>(`${base}/api/credentials/pending`)
+  }
+
+  async function authorizeCredential(approvalId: string) {
+    return $fetch<{ authorized: boolean; role: string; leaseId: string; ttlSeconds: number }>(
+      `${base}/api/credentials/pending/${approvalId}/authorize`,
+      { method: 'POST' },
+    )
+  }
+
   return {
     base,
     FIXED_TRIGGER_PROMPT,
@@ -102,5 +118,7 @@ export function useDemoApi() {
     getEventsHistory,
     getFindings,
     getFactoryRecords,
+    getPendingApprovals,
+    authorizeCredential,
   }
 }
