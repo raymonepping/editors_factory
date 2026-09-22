@@ -161,3 +161,54 @@ The API is intentionally unable to reset product and order tables with its own c
 This local demonstration implements human authentication and RBAC via Keycloak OIDC/OpenLDAP for the web UI and control plane, but does not provide transport encryption (TLS) for localhost container-to-container traffic, general multi-hop delegation graphs, or strict host-level container network egress filtering. Model inference is strictly local to Ollama. Do not expose its published ports to an untrusted network.
 
 Every static secret now has a real source of truth and a real, if manual, rotation path (Vault KV — see [Static secrets (Vault KV)](#static-secrets-vault-kv) above), but rotation is still an operator-run procedure, not scheduled or automatic, and the per-agent bearer tokens themselves do not expire or rotate on their own between operator-run rotations.
+
+### The backend's own AppRole identity — assessed, not replaced
+
+`prompts/improvements/01_08_agentic_iam_inspired_hardening.md` Phase 5
+asked whether the backend's own Vault identity (a static AppRole
+`role_id`/`secret_id` pair, `FACTORY_VAULT_ROLE_ID`/`SECRET_ID`) should
+be replaced with SPIFFE workload identity instead — HashiCorp's own
+"Vault Trusted Identity Brokering" validated pattern explicitly names
+long-lived AppRole credentials as the anti-pattern it recommends moving
+away from, in favor of platform-native identity. `SPIFFE Auth Engine`
+is entitled on this Vault license, confirmed live (`vault auth enable
+spiffe` succeeds; its own config immediately asks for a `trust_domain`,
+confirming the mount genuinely works, not just that the feature name
+appears in the license).
+
+That is where this environment's support for the idea ends. SPIFFE
+workload identity requires a running SPIRE server issuing SVIDs and a
+SPIRE agent performing workload attestation for each identity it
+issues — infrastructure this project has none of, and Podman has no
+first-party SPIRE attestation plugin the way Kubernetes does (SPIRE's
+maintained attestors target Kubernetes, Docker, and generic Unix
+process/binary attributes; a Podman-specific plugin was not found, and
+whether the Docker attestor works unmodified against Podman's
+Docker-compatible socket was not tested — the honest position is
+"unverified," not "known to work"). Standing up SPIRE, wiring an
+attestor that can actually recognize the `factory-api` container
+specifically, and integrating it with `auth/spiffe`'s own trust-bundle
+configuration is realistically its own multi-day project, not an
+extension of this one.
+
+Weighed against what it would actually buy: the backend's AppRole
+`secret_id` is already the *only* standing credential of its kind
+anywhere in this system (every agent, and the human path, hold nothing
+Vault-facing at all — see "Why agents do not hold Vault credentials
+directly" in `security/authority-model.md`), it is narrowly scoped to
+one policy, has a 90-day TTL with a documented renewal procedure (not
+eternal), and the root token it could otherwise have depended on was
+already eliminated in `01_06`. SPIFFE would remove that one remaining
+static secret in favor of an identity re-attested on every login — a
+real improvement in the abstract, but for a single-node local
+demonstration, the infrastructure it requires is disproportionate to
+the credential it would replace.
+
+**Recommendation: not now.** If this project ever runs on a platform
+that already has a workload identity story — Kubernetes with SPIRE
+already deployed, or a cloud platform with its own native workload
+identity Vault already supports (AWS IAM, GCP, Azure) — replacing the
+AppRole pair with that platform's native auth method is the right next
+step, and should get its own scoped prompt at that point, verified
+live the same way every other claim in this project's own Vault
+integration has been.
