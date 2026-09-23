@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-23_ui-dag-start-error-fix"
+  purpose: "Fixed 'Start Micro-DAG Run does nothing': gateway was discarding factory-api's real 409 error body for a generic message, and dag.vue only console.error'd instead of showing it. Live-verified end-to-end with Playwright: real login, mode switch, error surfaced, reset, successful run start."
+  captured_at: "2026-09-23T10:20:22Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-23_post-02-09-v2-improvements"
+  git:
+    commit: "de427df3cf7b1a809ea7e090bf8ef2d5c60fe1d4"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
