@@ -111,6 +111,7 @@ vault-up: ## Start the Vault HA cluster and bootstrap it (idempotent)
 	@$(MAKE) --no-print-directory network
 	@./scripts/vault-prepare.sh
 	@./scripts/vault-bootstrap.sh
+	@./scripts/compose.sh vault up -d vault-agent
 
 vault-down: ## Stop the Vault HA cluster
 	@./scripts/compose.sh vault down
