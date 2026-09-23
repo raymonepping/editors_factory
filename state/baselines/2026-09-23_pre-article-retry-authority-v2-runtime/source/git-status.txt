@@ -1,0 +1,3 @@
+ M state/CURRENT
+?? state/.capture-2026-09-23_pre-article-retry-authority-v2-runtime.tmp/
+?? state/baselines/2026-09-23_pre-article-retry-authority-v2/

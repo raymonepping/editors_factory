@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-23_post-article-retry-authority-v2"
+  purpose: "Strengthened ignored article draft version 2: 3136 words; exact tweet quotations; source-grounded retry authority and explicit transaction and revocation limitations; no application changes or scenario tests"
+  captured_at: "2026-09-23T08:13:28Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-23_pre-article-retry-authority-v2-runtime"
+  git:
+    commit: "17269983e39f1465a0dffefa33db6cf8f3264874"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED

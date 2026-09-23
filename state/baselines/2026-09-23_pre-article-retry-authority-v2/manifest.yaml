@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-23_pre-article-retry-authority-v2"
+  purpose: "Before strengthening the Claude retry-authority article into version 2; editorial work only"
+  captured_at: "2026-09-23T08:10:20Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-23_post-docs-01-update-for-v2"
+  git:
+    commit: "17269983e39f1465a0dffefa33db6cf8f3264874"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: false
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: false
+
+verification:
+  backend-health: UNKNOWN
+  ollama-model: UNKNOWN
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: PARTIAL
+    components: CAPTURED
+    verification: CAPTURED
