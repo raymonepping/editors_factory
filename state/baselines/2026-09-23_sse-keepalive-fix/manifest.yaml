@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-23_sse-keepalive-fix"
+  purpose: "Fixed and live-verified: all four agents (a/b/c/d) were dropping their SSE connection to factory-api every ~5 minutes due to Podman's own idle-connection reaping, not an app bug. Added a 15s SSE keepalive ping. Watched a full 7-minute window post-fix with zero drops. This is the real explanation for Discovery sometimes producing zero findings on an otherwise-successful run — events fired during a reconnect gap were never replayed."
+  captured_at: "2026-09-23T12:59:58Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-23_vault-agent-in-make-up"
+  git:
+    commit: "5cc0e499a65fe1ccb5aff7907c790dd05f502065"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
