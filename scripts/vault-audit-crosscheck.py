@@ -44,9 +44,18 @@ script. Revocation is instead checked the honest way available: against
 the app's own dag_node_attempts.authority_status, which is not
 independent Vault corroboration, and is reported as such.
 
+v2 (prompts/v2/02_09): --verify-revocation adds a second, genuinely
+independent revocation check the paragraph above says isn't possible
+from the audit log — not from the log at all, but a live sys/leases/
+lookup call against Vault itself, using the same narrow vault-admin
+token every other routine Vault-administration script in this project
+already uses (docs/operations.md's own rotation commands). Opt-in, not
+run by default: it adds real Vault round-trips and is not worth paying
+on every `make reset`, which already invokes this script.
+
 Usage:
-  ./scripts/vault-audit-crosscheck.py <run_id>
-  ./scripts/vault-audit-crosscheck.py --latest
+  ./scripts/vault-audit-crosscheck.py <run_id> [--verify-revocation]
+  ./scripts/vault-audit-crosscheck.py --latest [--verify-revocation]
 """
 
 import json
@@ -125,11 +134,81 @@ def get_env(key):
     raise SystemExit(f"{key} not found in .env")
 
 
+# v2 (02_09): the vault-admin token, read the same way every other
+# routine-administration script in this project reads it — not minted
+# fresh, not root. terraform/vault-platform/policies.tf's vault_admin
+# policy grants exactly the one path this needs (factory/sys/leases/
+# lookup) and nothing wider.
+def lease_lookup(lease_id, vault_addr, vault_cacert, vault_token):
+    """Returns True if Vault still shows the lease active, False if Vault
+    reports it gone (genuinely revoked), or None if the lookup call
+    itself failed for a reason other than "not found" (e.g. Vault
+    unreachable) — callers must not treat None as "revoked"."""
+    try:
+        out = subprocess.run(
+            [
+                "curl",
+                "-sS",
+                "--cacert",
+                vault_cacert,
+                "-H",
+                f"X-Vault-Token: {vault_token}",
+                "-H",
+                "X-Vault-Namespace: factory",
+                "--request",
+                "PUT",
+                "--data",
+                json.dumps({"lease_id": lease_id}),
+                "-w",
+                "\n%{http_code}",
+                f"{vault_addr}/v1/sys/leases/lookup",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(
+            f"warning: lease lookup request failed: {e.stderr.strip()}", file=sys.stderr
+        )
+        return None
+    body, _, status = out.stdout.rpartition("\n")
+    status = status.strip()
+    if status == "200":
+        return True
+    if status in ("400", "404"):
+        # Both treated as "lease not found" / genuinely gone — which
+        # exact status Vault returns for this endpoint on a revoked
+        # lease is confirmed live below, not assumed from documentation.
+        return False
+    print(
+        f"warning: unexpected sys/leases/lookup status {status} for {lease_id}: {body.strip()}",
+        file=sys.stderr,
+    )
+    return None
+
+
+def get_vault_admin_env():
+    # Same fixed local values docs/getting-started.md and docs/operations.md
+    # export by hand for every other vault-admin-token script in this
+    # project — not stored in .env, same as VAULT_ADDR never is there.
+    with open(".secrets/vault/vault-admin-token") as f:
+        token = f.read().strip()
+    return {
+        "addr": "https://127.0.0.1:18200",
+        "cacert": "vault-tls/ca-chain.pem",
+        "token": token,
+    }
+
+
 def main():
-    if len(sys.argv) != 2:
+    verify_revocation = "--verify-revocation" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--verify-revocation"]
+    if len(args) != 1:
         print(__doc__)
         sys.exit(64)
-    run_id_arg = sys.argv[1]
+    run_id_arg = args[0]
 
     pguser = get_env("POSTGRES_USER")
     pgdb = get_env("POSTGRES_DB")
@@ -349,6 +428,52 @@ def main():
                 f"lease in run {run_id} show authority_status='revoked' after reaching a "
                 f"terminal state (not independent Vault corroboration)."
             )
+
+    # v2 (02_09): the actual independent check the two comments above say
+    # isn't possible from the audit log — this doesn't touch the log at
+    # all, it asks Vault's own lease store directly, for every lease this
+    # run issued (v1 and v2 alike, not only dag_node_attempts rows).
+    if verify_revocation:
+        print()
+        vault_env = get_vault_admin_env()
+        revoked_app_side = set()
+        if dag_attempts_by_lease:
+            revoked_rows = psql(
+                f"SELECT a.vault_lease_id FROM dag_node_attempts a "
+                f"JOIN dag_nodes n ON n.node_id = a.node_id "
+                f"WHERE n.run_id='{run_id}' AND a.authority_status = 'revoked'",
+                pguser,
+                pgdb,
+            )
+            revoked_app_side.update(revoked_rows)
+        checked = 0
+        for lease_id in db_leases:
+            still_active = lease_lookup(
+                lease_id, vault_env["addr"], vault_env["cacert"], vault_env["token"]
+            )
+            checked += 1
+            if still_active is None:
+                print(
+                    f"SKIP — sys/leases/lookup for {lease_id} did not return a usable result."
+                )
+                continue
+            app_says_revoked = lease_id in revoked_app_side
+            if still_active and app_says_revoked:
+                print(
+                    f"FAIL — {lease_id}: app records authority_status='revoked' but Vault's "
+                    f"own sys/leases/lookup still shows this lease active."
+                )
+                ok = False
+            elif not still_active:
+                print(f"PASS — {lease_id}: Vault confirms this lease no longer exists.")
+            else:
+                print(
+                    f"INFO — {lease_id}: Vault shows this lease still active (not yet revoked)."
+                )
+        print(
+            f"\nIndependent Vault-side revocation check: {checked} lease(s) looked up directly "
+            f"against sys/leases/lookup (not the audit log)."
+        )
 
     unwrap_count = sum(
         1 for l in db_leases if audit_leases.get(l, {}).get("via_unwrap")

@@ -9,6 +9,7 @@ import * as audit from "../audit.js";
 import * as state from "../state.js";
 import { getPool } from "../db.js";
 import { publishEvent } from "../events.js";
+import { withDagSpan } from "../tracing.js";
 
 /**
  * Revokes an explicit lease by leaseId, updates evidence records,
@@ -111,6 +112,14 @@ export function startCredentialRenewal({ leaseId, ttlSeconds, tokenAccessor }) {
  * and the UPDATE is a no-op if already revoked.
  */
 export async function revokeAttempt(attemptId, reason) {
+  return withDagSpan(
+    "dag.revoke",
+    { "factory.attempt_id": attemptId, "factory.reason": reason },
+    (span) => revokeAttemptInner(attemptId, reason, span),
+  );
+}
+
+async function revokeAttemptInner(attemptId, reason, span) {
   const { rows } = await getPool().query(
     `SELECT vault_lease_id, vault_token_accessor, authority_status
        FROM dag_node_attempts WHERE attempt_id = $1`,
@@ -118,8 +127,11 @@ export async function revokeAttempt(attemptId, reason) {
   );
   const attempt = rows[0];
   if (!attempt) return { ok: false, error: "attempt not found" };
-  if (attempt.authority_status === "revoked")
+  if (attempt.authority_status === "revoked") {
+    span.setAttribute("factory.already_revoked", true);
     return { ok: true, status: "already_revoked" };
+  }
+  span.setAttribute("factory.had_lease", Boolean(attempt.vault_lease_id));
 
   if (attempt.vault_lease_id) {
     await revokeCredentialLease(attempt.vault_lease_id, reason);

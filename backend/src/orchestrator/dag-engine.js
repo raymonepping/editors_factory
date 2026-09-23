@@ -19,6 +19,7 @@ import { signAgentToken } from "../auth/agentJwt.js";
 import { config } from "../config.js";
 import { revokeAttempt } from "../services/revocation.js";
 import { registerEngine } from "./index.js";
+import { withDagSpan } from "../tracing.js";
 
 const WORKFLOW_DEFINITION_KEY = "order_anomaly_remediation_v2";
 
@@ -252,6 +253,14 @@ async function runBackendNodeLogic(runId, nodeKey) {
  * every subsequent call for this attempt.
  */
 export async function claimNode(actorId, runId) {
+  return withDagSpan(
+    "dag.claim",
+    { "factory.run_id": runId, "factory.agent_id": actorId },
+    (span) => claimNodeInner(actorId, runId, span),
+  );
+}
+
+async function claimNodeInner(actorId, runId, span) {
   const pool = getPool();
   const claimToken = randomUUID();
   const { rows } = await pool.query(
@@ -292,7 +301,14 @@ export async function claimNode(actorId, runId) {
   );
 
   const claim = rows[0];
-  if (!claim) return null; // nothing runnable for this agent right now
+  if (!claim) {
+    span.setAttribute("factory.claimed", false);
+    return null; // nothing runnable for this agent right now
+  }
+  span.setAttribute("factory.claimed", true);
+  span.setAttribute("factory.node_key", claim.node_key);
+  span.setAttribute("factory.attempt_id", claim.attempt_id);
+  span.setAttribute("factory.attempt_number", Number(claim.attempt_number));
 
   const attemptToken = signAgentToken({
     actorId,
@@ -446,25 +462,32 @@ export async function completeAttempt(
   fencingToken,
   outputEvidence,
 ) {
-  await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
-  const pool = getPool();
-  await pool.query(
-    `UPDATE dag_node_attempts SET execution_status = 'completed', output_evidence = $2, ended_at = now() WHERE attempt_id = $1`,
-    [attemptId, JSON.stringify(outputEvidence ?? {})],
+  return withDagSpan(
+    "dag.complete",
+    { "factory.run_id": runId, "factory.node_id": nodeId, "factory.attempt_id": attemptId },
+    async (span) => {
+      await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
+      const pool = getPool();
+      await pool.query(
+        `UPDATE dag_node_attempts SET execution_status = 'completed', output_evidence = $2, ended_at = now() WHERE attempt_id = $1`,
+        [attemptId, JSON.stringify(outputEvidence ?? {})],
+      );
+      const { rows } = await pool.query(
+        `UPDATE dag_nodes SET status = 'completed', updated_at = now() WHERE node_id = $1 RETURNING node_key`,
+        [nodeId],
+      );
+      span.setAttribute("factory.node_key", rows[0]?.node_key ?? "");
+      publishEvent("dag_nodes", {
+        run_id: runId,
+        node_id: nodeId,
+        node_key: rows[0]?.node_key,
+        status: "completed",
+      });
+      await revokeAttempt(attemptId, "attempt_completed");
+      await evaluateRunnableNodes(runId);
+      return { ok: true };
+    },
   );
-  const { rows } = await pool.query(
-    `UPDATE dag_nodes SET status = 'completed', updated_at = now() WHERE node_id = $1 RETURNING node_key`,
-    [nodeId],
-  );
-  publishEvent("dag_nodes", {
-    run_id: runId,
-    node_id: nodeId,
-    node_key: rows[0]?.node_key,
-    status: "completed",
-  });
-  await revokeAttempt(attemptId, "attempt_completed");
-  await evaluateRunnableNodes(runId);
-  return { ok: true };
 }
 
 /** Marks an attempt (and its node) failed and revokes its authority immediately. */
@@ -475,25 +498,32 @@ export async function failAttempt(
   fencingToken,
   errorDetails,
 ) {
-  await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
-  const pool = getPool();
-  await pool.query(
-    `UPDATE dag_node_attempts SET execution_status = 'failed', error_details = $2, ended_at = now() WHERE attempt_id = $1`,
-    [attemptId, JSON.stringify(errorDetails ?? {})],
+  return withDagSpan(
+    "dag.fail",
+    { "factory.run_id": runId, "factory.node_id": nodeId, "factory.attempt_id": attemptId },
+    async (span) => {
+      await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
+      const pool = getPool();
+      await pool.query(
+        `UPDATE dag_node_attempts SET execution_status = 'failed', error_details = $2, ended_at = now() WHERE attempt_id = $1`,
+        [attemptId, JSON.stringify(errorDetails ?? {})],
+      );
+      const { rows } = await pool.query(
+        `UPDATE dag_nodes SET status = 'failed', updated_at = now() WHERE node_id = $1 RETURNING node_key`,
+        [nodeId],
+      );
+      span.setAttribute("factory.node_key", rows[0]?.node_key ?? "");
+      publishEvent("dag_nodes", {
+        run_id: runId,
+        node_id: nodeId,
+        node_key: rows[0]?.node_key,
+        status: "failed",
+      });
+      await revokeAttempt(attemptId, "attempt_failed");
+      await evaluateRunCompletion(runId);
+      return { ok: true };
+    },
   );
-  const { rows } = await pool.query(
-    `UPDATE dag_nodes SET status = 'failed', updated_at = now() WHERE node_id = $1 RETURNING node_key`,
-    [nodeId],
-  );
-  publishEvent("dag_nodes", {
-    run_id: runId,
-    node_id: nodeId,
-    node_key: rows[0]?.node_key,
-    status: "failed",
-  });
-  await revokeAttempt(attemptId, "attempt_failed");
-  await evaluateRunCompletion(runId);
-  return { ok: true };
 }
 
 /**
@@ -506,6 +536,14 @@ export async function failAttempt(
  * again for a fresh claim.
  */
 export async function retryNode(runId, nodeKey, operatorId) {
+  return withDagSpan(
+    "dag.retry",
+    { "factory.run_id": runId, "factory.node_key": nodeKey, "factory.operator_id": operatorId || "operator" },
+    () => retryNodeInner(runId, nodeKey, operatorId),
+  );
+}
+
+async function retryNodeInner(runId, nodeKey, operatorId) {
   const pool = getPool();
   const { rows: targetRows } = await pool.query(
     `SELECT node_id, status FROM dag_nodes WHERE run_id = $1 AND node_key = $2`,

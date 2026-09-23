@@ -166,6 +166,17 @@ resource "vault_policy" "vault_admin" {
       capabilities = ["read"]
     }
 
+    # prompts/v2/02_09: scripts/vault-audit-crosscheck.py's first real
+    # Vault API dependency — independently confirms a lease the app
+    # marked revoked is genuinely gone from Vault's own lease store,
+    # rather than only trusting dag_node_attempts.authority_status.
+    # sys/leases/lookup takes lease_id in the request body, which Vault's
+    # ACL model treats as an "update" operation, not "read", despite the
+    # name.
+    path "factory/sys/leases/lookup" {
+      capabilities = ["update"]
+    }
+
     # Found live applying terraform/vault-sentinel with this token: the
     # Vault Terraform provider itself creates a short-lived, limited
     # child token internally for at least the vault_egp_policy resource

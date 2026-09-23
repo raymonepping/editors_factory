@@ -99,6 +99,16 @@ curl -X PUT -H "X-Factory-Cli-Token: $CLI_TOKEN" -H 'Content-Type: application/j
 
 Both reject with `409` while a v2 DAG run is genuinely in progress for the active run. See [Demo guide](demo-guide.md#v2-recoverable-dag-walkthrough) for the full walkthrough, including how to retry a failed node.
 
+### Watching v2 attempt timing (local tracing)
+
+`factory-api` emits one OpenTelemetry span per DAG attempt lifecycle event (`dag.claim`, `dag.complete`, `dag.fail`, `dag.retry`, `dag.revoke` — `backend/src/tracing.js`) straight to its own console output, the same way every other piece of this project's runtime state is already inspected:
+
+```sh
+podman logs -f factory-api | grep -A 15 "name: 'dag\."
+```
+
+Each span carries `factory.run_id`, `factory.node_key`/`factory.node_id`, and `factory.attempt_id` as attributes, so a slow or repeatedly-retried attempt is visible as a real timed span rather than only as evidence-table rows. This is observability, not a security control — it doesn't touch `credential_events`, `authority_decisions`, or any other evidence table, and it isn't part of what `scripts/vault-audit-crosscheck.py` checks. It is local-only by design: no new container, no external collector. If you want a real trace viewer later, point an OTLP collector at this process instead of extending `tracing.js` — that's a bigger decision this pass deliberately didn't make.
+
 ## Database maintenance
 
 Migrations are ordered SQL files under `backend/src/migrations/` and are designed for repeat application:
@@ -210,6 +220,29 @@ about to clear (see [Reset](#reset)), so most of the time you'll see
 it happen without asking. Run it manually for a run you haven't reset
 yet, or as a one-off sanity check after changing anything in the
 credential-issuance path.
+
+The default check above confirms the audit log's own **agent, task,
+and attempt** metadata line up with `credential_events`. It deliberately
+does not independently confirm *revocation* the same way — a
+`sys/leases/revoke` audit entry's own `lease_id` is HMAC-salted in the
+log, unlike the cleartext `lease_id` on issuance, so it can't be
+matched back to a specific credential from the log alone. Add
+`--verify-revocation` for that instead: it doesn't touch the audit log
+at all, it asks Vault's own lease store directly, per lease, using the
+same narrow `vault-admin` token every other routine administration
+command on this page already uses:
+
+```sh
+./scripts/vault-audit-crosscheck.py <run_id> --verify-revocation
+```
+
+Not run by default (including by `make reset`'s own automatic call) —
+it adds a real Vault round-trip per lease, and this project's own
+routine reset path shouldn't pay that on every single run. Run it after
+changing anything in the revocation path (`backend/src/services/
+revocation.js`), or whenever you want Vault's own word — not just the
+application's own `authority_status` column — that a credential it
+issued is actually gone.
 
 ## Vault KV secrets rotation
 

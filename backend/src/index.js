@@ -1,4 +1,5 @@
 import express from "express";
+import { startTracing } from "./tracing.js";
 import { validateConfigOnBoot, config } from "./config.js";
 import { initDbPool } from "./db.js";
 import { loadSecretsFromVault } from "./vault.js";
@@ -25,6 +26,7 @@ import * as audit from "./audit.js";
 import * as state from "./state.js";
 
 validateConfigOnBoot();
+startTracing();
 
 const app = express();
 app.use(express.json());
