@@ -405,10 +405,9 @@ describe("v2: insert_product and delete_products — individually verified, not 
       "the ledger must report the row as already inserted, not attempt a second INSERT",
     );
 
-    const products = await apiFetch(
-      `/api/actions/products?category=test`,
-      { token: claim2.data.attemptToken },
-    );
+    const products = await apiFetch(`/api/actions/products?category=test`, {
+      token: claim2.data.attemptToken,
+    });
     const matching = products.data.filter((p) => p.sku === sku);
     assert.equal(
       matching.length,
@@ -418,7 +417,11 @@ describe("v2: insert_product and delete_products — individually verified, not 
 
     await apiFetch(
       `/api/dag/tasks/${claim2.data.nodeId}/attempts/${claim2.data.attemptId}/complete`,
-      { method: "POST", token: claim2.data.attemptToken, body: { outputEvidence: {} } },
+      {
+        method: "POST",
+        token: claim2.data.attemptToken,
+        body: { outputEvidence: {} },
+      },
     );
   });
 
@@ -450,7 +453,11 @@ describe("v2: insert_product and delete_products — individually verified, not 
     assert.equal(insert.status, 201);
     await apiFetch(
       `/api/dag/tasks/${setupClaim.data.nodeId}/attempts/${setupClaim.data.attemptId}/complete`,
-      { method: "POST", token: setupClaim.data.attemptToken, body: { outputEvidence: {} } },
+      {
+        method: "POST",
+        token: setupClaim.data.attemptToken,
+        body: { outputEvidence: {} },
+      },
     );
 
     // Retry remediate (a completed node can't be retried — invalidate it
@@ -517,7 +524,11 @@ describe("v2: insert_product and delete_products — individually verified, not 
 
     await apiFetch(
       `/api/dag/tasks/${claim2.data.nodeId}/attempts/${claim2.data.attemptId}/complete`,
-      { method: "POST", token: claim2.data.attemptToken, body: { outputEvidence: {} } },
+      {
+        method: "POST",
+        token: claim2.data.attemptToken,
+        body: { outputEvidence: {} },
+      },
     );
   });
 });
