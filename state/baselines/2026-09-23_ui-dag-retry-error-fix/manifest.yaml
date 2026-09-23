@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-23_ui-dag-retry-error-fix"
+  purpose: "Fixed the retry button's onRetry handler in dag.vue: same silent-failure gap as the Start button had, now surfaces the real backend rejection reason via the existing startError/.dag-error slot. v2 UI/UX closed out for now."
+  captured_at: "2026-09-23T10:59:18Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-23_ui-dag-start-error-fix"
+  git:
+    commit: "54981154df2f4b2377e3221a22dba54f115a3ec4"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
