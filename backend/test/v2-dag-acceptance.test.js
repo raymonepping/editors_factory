@@ -35,11 +35,29 @@ async function setWorkflowMode(mode) {
   });
 }
 
+// POST /api/demo/reset has a known, already-documented live race
+// (routes/demo.js's own comment on it) — agent-d is a real,
+// continuously-running container writing findings off the same SSE
+// stream reset is clearing, and can occasionally race reset's own
+// DELETE FROM audit_events / DELETE FROM demo_runs sequence into a real
+// foreign-key violation even under REPEATABLE READ ("~1/5 runs" by that
+// comment's own estimate). This test file resets far more often, in
+// quick succession, than manual usage ever would, so it hits this more
+// often — not a new bug 02_08 introduced. Retrying once, same "retry
+// once, it's real host/timing flakiness" discipline this project
+// already uses elsewhere (CLAUDE.md gotcha #6), is the correct fix for
+// the test, not a change to reset itself.
 async function resetRun() {
-  const res = await apiFetch("/api/demo/reset", {
+  let res = await apiFetch("/api/demo/reset", {
     method: "POST",
     cliToken: CLI_TOKEN,
   });
+  if (res.status !== 200) {
+    res = await apiFetch("/api/demo/reset", {
+      method: "POST",
+      cliToken: CLI_TOKEN,
+    });
+  }
   assert.equal(res.status, 200);
   return res.data.runId;
 }
@@ -283,6 +301,223 @@ describe("v2: retry issues a fresh credential and business-effect idempotency pr
         token: claim2.data.attemptToken,
         body: { outputEvidence: {} },
       },
+    );
+  });
+});
+
+// v2 (prompts/v2/02_08): insert_product/delete_products got the same
+// fault-injection and business-effect-ledger wiring as the other three
+// mutating routes, applied symmetrically — but were only ever verified
+// correct by code symmetry this session, never individually observed.
+// These two tests close that gap with real, permanent coverage rather
+// than a one-off manual check. Both use fail_after_mutation specifically
+// — that is the one fault mode where the mutation genuinely commits
+// before the injected failure fires, which is what actually exercises
+// the ledger's "already applied" path (fail_before_mutation/lock_timeout
+// never reach the mutation at all, so there is nothing to intercept).
+async function setFaultInjectionMode(mode) {
+  return apiFetch("/api/demo/fault-injection-mode", {
+    method: "PUT",
+    cliToken: CLI_TOKEN,
+    body: { faultInjectionMode: mode },
+  });
+}
+
+describe("v2: insert_product and delete_products — individually verified, not just symmetric by code", () => {
+  before(async () => {
+    await setWorkflowMode("recoverable_dag");
+  });
+  after(async () => {
+    await setFaultInjectionMode("none");
+    await setWorkflowMode("fixed_chain");
+    await resetRun();
+  });
+
+  test("insert_product: fail_after_mutation commits the row, then a retried identical call does not double-insert", async () => {
+    const set = await setFaultInjectionMode("fail_after_mutation");
+    assert.equal(set.status, 200);
+    const runId = await resetRun();
+    await initDagRun();
+    await claimAndComplete(AGENT_A_TOKEN);
+    await claimAndComplete(AGENT_B_TOKEN);
+
+    const sku = `TEST-SKU-${Date.now()}`;
+    const claim1 = await apiFetch("/api/dag/tasks/claim", {
+      method: "POST",
+      token: AGENT_C_TOKEN,
+    });
+    assert.equal(claim1.status, 200);
+    assert.equal(claim1.data.attemptNumber, 1);
+    const cred1 = await apiFetch("/api/credentials", {
+      method: "POST",
+      token: claim1.data.attemptToken,
+    });
+    assert.equal(cred1.status, 201);
+
+    const insert1 = await apiFetch("/api/actions/products", {
+      method: "POST",
+      token: claim1.data.attemptToken,
+      body: { sku, name: "Test Product", category: "test", price: 9.99 },
+    });
+    assert.equal(
+      insert1.status,
+      500,
+      "fault_injection_mode=fail_after_mutation must still report the injected failure",
+    );
+
+    await apiFetch(
+      `/api/dag/tasks/${claim1.data.nodeId}/attempts/${claim1.data.attemptId}/fail`,
+      {
+        method: "POST",
+        token: claim1.data.attemptToken,
+        body: { errorDetails: { message: "fault injected" } },
+      },
+    );
+    await apiFetch(`/api/dag/runs/${runId}/nodes/remediate/retry`, {
+      method: "POST",
+      cliToken: CLI_TOKEN,
+    });
+
+    const claim2 = await apiFetch("/api/dag/tasks/claim", {
+      method: "POST",
+      token: AGENT_C_TOKEN,
+    });
+    assert.equal(claim2.status, 200);
+    assert.equal(claim2.data.attemptNumber, 2);
+    const cred2 = await apiFetch("/api/credentials", {
+      method: "POST",
+      token: claim2.data.attemptToken,
+    });
+    assert.equal(cred2.status, 201);
+
+    // fault only fires on attempt_number === 1 — this call must succeed,
+    // and must NOT attempt a second real INSERT (which would fail on
+    // sku's own unique constraint if the ledger didn't intercept it).
+    const insert2 = await apiFetch("/api/actions/products", {
+      method: "POST",
+      token: claim2.data.attemptToken,
+      body: { sku, name: "Test Product", category: "test", price: 9.99 },
+    });
+    assert.equal(insert2.status, 200);
+    assert.equal(
+      insert2.data.note,
+      "already applied by a prior attempt",
+      "the ledger must report the row as already inserted, not attempt a second INSERT",
+    );
+
+    const products = await apiFetch(
+      `/api/actions/products?category=test`,
+      { token: claim2.data.attemptToken },
+    );
+    const matching = products.data.filter((p) => p.sku === sku);
+    assert.equal(
+      matching.length,
+      1,
+      "exactly one row must exist — attempt 1's fail_after_mutation insert, never duplicated",
+    );
+
+    await apiFetch(
+      `/api/dag/tasks/${claim2.data.nodeId}/attempts/${claim2.data.attemptId}/complete`,
+      { method: "POST", token: claim2.data.attemptToken, body: { outputEvidence: {} } },
+    );
+  });
+
+  test("delete_products: fail_after_mutation commits the delete, then a retried identical call reports zero rather than erroring", async () => {
+    const set = await setFaultInjectionMode("none");
+    assert.equal(set.status, 200);
+    const runId = await resetRun();
+    await initDagRun();
+    await claimAndComplete(AGENT_A_TOKEN);
+    await claimAndComplete(AGENT_B_TOKEN);
+
+    // Insert a disposable product first (no fault active yet) so there
+    // is something real for the fault-injected delete to actually delete.
+    const sku = `TEST-DEL-${Date.now()}`;
+    const setupClaim = await apiFetch("/api/dag/tasks/claim", {
+      method: "POST",
+      token: AGENT_C_TOKEN,
+    });
+    assert.equal(setupClaim.status, 200);
+    await apiFetch("/api/credentials", {
+      method: "POST",
+      token: setupClaim.data.attemptToken,
+    });
+    const insert = await apiFetch("/api/actions/products", {
+      method: "POST",
+      token: setupClaim.data.attemptToken,
+      body: { sku, name: "Disposable", category: "test-del", price: 1 },
+    });
+    assert.equal(insert.status, 201);
+    await apiFetch(
+      `/api/dag/tasks/${setupClaim.data.nodeId}/attempts/${setupClaim.data.attemptId}/complete`,
+      { method: "POST", token: setupClaim.data.attemptToken, body: { outputEvidence: {} } },
+    );
+
+    // Retry remediate (a completed node can't be retried — invalidate it
+    // the same way a real failed attempt would need to, via a second
+    // DAG run instead, keeping this test independent of retryNode's own
+    // "only a failed node" rule) — simplest here: reset and re-drive to
+    // a fresh remediate attempt 1, now with the fault armed.
+    await setFaultInjectionMode("fail_after_mutation");
+    const runId2 = await resetRun();
+    await initDagRun();
+    await claimAndComplete(AGENT_A_TOKEN);
+    await claimAndComplete(AGENT_B_TOKEN);
+
+    const claim1 = await apiFetch("/api/dag/tasks/claim", {
+      method: "POST",
+      token: AGENT_C_TOKEN,
+    });
+    assert.equal(claim1.status, 200);
+    assert.equal(claim1.data.attemptNumber, 1);
+    await apiFetch("/api/credentials", {
+      method: "POST",
+      token: claim1.data.attemptToken,
+    });
+    const delete1 = await apiFetch("/api/actions/products", {
+      method: "DELETE",
+      token: claim1.data.attemptToken,
+      body: { filter: { category: "test-del" } },
+    });
+    assert.equal(delete1.status, 500);
+
+    await apiFetch(
+      `/api/dag/tasks/${claim1.data.nodeId}/attempts/${claim1.data.attemptId}/fail`,
+      {
+        method: "POST",
+        token: claim1.data.attemptToken,
+        body: { errorDetails: { message: "fault injected" } },
+      },
+    );
+    await apiFetch(`/api/dag/runs/${runId2}/nodes/remediate/retry`, {
+      method: "POST",
+      cliToken: CLI_TOKEN,
+    });
+
+    const claim2 = await apiFetch("/api/dag/tasks/claim", {
+      method: "POST",
+      token: AGENT_C_TOKEN,
+    });
+    assert.equal(claim2.status, 200);
+    await apiFetch("/api/credentials", {
+      method: "POST",
+      token: claim2.data.attemptToken,
+    });
+    const delete2 = await apiFetch("/api/actions/products", {
+      method: "DELETE",
+      token: claim2.data.attemptToken,
+      body: { filter: { category: "test-del" } },
+    });
+    assert.equal(delete2.status, 200);
+    assert.equal(
+      delete2.data.note,
+      "already applied by a prior attempt",
+      "the ledger must report this as already applied, not attempt a second DELETE",
+    );
+
+    await apiFetch(
+      `/api/dag/tasks/${claim2.data.nodeId}/attempts/${claim2.data.attemptId}/complete`,
+      { method: "POST", token: claim2.data.attemptToken, body: { outputEvidence: {} } },
     );
   });
 });

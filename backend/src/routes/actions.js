@@ -114,7 +114,83 @@ async function claimBusinessEffect(req, { operation, target, payload }) {
 // instead of feeding it back to the model as an ordinary, reasonable-
 // to-work-around denial (this is meant to simulate the platform itself
 // breaking mid-call, not a policy decision).
-async function checkFaultInjection(req, matchModes) {
+// v2 (prompts/v2/02_08): genuine PostgreSQL lock contention, not a
+// synthetic error string. A holder connection (the SAME agent-issued
+// credential — a role may open more than one connection within its
+// lease; this requests no second Vault credential) takes a real table
+// lock and sleeps; after a brief head start, a second connection on the
+// same credential sets a short lock_timeout and tries to take the same
+// lock. PostgreSQL itself — not this code — decides it can't get the
+// lock in time and raises the real 55P03 error, which is what actually
+// surfaces as the attempt's failure.
+//
+// Only possible for BAD mode. Confirmed live, empirically, before
+// writing this (a throwaway SELECT-only test role against this exact
+// database): every explicit LOCK TABLE mode beyond the automatic
+// ACCESS SHARE a plain SELECT already takes requires real DML privilege
+// on the table — a role with SELECT alone gets "permission denied,"
+// not a lock. factory-good-role (security/authority-model.md's own
+// SELECT-plus-narrow-EXECUTE design) therefore cannot hold ANY
+// conflicting table lock at all — which is itself a real, honest
+// consequence of GOOD's own narrower grants, not a gap in this fault:
+// GOOD mode falls back to the same synthetic, deterministic failure
+// fail_before_mutation uses, with a message that says why.
+const LOCK_HOLD_MS = 3000;
+const LOCK_HEAD_START_MS = 300;
+const LOCK_TIMEOUT_MS = 1500;
+
+async function simulateGenuineLockTimeout(cred, tableName) {
+  if (cred.role !== "factory-bad-role") {
+    const err = new Error(
+      `Fault injected (fault_injection_mode=lock_timeout) on attempt 1: ${cred.role} holds SELECT only on ${tableName} and cannot take any table lock beyond the automatic ACCESS SHARE mode a plain SELECT already uses — genuine lock contention is only possible for factory-bad-role. Falling back to a deterministic failure. Retry this node to continue.`,
+    );
+    err.status = 500;
+    throw err;
+  }
+  const holder = withAgentCredential(cred, async (lockClient) => {
+    await lockClient.query("BEGIN");
+    await lockClient.query(`LOCK TABLE ${tableName} IN EXCLUSIVE MODE`);
+    await new Promise((resolve) => setTimeout(resolve, LOCK_HOLD_MS));
+    await lockClient.query("ROLLBACK");
+  });
+  // Swallow a holder-side failure here — surfaced below instead if the
+  // contention attempt itself doesn't fail as expected.
+  const holderFailure = holder.catch((err) => err);
+
+  await new Promise((resolve) => setTimeout(resolve, LOCK_HEAD_START_MS));
+
+  let contentionError = null;
+  try {
+    await withAgentCredential(cred, async (client) => {
+      await client.query("BEGIN");
+      await client.query(`SET LOCAL lock_timeout = '${LOCK_TIMEOUT_MS}ms'`);
+      await client.query(`LOCK TABLE ${tableName} IN EXCLUSIVE MODE`);
+      await client.query("ROLLBACK");
+    });
+  } catch (err) {
+    contentionError = err;
+  }
+
+  await holder.catch(() => {}); // let the holder's own connection finish cleanly
+
+  if (!contentionError) {
+    const holderErr = await holderFailure;
+    const err = new Error(
+      holderErr
+        ? `Fault injected (fault_injection_mode=lock_timeout): holder connection failed unexpectedly: ${holderErr.message}`
+        : "Fault injected (fault_injection_mode=lock_timeout): expected genuine PostgreSQL lock contention did not occur.",
+    );
+    err.status = 500;
+    throw err;
+  }
+  const err = new Error(
+    `Fault injected (fault_injection_mode=lock_timeout) on attempt 1 — genuine PostgreSQL lock contention: ${contentionError.message}`,
+  );
+  err.status = 500;
+  throw err;
+}
+
+async function checkFaultInjection(req, matchModes, { cred, tableName } = {}) {
   if (!req.attemptId) return; // v1 traffic — no fault injection
   const { rows } = await getPool().query(
     `SELECT a.attempt_number, dr.fault_injection_mode
@@ -126,13 +202,18 @@ async function checkFaultInjection(req, matchModes) {
   );
   const row = rows[0];
   if (!row || Number(row.attempt_number) !== 1) return;
-  if (matchModes.includes(row.fault_injection_mode)) {
-    const err = new Error(
-      `Fault injected (fault_injection_mode=${row.fault_injection_mode}) on attempt 1 — deliberate, deterministic failure per the v2 demo scenario (prompts/v2/02_07). Retry this node to continue.`,
-    );
-    err.status = 500;
-    throw err;
+  if (!matchModes.includes(row.fault_injection_mode)) return;
+
+  if (row.fault_injection_mode === "lock_timeout" && cred && tableName) {
+    await simulateGenuineLockTimeout(cred, tableName);
+    return;
   }
+
+  const err = new Error(
+    `Fault injected (fault_injection_mode=${row.fault_injection_mode}) on attempt 1 — deliberate, deterministic failure per the v2 demo scenario (prompts/v2/02_07). Retry this node to continue.`,
+  );
+  err.status = 500;
+  throw err;
 }
 
 async function recordBusinessEffectResult(businessEffectKey, result) {
@@ -352,6 +433,19 @@ actionsRouter.patch(
 
       const { status } = req.body || {};
 
+      // Found live (02_08): fault injection must run BEFORE the
+      // business-effect ledger claim, not after. claimBusinessEffect's
+      // own INSERT commits immediately and is not rolled back by a
+      // later throw — a fault-injected failure here used to still
+      // claim the ledger row, permanently poisoning it (result stays
+      // NULL forever) and making every later attempt's identical
+      // mutation call silently report "already applied" without the
+      // mutation ever actually having happened.
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"], {
+        cred,
+        tableName: "orders",
+      });
+
       const effect = await claimBusinessEffect(req, {
         operation: "update_order_status",
         target: `orders/${req.params.id}`,
@@ -364,8 +458,6 @@ actionsRouter.patch(
           },
         );
       }
-
-      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
 
       const before = await getPool().query(
         "SELECT * FROM orders WHERE id = $1",
@@ -437,6 +529,13 @@ actionsRouter.delete(
         ORDER_FILTER_COLUMNS,
       );
 
+      // See update_order_status's own comment (found live, 02_08) —
+      // fault injection must run before the ledger claim, not after.
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"], {
+        cred,
+        tableName: "orders",
+      });
+
       const effect = await claimBusinessEffect(req, {
         operation: "delete_orders",
         target: "orders",
@@ -450,8 +549,6 @@ actionsRouter.delete(
           },
         );
       }
-
-      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
 
       const before = await getPool().query(
         `SELECT * FROM orders ${where}`,
@@ -516,6 +613,13 @@ actionsRouter.patch(
 
       const { price } = req.body || {};
 
+      // See update_order_status's own comment (found live, 02_08) —
+      // fault injection must run before the ledger claim, not after.
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"], {
+        cred,
+        tableName: "products",
+      });
+
       const effect = await claimBusinessEffect(req, {
         operation: "update_price",
         target: `products/${req.params.sku}`,
@@ -528,8 +632,6 @@ actionsRouter.patch(
           },
         );
       }
-
-      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
 
       const before = await getPool().query(
         "SELECT * FROM products WHERE sku = $1",
@@ -592,6 +694,13 @@ actionsRouter.post(
 
       const { sku, name, category, price } = req.body || {};
 
+      // See update_order_status's own comment (found live, 02_08) —
+      // fault injection must run before the ledger claim, not after.
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"], {
+        cred,
+        tableName: "products",
+      });
+
       const effect = await claimBusinessEffect(req, {
         operation: "insert_product",
         target: sku,
@@ -604,8 +713,6 @@ actionsRouter.post(
           },
         );
       }
-
-      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
 
       const result = await withAgentCredential(cred, (client) =>
         client.query(
@@ -667,6 +774,13 @@ actionsRouter.delete(
         PRODUCT_FILTER_COLUMNS,
       );
 
+      // See update_order_status's own comment (found live, 02_08) —
+      // fault injection must run before the ledger claim, not after.
+      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"], {
+        cred,
+        tableName: "products",
+      });
+
       const effect = await claimBusinessEffect(req, {
         operation: "delete_products",
         target: "products",
@@ -680,8 +794,6 @@ actionsRouter.delete(
           },
         );
       }
-
-      await checkFaultInjection(req, ["fail_before_mutation", "lock_timeout"]);
 
       const before = await getPool().query(
         `SELECT * FROM products ${where}`,
