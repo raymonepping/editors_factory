@@ -28,6 +28,7 @@ const workflowMode = ref<WorkflowMode | null>(null)
 const faultInjectionMode = ref<FaultInjectionMode | null>(null)
 const switching = ref(false)
 const starting = ref(false)
+const startError = ref<string | null>(null)
 const drawerOpen = ref(false)
 const selectedNode = ref<DagNodeKey | null>(null)
 
@@ -58,6 +59,7 @@ async function onProfileChange(profile: Profile) {
 
 async function onWorkflowModeChange(mode: WorkflowMode) {
   switching.value = true
+  startError.value = null
   try {
     const res = await setWorkflowMode(mode)
     workflowMode.value = res.workflowMode
@@ -84,11 +86,33 @@ async function onStartRun() {
   // backfill(), which may not have resolved yet on a fresh navigation
   // straight to /dag, silently no-opping this click with no feedback.
   starting.value = true
+  startError.value = null
   try {
     dagTopology.value = await initDagRun()
   } catch (err) {
-    // Surface the real reason (e.g. "workflow_mode is not
-    // recoverable_dag") rather than failing silently.
+    // Found live: this used to only console.error — invisible during
+    // normal use, so a 409 here (workflow_mode switched via this page's
+    // own selector, but the CURRENT run was already created under the
+    // old mode — switching the selector alone never retroactively
+    // changes it) looked exactly like "nothing happens" from the
+    // button's own perspective. The real reason from factory-api
+    // (server/routes/gateway's own [...path].ts now forwards it instead
+    // of a generic message) is what actually tells the operator what to
+    // do next — surface it here rather than only in devtools.
+    //
+    // ofetch's own FetchError.data is the WHOLE parsed Nitro error body
+    // (found live — it is not, as it might look, just the inner `data`
+    // field the gateway route passed to createError): that body's own
+    // `statusMessage` is where the gateway's forwarded factory-api
+    // message actually lands. The body also carries a same-named but
+    // unrelated top-level `error: true` flag (Nitro's own "this is an
+    // error response" marker) — reading `err.data?.error` here would
+    // silently read that boolean instead of the real message, which is
+    // exactly what happened before this was checked against the real
+    // response shape rather than assumed.
+    const body = (err as { data?: { statusMessage?: string; message?: string } })?.data
+    startError.value =
+      body?.statusMessage || body?.message || 'Failed to start the micro-DAG run — see server logs.'
     console.error('Failed to start micro-DAG run:', err)
   } finally {
     starting.value = false
@@ -137,6 +161,7 @@ async function onRetry(nodeKey: DagNodeKey) {
     <p v-else class="dag-start-hint">
       Switch Execution Model to "Recoverable Micro-DAG (v2)" to start a v2 run.
     </p>
+    <p v-if="startError" class="dag-error">{{ startError }}</p>
 
     <DagVisualizer :topology="dagTopology" @select-node="onSelectNode" @retry="onRetry" />
 
@@ -165,5 +190,10 @@ async function onRetry(nodeKey: DagNodeKey) {
   margin: 0;
   font-size: 12px;
   color: var(--color-text-muted);
+}
+.dag-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-state-critical);
 }
 </style>
