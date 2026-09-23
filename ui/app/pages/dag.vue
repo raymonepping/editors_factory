@@ -179,7 +179,10 @@ async function onRetry(nodeKey: DagNodeKey) {
         <span v-else>Start Micro-DAG Run</span>
       </button>
       <p class="dag-start-hint">
-        Uses the current run (reset the factory first for a clean start).
+        Uses the current run. Switching Execution Model does not change a
+        run already in progress or already reset — if you just switched
+        to Recoverable Micro-DAG, reset the factory now so the next run
+        picks it up, then start.
       </p>
     </div>
     <p v-else class="dag-start-hint">
