@@ -26,7 +26,11 @@
 // same evidence rows audit.js already writes, without the added
 // complexity of forged span contexts this pass doesn't need.
 
-import { NodeTracerProvider, ConsoleSpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import {
+  NodeTracerProvider,
+  ConsoleSpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-node";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { trace } from "@opentelemetry/api";
 

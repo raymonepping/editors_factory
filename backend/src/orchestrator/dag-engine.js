@@ -464,7 +464,11 @@ export async function completeAttempt(
 ) {
   return withDagSpan(
     "dag.complete",
-    { "factory.run_id": runId, "factory.node_id": nodeId, "factory.attempt_id": attemptId },
+    {
+      "factory.run_id": runId,
+      "factory.node_id": nodeId,
+      "factory.attempt_id": attemptId,
+    },
     async (span) => {
       await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
       const pool = getPool();
@@ -500,7 +504,11 @@ export async function failAttempt(
 ) {
   return withDagSpan(
     "dag.fail",
-    { "factory.run_id": runId, "factory.node_id": nodeId, "factory.attempt_id": attemptId },
+    {
+      "factory.run_id": runId,
+      "factory.node_id": nodeId,
+      "factory.attempt_id": attemptId,
+    },
     async (span) => {
       await assertCurrentFencingToken(nodeId, attemptId, fencingToken);
       const pool = getPool();
@@ -538,7 +546,11 @@ export async function failAttempt(
 export async function retryNode(runId, nodeKey, operatorId) {
   return withDagSpan(
     "dag.retry",
-    { "factory.run_id": runId, "factory.node_key": nodeKey, "factory.operator_id": operatorId || "operator" },
+    {
+      "factory.run_id": runId,
+      "factory.node_key": nodeKey,
+      "factory.operator_id": operatorId || "operator",
+    },
     () => retryNodeInner(runId, nodeKey, operatorId),
   );
 }
