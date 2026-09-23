@@ -125,9 +125,24 @@ function onSelectNode(nodeKey: DagNodeKey) {
 }
 
 async function onRetry(nodeKey: DagNodeKey) {
+  // Same silent-failure shape onStartRun had — found while checking this
+  // page for other spots with the same gap, not from a separate report.
+  // A rejected retry (node not actually 'failed' anymore, a viewer
+  // without the operator role, a stale run) failed with no feedback at
+  // all beyond an uncaught rejection in devtools. Reuses startError/
+  // .dag-error rather than adding a second error slot — both are "the
+  // last DAG action failed," shown in the same place.
   if (!dagTopology.value?.run) return
-  await retryDagNode(dagTopology.value.run.run_id, nodeKey)
-  refreshDagTopology(dagTopology.value.run.run_id)
+  startError.value = null
+  try {
+    await retryDagNode(dagTopology.value.run.run_id, nodeKey)
+    refreshDagTopology(dagTopology.value.run.run_id)
+  } catch (err) {
+    const body = (err as { data?: { statusMessage?: string; message?: string } })?.data
+    startError.value =
+      body?.statusMessage || body?.message || `Failed to retry "${nodeKey}" — see server logs.`
+    console.error(`Failed to retry node "${nodeKey}":`, err)
+  }
 }
 </script>
 
