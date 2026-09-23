@@ -111,8 +111,17 @@ async function onStartRun() {
     // exactly what happened before this was checked against the real
     // response shape rather than assumed.
     const body = (err as { data?: { statusMessage?: string; message?: string } })?.data
-    startError.value =
+    const reason =
       body?.statusMessage || body?.message || 'Failed to start the micro-DAG run — see server logs.'
+    // The real reason above is factory-api's own message, written for an
+    // API caller (it names the PUT/POST route to call) — accurate, but not
+    // actionable from the dashboard itself, which has no such route to
+    // click. Every 409 this button can hit shares the same real fix
+    // regardless of the specific reason: the CURRENT run doesn't match
+    // what's needed anymore, and a reset starts a fresh one that does.
+    // Keep the real reason visible (don't replace it — it's still the
+    // honest "what actually happened"), just add the concrete next step.
+    startError.value = `${reason} Reset the factory, then try again.`
     console.error('Failed to start micro-DAG run:', err)
   } finally {
     starting.value = false
