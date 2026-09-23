@@ -95,6 +95,38 @@ The important result is enforced denial. A model may still propose a destructive
 | PostgreSQL grants | Broad mutation | Read plus narrow status function |
 | Demonstrated outcome | Authority expansion can cause damage | Layered controls contain it |
 
+## v2 recoverable-DAG walkthrough
+
+The runs above use v1's fixed A→B→C chain, still the default. v2 adds a second workflow mode — a micro-DAG of triage → investigate → {remediate, notify} → verify nodes that agents claim and attempt individually, where a failed node retries on its own without discarding the rest of the run's evidence. See [What's new in v2](v2-whats-new.md) for the full story behind why this exists.
+
+```sh
+make demo-v2-good
+```
+
+This sets `workflowMode` to `recoverable_dag`, selects the GOOD profile, arms `fault_injection_mode=fail_after_mutation`, resets, and starts the DAG run — the same live agent-a/b/c/d containers drive it forward from there, exactly as `make demo-good` does for the fixed chain. Watch it at `http://localhost:3000/dag`.
+
+`remediate` hits the injected failure on its first attempt. Its own database mutation still committed before the failure (`fail_after_mutation` fails after, not before), so the run visibly stalls with the underlying data already changed. Retry it from the DAG visualizer's own Retry button, or directly:
+
+```sh
+CLI_TOKEN=$(grep '^FACTORY_CLI_OPERATOR_TOKEN=' .env | cut -d= -f2-)
+curl -X POST -H "X-Factory-Cli-Token: $CLI_TOKEN" \
+  http://localhost:3001/api/dag/runs/<run_id>/nodes/remediate/retry
+```
+
+The retried attempt gets its own fresh, newly issued credential — not the first attempt's still-active one — and completes without re-applying the mutation a second time: the business-effect ledger recognizes the change already happened and reports it, rather than doubling it.
+
+```sh
+make demo-v2-bad
+```
+
+Runs the same fault-and-retry sequence under BAD's broader role ceiling. The honest risk here is that every fresh attempt still gets the broader `factory-bad-role`, not that a lease gets reused — this implementation revokes credentials unconditionally in both profiles (`.claude/DESIGN.md` decision #13), so a stuck credential lease from Attempt 1 is never silently handed to Attempt 2.
+
+```sh
+make test-v2-e2e
+```
+
+Runs `backend/test/v2-dag-acceptance.test.js` against the live stack — the same fault-injection-and-retry sequence, exercised as an automated acceptance suite rather than a manual walkthrough, including `insert_product` and `delete_products` individually (not only by code symmetry with the other three mutating routes).
+
 ## A third path: supervised credential approval
 
 BAD and GOOD both run unattended by design — that is the whole point of

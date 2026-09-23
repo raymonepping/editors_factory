@@ -235,6 +235,12 @@ changed where the value is generated and audited, not who can reach
 Vault. See [Static secrets (Vault KV)](../docs/security-model.md#static-secrets-vault-kv)
 for the full design.
 
+## Attempt-scoped authority (v2)
+
+The recoverable micro-DAG workflow mode (`demo_runs.workflow_mode = "recoverable_dag"`) does not relax any rule on this page. The delegation chain, the fixed recipient ceilings, the BAD/GOOD authority matrices, and "no agent container ever holds a Vault credential" all hold identically — v2 changes the unit of execution and retry, not the identity or authority model layered on top of it.
+
+What v2 adds is a smaller unit of authority than "the whole run": each attempt at a node gets its own credential, requested and revoked the same way v1's single request-per-run always was, just once per attempt instead of once per run. A retried attempt is a completely fresh authority grant, never an extension or reuse of a failed attempt's — this project's stronger, already-proven principle (application code never branches on profile for security-relevant behavior) extends unmodified: `revokeAttempt()` runs the same way for every attempt, BAD and GOOD alike, so BAD's real v2 risk stays what BAD's real v1 risk always was — a broader role ceiling on every attempt — not a fabricated lease-reuse shortcut.
+
 ## Containment rules (hard requirements, every agent container)
 
 ```text

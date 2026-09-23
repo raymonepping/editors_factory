@@ -42,6 +42,12 @@ In the BAD profile, Agent C receives a fixed, overbroad ceiling backed by `facto
 
 In the GOOD profile, the requested envelope is intersected with Agent C's bounded ceiling. The `factory-good-role` can read the required records and call the narrow `set_order_status` database function. Destructive operations fail at application policy and database privilege boundaries.
 
+## v2: a second execution engine
+
+`demo_runs.workflow_mode` selects between two engines registered in `backend/src/orchestrator/index.js`: `fixed_chain` (the task flow above, still the default) and `recoverable_dag`, a micro-DAG of triage → investigate → {remediate, notify} → verify nodes that agents claim, attempt, and can retry individually. The two engines are plain-function registrations under one contract, not a class hierarchy — no other backend module uses `class`, so this one doesn't either.
+
+Both engines run the same four agents under the same authority model and the same BAD/GOOD profile split described above. What changes is the unit of retry: the fixed chain restarts the whole run on failure, while the micro-DAG retries just the failed node, on its own newly issued credential. See [What's new in v2](v2-whats-new.md) for the full story and [Security model](security-model.md#attempt-scoped-credentials-v2) for how credential scoping works per attempt.
+
 ## Evidence model
 
 The domain tables are `suppliers`, `products`, `inventory`, `orders`, and `order_items`. Separate evidence tables record:
@@ -64,6 +70,6 @@ These versions describe the current repository configuration. Container tags and
 
 ## Deliberate limits
 
-The Factory is a demonstration, not a general agent platform. The delegation chain is fixed, agent bearer tokens are static local secrets, and the order processor is a narrative concept rather than a separate service. The API records a restart action but does not restart an external workload. Dashboard access requires a Keycloak-authenticated session; see [Security model](security-model.md) for the enforced human and agent identity boundaries.
+The Factory is a demonstration, not a general agent platform. The delegation chain (human → Agent A → Agent B → Agent C, with Agent D observing) is fixed in both workflow modes — v2 makes node execution order retryable, not the delegation graph itself. Agent bearer tokens are static local secrets, and the order processor is a narrative concept rather than a separate service. The API records a restart action but does not restart an external workload. Dashboard access requires a Keycloak-authenticated session; see [Security model](security-model.md) for the enforced human and agent identity boundaries.
 
 See [Security model](security-model.md) for the enforced boundaries and [Project history](project-history.md) for the decisions behind this shape.

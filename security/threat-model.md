@@ -102,6 +102,14 @@ re-scoped through this document before implementation.
 - Run `commit_gh --scan` (or the project's equivalent secret scanner)
   before every commit that touches `compose/`, `.env*`, or `scripts/`.
 
+## New consideration from v2: a stale attempt racing a retry
+
+Retry introduces a threat class v1's single fixed handoff has no room for: v1 has exactly one attempt per task, so there is nothing for a "second attempt" to race against. v2's `remediate` node can be retried while a slow or hung first attempt is still technically running — a genuine split-brain risk if that stale attempt were able to complete its work (or report success) after a fresh attempt already superseded it.
+
+`dag_nodes.current_fencing_token` closes this. Claiming a node (initial claim or retry) atomically increments the fencing token as part of the same `UPDATE`; every subsequent call for that attempt — heartbeat, complete, fail — must present the fencing token it was issued, and a mismatch is rejected as stale rather than honored (`backend/src/orchestrator/dag-engine.js`'s `renewHeartbeat`, `completeAttempt`, `failAttempt`). A superseded first attempt cannot claim success, cannot extend its own lease, and cannot silently overwrite a retried attempt's outcome — it can only ever fail closed once retried past.
+
+This is not a new boundary layered on for this document; it is the mechanism that makes "retry the work, not the authority" actually safe to allow at all, and belongs in the threat model because retry is the one v2 capability with no v1 equivalent to inherit protection from.
+
 ## Repeatability and safety requirements (non-negotiable)
 
 Carried forward from the original design conversations

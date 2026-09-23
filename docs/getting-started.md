@@ -242,7 +242,7 @@ curl -fsS http://localhost:3001/api/demo/mode | jq
 curl -fsS http://localhost:11434/api/tags | jq
 ```
 
-Open `http://localhost:3000` and sign in with one of the accounts provisioned by `make identity-bootstrap`, then continue with the [Demo guide](demo-guide.md).
+Open `http://localhost:3000` and sign in with one of the accounts provisioned by `make identity-bootstrap`, then continue with the [Demo guide](demo-guide.md). No provisioning step above is v2-specific — `make demo-v2-good`/`make demo-v2-bad` work once this setup is complete; see [What's new in v2](v2-whats-new.md).
 
 ## After a host restart
 

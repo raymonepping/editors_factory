@@ -17,6 +17,7 @@ Use this checklist from a clean, configured development environment. Record any 
 - [ ] Run `make compose-config`.
 - [ ] Run `npm --prefix backend test`.
 - [ ] Run `npm --prefix agents test`.
+- [ ] Run `make test-v2-e2e` (the v2 recoverable-DAG acceptance suite) against the live stack.
 - [ ] Run `npm --prefix ui run typecheck`.
 - [ ] Run `npm --prefix ui run build`.
 - [ ] Confirm Terraform formatting with `terraform fmt -check -recursive terraform`.
@@ -44,6 +45,8 @@ Use this checklist from a clean, configured development environment. Record any 
 - [ ] Confirm Agent C receives bounded effective authority and a `factory-good-role` lease.
 - [ ] Confirm a destructive request is denied and no destructive database change occurs.
 - [ ] Confirm Agent D records containment evidence.
+- [ ] Run `make demo-v2-good`; confirm the DAG run starts, `remediate`'s injected fault surfaces, and a manual retry from `/dag` completes without double-applying the mutation.
+- [ ] Run `make demo-v2-bad`; confirm every attempt still receives a freshly issued, freshly revoked `factory-bad-role` credential rather than a reused lease.
 - [ ] Run `make reset` once more and leave the environment clean.
 
 ## Documentation and packaging

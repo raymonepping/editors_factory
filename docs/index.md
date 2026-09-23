@@ -12,6 +12,7 @@ The Factory shows how authority can expand across an agent delegation chain and 
 
 ## Reference
 
+- [What's new in v2](v2-whats-new.md) is the canonical overview of the recoverable micro-DAG execution mode — start here for v2.
 - [API reference](api-reference.md) lists public, human-triggered, and agent-authenticated endpoints.
 - [Troubleshooting](troubleshooting.md) records known failure modes and fixes found during implementation.
 - [Project history](project-history.md) traces the design from the initial concept to the current system.

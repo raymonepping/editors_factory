@@ -9,6 +9,8 @@ Both profiles use the same agents, API routes, and database tools. The differenc
 
 > Discovery creates evidence. It does not create authority.
 
+A second execution mode, the recoverable micro-DAG, lets a failed step retry on its own fresh, short-lived credential instead of discarding the whole run. See [What's new in v2](docs/v2-whats-new.md).
+
 ## Start here
 
 Read the [documentation index](docs/index.md) for the guided path. New operators should begin with [Getting started](docs/getting-started.md), then use the [Demo guide](docs/demo-guide.md).
@@ -51,6 +53,7 @@ First-time provisioning has additional Vault and Terraform steps. Follow [Gettin
 
 ## Documentation
 
+- [What's new in v2](docs/v2-whats-new.md)
 - [Architecture](docs/architecture.md)
 - [Security model](docs/security-model.md)
 - [Demo guide](docs/demo-guide.md)

@@ -127,6 +127,24 @@ Two findings from building this, live-verified rather than assumed:
   short AppRole-configured TTL (5 minutes) is what actually bounds it
   now, not an explicit revoke.
 
+### Attempt-scoped credentials (v2)
+
+The recoverable micro-DAG workflow mode (`demo_runs.workflow_mode = "recoverable_dag"`) does not change any boundary above — it applies the same enforcement layers per attempt instead of once per run. Every attempt at the `remediate` node requests its own credential through `POST /api/credentials`, the same route and the same profile-based role selection v1 uses, and `revokeAttempt()` (`backend/src/services/revocation.js`) revokes it unconditionally when that attempt ends, success or failure, in both BAD and GOOD. This is deliberate: application code never branches on profile for security-relevant behavior (`agents/identities/agent-c.js`'s own header comment says so), so BAD's real risk for v2 is the same as v1's — a broader role ceiling on every fresh attempt — not a skipped revocation or a reused lease. Discovery's D-103 ("credential lease reuse detected," below) should never legitimately fire under this implementation.
+
+The Sentinel policy guarding `database/creds/*` cannot apply one shared metadata requirement to both workflow modes — v2 attempts carry no `task_id` at all, so a rule requiring one would reject every v2 request, not just retries. The policy branches per mode instead: `(fixed_chain AND has_task) OR (recoverable_dag AND has_attempt_fields)`, with `factory_workflow_mode` set on every minted child token so Sentinel can tell which branch applies.
+
+### Business-effect idempotency (v2)
+
+A retried node must not double-apply a mutation that already succeeded before the attempt was reported as failed. Each of the five mutating routes (`update_order_status`, `delete_orders`, `update_price`, `insert_product`, `delete_products`) claims an idempotency-ledger row keyed to the attempt before mutating, and a retry with an identical payload checks that ledger before repeating the mutation rather than executing it again.
+
+Ordering here is itself a security property, not just a performance detail: the fault-injection check must run before the ledger claim, not after. It didn't, originally — the claim ran first, so a fault injected on attempt 1 still marked the ledger claimed for a mutation that had never actually happened, and every identical retry after that silently reported "already applied by a prior attempt" for a change that never occurred. Found live by querying PostgreSQL directly after a full retry cycle and seeing an order permanently stuck at its original status despite the API reporting success. The check now runs first in all five routes.
+
+Deterministic fault injection (`fault_injection_mode`: `fail_before_mutation`, `fail_after_mutation`, `lock_timeout`) exists to make this demonstrable on command. `lock_timeout` is a genuine PostgreSQL lock contention, not a synthetic error — two real connections on the same agent-issued credential, one holding a table lock, the other timing out against it under `SET LOCAL lock_timeout`. It only produces genuine contention under `factory-bad-role`: `factory-good-role`'s SELECT-only grant cannot take any explicit table lock beyond the automatic `ACCESS SHARE` mode a plain `SELECT` already uses, confirmed against the live database rather than assumed. GOOD-profile attempts get an explanatory synthetic fallback instead.
+
+### Supervised approval and v2
+
+The Control Groups anomaly heuristic ("a second credential request within one run is a genuine anomaly") is v1-specific, and deliberately does not apply to v2 retries. `POST /api/credentials` checks for an authenticated v2 attempt context before it ever reaches that heuristic: a retried `remediate` node (attempt number greater than 1) issues its fresh credential directly and unattended, the same as attempt 1 does — a second, third, or later request within a v2 run is the structurally expected shape of a retry, not an anomaly to route through human approval. `hasPriorCredentialInRun`'s run-level check only ever executes for v1 traffic, which has no attempt context to bypass it with.
+
 ### Network isolation
 
 Vault servers attach only to `factory-vault-internal`. Agents, PostgreSQL, Ollama, and the dashboard attach to `factory-control`. The API is the only application component on both networks. Host ports bind to `127.0.0.1`.
@@ -148,6 +166,15 @@ The exact action strings and ceilings are defined in `backend/src/policy.js`. Th
 ## Audit and detection
 
 The API publishes evidence after writes to the evidence tables. Agent D applies deterministic classifications, then may use Ollama to produce a short narrative. Finding identifiers and correlation fields tie detections to source events.
+
+Four v2-specific signals extend the same deterministic classification scheme:
+
+| Code | Severity | Trigger |
+| --- | --- | --- |
+| D-101 | ELEVATED | A node is claimed on its second or later attempt — a fresh mandate evaluation is required, since no authority carries over from a prior attempt. |
+| D-102 | ELEVATED | A downstream node is invalidated following an upstream retry — its prior evidence and authority are no longer trusted. |
+| D-103 | CRITICAL | The same Vault lease appears on two different attempts of a node — authority did not reset between attempts. Should never legitimately fire under this implementation, since `revokeAttempt()` runs unconditionally; if it does, that is a real bug, not an intended demonstration. |
+| D-104 | CRITICAL | An attempt that held a credential shows no observed revocation within the grace window — a suspected lingering lease, worth confirming against `scripts/vault-audit-crosscheck.py`. |
 
 The dashboard's traffic-light state reflects evidence:
 

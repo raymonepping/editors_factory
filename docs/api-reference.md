@@ -56,6 +56,31 @@ curl -fsS -X PUT http://localhost:3001/api/demo/mode \
 
 Use `make reset`, rather than calling the reset endpoint alone, when a full domain-data reset is required.
 
+## v2: workflow mode and fault injection
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/demo/workflow-mode` | None | Return the active run's `workflowMode` |
+| `PUT` | `/api/demo/workflow-mode` | Human boundary | Set `fixed_chain` or `recoverable_dag` for the next run |
+| `GET` | `/api/demo/fault-injection-mode` | None | Return the active run's `faultInjectionMode` |
+| `PUT` | `/api/demo/fault-injection-mode` | Human boundary | Set `none`, `fail_before_mutation`, `fail_after_mutation`, or `lock_timeout` |
+
+`workflowMode` and `profile` (BAD/GOOD) are orthogonal — switching one never touches the other. Both `PUT` routes reject with `409` while a v2 DAG run is genuinely in progress (`dag_runs.status = 'running'`), since switching mid-run would orphan that run's nodes from a workflow mode they no longer match.
+
+## v2: recoverable micro-DAG
+
+| Method | Path | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/dag/runs` | Human boundary | Build the DAG's nodes and edges for the active run (requires `workflowMode = "recoverable_dag"` already set) |
+| `GET` | `/api/dag/runs/:id` | Human boundary | Return the run's full topology and node/attempt state |
+| `POST` | `/api/dag/tasks/claim` | Agent bearer token | Claim the next runnable node for the calling agent; `204` when nothing is runnable |
+| `POST` | `/api/dag/tasks/:nodeId/heartbeat` | Attempt-scoped JWT | Renew a claimed node's lease while work is in progress |
+| `POST` | `/api/dag/tasks/:nodeId/attempts/:attemptId/complete` | Attempt-scoped JWT | Report an attempt's success with `outputEvidence` |
+| `POST` | `/api/dag/tasks/:nodeId/attempts/:attemptId/fail` | Attempt-scoped JWT | Report an attempt's failure with `errorDetails` |
+| `POST` | `/api/dag/runs/:id/nodes/:nodeKey/retry` | Human boundary | Retry one failed node in isolation; the only retry trigger — the dashboard's own retry button and the acceptance tests both call this route |
+
+The micro-DAG is triage → investigate → {remediate, notify} → verify. Each node is claimed with the agent's static bearer token (there is no attempt yet to bind a JWT to before a claim succeeds); every subsequent call for that attempt requires the attempt-scoped JWT issued at claim time, bound to that node and attempt ID specifically — a token from one attempt cannot heartbeat, complete, or fail a different attempt. `remediate` requests its own attempt-scoped Vault database credential the same way v1's Agent C does, revoked when that attempt ends.
+
 ## Tasks and delegation
 
 | Method | Path | Authentication | Purpose |

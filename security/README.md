@@ -15,7 +15,9 @@ specifies.
 - [`authority-model.md`](./authority-model.md) — the identity, access,
   trust, observability, containment, and revocation model this project
   demonstrates; the exact BAD vs. GOOD authority matrices for every
-  agent; the delegation rules enforced by the backend.
+  agent; the delegation rules enforced by the backend. Holds identically
+  for the v2 recoverable-DAG workflow mode — see its own "Attempt-scoped
+  authority (v2)" section and [What's new in v2](../docs/v2-whats-new.md).
 - [`threat-model.md`](./threat-model.md) — what this project is and is
   not trying to prove, the containment boundary, and the non-goals that
   keep the demo honest and safe to run repeatedly, live, on a laptop.

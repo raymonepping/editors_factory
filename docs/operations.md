@@ -78,6 +78,27 @@ Before clearing anything, it also runs the [audit cross-check](#verifying-the-ev
 
 Use reset before switching from BAD to GOOD when comparing results.
 
+## v2 workflow mode and fault injection
+
+```sh
+make demo-v2-good
+make demo-v2-bad
+make test-v2-e2e
+```
+
+`demo-v2-good`/`demo-v2-bad` set `workflowMode` to `recoverable_dag`, select the profile, arm `fault_injection_mode=fail_after_mutation`, reset, and start the DAG run — the live agent containers drive it from there. `test-v2-e2e` runs `backend/test/v2-dag-acceptance.test.js` against the live stack, the automated equivalent of that same fault-and-retry sequence.
+
+Switch modes directly for a specific fault or profile combination the two targets above don't cover:
+
+```sh
+curl -X PUT -H "X-Factory-Cli-Token: $CLI_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"workflowMode":"recoverable_dag"}' http://localhost:3001/api/demo/workflow-mode
+curl -X PUT -H "X-Factory-Cli-Token: $CLI_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"faultInjectionMode":"lock_timeout"}' http://localhost:3001/api/demo/fault-injection-mode
+```
+
+Both reject with `409` while a v2 DAG run is genuinely in progress for the active run. See [Demo guide](demo-guide.md#v2-recoverable-dag-walkthrough) for the full walkthrough, including how to retry a failed node.
+
 ## Database maintenance
 
 Migrations are ordered SQL files under `backend/src/migrations/` and are designed for repeat application:

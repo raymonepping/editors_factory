@@ -178,6 +178,43 @@ sequenceDiagram
   API->>PG: Record revocation evidence
 ```
 
+## v2: recoverable micro-DAG topology
+
+This diagram shows the second workflow mode's node graph, alongside the fixed A→B→C chain above rather than in place of it. Each node is independently claimable and retryable; a failed node's attempt does not discard the run's other evidence.
+
+```mermaid
+flowchart TB
+  START(["Run created<br/>workflow_mode = recoverable_dag"]) --> TRIAGE
+
+  subgraph NODES["Micro-DAG nodes — each claimed, attempted, and retried independently"]
+    TRIAGE["triage<br/>Agent A"]
+    INVEST["investigate<br/>Agent B"]
+    REMED["remediate<br/>Agent C"]
+    NOTIFY["notify<br/>Agent B"]
+    VERIFY["verify<br/>Agent B"]
+    TRIAGE --> INVEST
+    INVEST --> REMED
+    INVEST --> NOTIFY
+    REMED --> VERIFY
+    NOTIFY --> VERIFY
+  end
+
+  REMED -.->|"attempt-scoped credential<br/>issued and revoked per attempt"| CRED["Vault database secrets engine"]
+  REMED -.->|"fault_injection_mode<br/>fail_before_mutation / fail_after_mutation / lock_timeout"| FAULT["Deterministic fault injection"]
+  FAULT -.->|"failed attempt"| RETRY["Retry endpoint<br/>POST /api/dag/runs/:id/nodes/:nodeKey/retry"]
+  RETRY -.->|"new attempt, new credential"| REMED
+
+  classDef node fill:#e8fff4,stroke:#059669,color:#052e2b,stroke-width:2px
+  classDef control fill:#fff7d6,stroke:#ca8a04,color:#422006,stroke-width:2px
+  classDef vault fill:#fff0f0,stroke:#dc2626,color:#450a0a,stroke-width:2px
+
+  class TRIAGE,INVEST,REMED,NOTIFY,VERIFY node
+  class FAULT,RETRY control
+  class CRED vault
+```
+
+Agent D observes this workflow mode the same way it observes the fixed chain: reading the event stream independently, never joining the delegation graph.
+
 ## Identity and authorization boundaries
 
 | Identity domain | Credential presented at runtime | Enforced boundary |
@@ -222,6 +259,7 @@ The API and identity secret bootstrap job bridge the control and Vault networks 
 | Agent identity | `backend/src/auth/agentJwt.js`, `backend/src/middleware/agentJwtAuth.js`, `backend/src/routes/agentToken.js` |
 | Delegation and authority | `backend/src/routes/delegations.js`, `backend/src/policy.js` |
 | Vault brokerage | `compose/vault/`, `backend/src/vault.js`, `terraform/vault-platform/`, `terraform/vault-sentinel/` |
+| v2 dual-engine orchestration | `backend/src/orchestrator/index.js`, `backend/src/services/revocation.js`, `backend/src/routes/dag.js` |
 | Dynamic PostgreSQL roles | `terraform/vault-database/`, `backend/src/routes/credentials.js` |
 | Evidence and detection | `backend/src/audit.js`, `backend/src/routes/events.js`, `agents/identities/agent-d.js` |
 | Static secret delivery | `terraform/vault-secrets/`, `scripts/agents-secrets-sync.sh`, `compose/identity/identity-secrets/` |

@@ -54,6 +54,16 @@ The project retains a concise principle from its design work:
 
 Its operator-facing theme is equally practical: break the factory, learn from it, reset, and repeat.
 
+## Recoverable execution (v2)
+
+The project's first public writeup of its thesis, a five-part thread about agentic authority risk, drew one real question in the replies: does a partial failure restart the whole DAG, or just the failed branch? The honest answer at the time was that it restarted everything — the fixed chain had no smaller unit of recovery than the whole run. v2 built the answer instead of just stating the limitation.
+
+A second workflow mode, the recoverable micro-DAG, now runs beside the original fixed chain rather than replacing it: `demo_runs.workflow_mode` and `authority_profile` became orthogonal per-run controls so neither implementation constrains the other. The same four agents claim, attempt, and can individually retry triage, investigate, remediate, and notify nodes, each attempt bound to its own freshly issued, short-lived credential.
+
+Building it surfaced two corrections worth keeping as history rather than smoothing over. The Sentinel policy guarding database credential paths could not simply add a v2 requirement on top of v1's own — v2 attempts carry no `task_id` at all, so a shared "must have a task" rule would have rejected every v2 request, not just retries; the policy now branches per workflow mode instead of layering one shared rule. Separately, live testing surfaced a real ordering bug: the code that claims a mutation's idempotency-ledger row ran before the code that could deliberately fail the attempt, so a fault injected on the first attempt still marked the ledger as claimed for a mutation that had never actually happened — every retry after that silently reported success without ever doing the work. Reordering the check ahead of the claim, and confirming the fix against a live retry, closed it.
+
+The same architecture that let a role be intentionally overprivileged for the BAD demonstration also drew a boundary v1 had not needed to test: PostgreSQL's own privilege model requires real mutation grants to take an explicit table lock, not just `SELECT`, so a genuinely simulated lock-timeout fault (two real connections, one holding the lock, the other timing out against it) is only possible under the broad BAD role. The bounded GOOD role gets an honest, explanatory synthetic fallback instead of a fault this project cannot make real for it.
+
 ## Source precedence
 
 The historical files under `input/` include proposals that were revised during implementation. Examples include an earlier backend language assumption, direct Agent C database access, older model choices, and pre-Agent D architecture.
