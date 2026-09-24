@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-24_v3-root-credential-path-built"
+  purpose: "v3 built as a real, separate root-scoped Vault-native OAuth credential path (prompts/v3/03_01) — corrected the earlier NO-GO verdict, proven end-to-end through the deployed backend, v1/v2 confirmed untouched throughout"
+  captured_at: "2026-09-24T18:15:59Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-24_pre-v3-root-credential-path"
+  git:
+    commit: "e4d8cb12ec650a2a54dfe31e0951d6b48a4ca14a"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
