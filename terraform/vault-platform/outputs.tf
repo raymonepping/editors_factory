@@ -1,3 +1,12 @@
+# prompts/v3/03_01: consumed by
+# scripts/vault-v3-agent-registry-bootstrap.sh, which needs this
+# entity's own id and can't look it up by name (identity/entity/name/*
+# isn't in vault-admin's grant — this output avoids adding one just
+# for a lookup a lower-cost path already covers).
+output "v3_agent_entity_id" {
+  value = vault_identity_entity.v3_agent.id
+}
+
 output "factory_namespace" {
   value = vault_namespace.factory.path
 }

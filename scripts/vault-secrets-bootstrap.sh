@@ -49,6 +49,17 @@ cli_operator_token=$(current_or_generate secret/backend/cli-operator-token value
 oidc_client_secret=$(current_or_generate secret/identity/oidc-client-secret value)
 ldap_admin_password=$(current_or_generate secret/identity/ldap-admin-password value)
 keycloak_admin_password=$(current_or_generate secret/identity/keycloak-admin-password value)
+# prompts/v3/03_01: unlike every value above, this one is never
+# randomly generated here — it must be a real RSA private key matching
+# the public key registered in the v3 oauth-resource-server profile
+# (terraform/vault-platform/v3-root-credential-path.tf). Generated once
+# via `openssl genrsa` into .secrets/vault/v3-jwt-signing-key.pem
+# (gitignored); this reads the current Vault value if one already
+# exists (idempotent pass-through, same as every value above), else
+# falls back to that generated file rather than current_or_generate's
+# own openssl-rand-hex fallback, which would produce a value that
+# doesn't match the registered public key at all.
+v3_jwt_signing_key=$(vault kv get -field=value secret/backend/v3-jwt-signing-key 2>/dev/null || cat "$VAULT_PROJECT_ROOT/.secrets/vault/v3-jwt-signing-key.pem")
 
 # terraform/vault-secrets/main.tf's own provider block already declares
 # namespace = "factory" — leaving VAULT_NAMESPACE=factory set here too
@@ -68,7 +79,8 @@ VAULT_TOKEN=$(cat "$ADMIN_TOKEN_FILE") \
   -var="cli_operator_token=$cli_operator_token" \
   -var="oidc_client_secret=$oidc_client_secret" \
   -var="ldap_admin_password=$ldap_admin_password" \
-  -var="keycloak_admin_password=$keycloak_admin_password"
+  -var="keycloak_admin_password=$keycloak_admin_password" \
+  -var="v3_jwt_signing_key=$v3_jwt_signing_key"
 
 echo
 echo "Vault KV seeded. Next steps on a fresh cluster:"

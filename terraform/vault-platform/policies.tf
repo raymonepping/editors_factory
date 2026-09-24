@@ -85,6 +85,13 @@ resource "vault_policy" "factory_api" {
     path "secret/data/identity/oidc-client-secret" {
       capabilities = ["read"]
     }
+
+    # prompts/v3/03_01: factory-api's own v3 demo token-issuer signing
+    # key (terraform/vault-secrets' v3_jwt_signing_key) — read only,
+    # same pattern as every other static secret above.
+    path "secret/data/backend/v3-jwt-signing-key" {
+      capabilities = ["read"]
+    }
   EOT
 }
 
@@ -128,47 +135,13 @@ resource "vault_policy" "identity_secrets" {
   EOT
 }
 
-# prompts/v3/03_00 retest: the baseline ACL layer for an Agent
-# Registry-backed OAuth identity. Found live: Vault's RAR model is
-# intersection-only ("RAR constraints can only restrict access, never
-# granting permissions beyond what ACL policies allow" —
-# developer.hashicorp.com/vault/ai/iam/concepts/rar) and Agent
-# Registry's own ceiling_policies is a cap on that baseline, not a
-# source of it. The identity entity this spike registered lives at
-# root (Agent Registry is root-namespace-only — see the vault-admin
-# policy's own agent-registry/* comment), so it cannot attach
-# `factory-agent-c-cred` by name — that policy is itself
-# namespace-scoped to `factory` and doesn't exist as a name in root's
-# own policy store (confirmed live: even vault-admin, before this
-# resource existed, got a flat "permission denied" just LISTING root's
-# own sys/policies/acl — nothing managed a root-homed policy at all
-# yet). This is the root-homed equivalent, reaching into factory/ the
-# same explicit way vault-admin's own policy already does.
-resource "vault_policy" "agentic_iam_spike_baseline" {
-  name   = "agentic-iam-spike-baseline"
-  policy = <<-EOT
-    path "auth/token/lookup-self" {
-      capabilities = ["read"]
-    }
-
-    path "factory/database/creds/factory-good-role" {
-      capabilities = ["read"]
-    }
-
-    # Self-referencing, deliberately: a target the built-in "default"
-    # policy does NOT already cover (unlike auth/token/lookup-self,
-    # whose earlier success alone couldn't prove this policy's own
-    # grant was what worked). Proves or disproves, cleanly, whether an
-    # OAuth-resource-server-derived identity's attached policy actually
-    # grants real, non-default capability when everything — profile,
-    # Agent Registry, entity, alias, target — stays in one (root)
-    # namespace, sidestepping the separate cross-namespace alias
-    # problem found live in this same spike.
-    path "sys/policies/acl/agentic-iam-spike-baseline" {
-      capabilities = ["read"]
-    }
-  EOT
-}
+# prompts/v3/03_01: the 03_00 spike's own throwaway
+# agentic-iam-spike-baseline policy (its live-testing role now fully
+# superseded by v3-root-credential-path.tf's real v3-agent-baseline)
+# was torn down here, along with the spike's root entity, its aliases,
+# its Agent Registry registration, and the agentic-iam-spike /
+# agentic-iam-spike-clean / factory-spike oauth-resource-server
+# profiles — see prompts/v3/03_01_v3_root_credential_path.md Phase 2.
 
 # prompts/improvements/01_06_vault_root_token_elimination.md — the one
 # token routine Vault administration should ever need after initial
@@ -244,6 +217,14 @@ resource "vault_policy" "vault_admin" {
       capabilities = ["create", "read", "update", "delete", "list"]
     }
 
+    # prompts/v3/03_01: the real v3 credential path's own policy
+    # (terraform/vault-platform/v3-root-credential-path.tf) — same
+    # routine management grant as every other named policy in this
+    # file, root-scoped since v3-agent-baseline is a root-homed policy.
+    path "sys/policies/acl/v3-agent-baseline" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
     # Same retest: the entity Agent Registry's entity_id must reference
     # has to live in the SAME (root) namespace as the registry itself —
     # a factory-namespace entity gets "specified entityId does not
@@ -254,13 +235,6 @@ resource "vault_policy" "vault_admin" {
     }
 
     path "identity/entity/id/*" {
-      capabilities = ["create", "read", "update", "delete"]
-    }
-
-    # Manage the new root-homed agentic-iam-spike-baseline policy
-    # itself (defined above) the same routine way as every other
-    # Terraform-applied resource in this file.
-    path "sys/policies/acl/agentic-iam-spike-baseline" {
       capabilities = ["create", "read", "update", "delete"]
     }
 
@@ -292,6 +266,24 @@ resource "vault_policy" "vault_admin" {
     # factory-scoped one.
     path "sys/config/oauth-resource-server/*" {
       capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+    }
+
+    # prompts/v3/03_01: the separate root-namespace database secrets
+    # engine (terraform/vault-database/database-v3.tf) — same routine
+    # CRUD shape as factory/sys/mounts/database and its own role/config
+    # grants below, just root-scoped since this mount deliberately
+    # lives outside factory/ (see database-v3.tf's own header comment
+    # for why).
+    path "sys/mounts/database-v3" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "database-v3/config/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "database-v3/roles/v3-root-role" {
+      capabilities = ["create", "read", "update", "delete"]
     }
 
     # Found live applying terraform/vault-sentinel with this token: the
