@@ -156,6 +156,88 @@ get_client_secret() {
     { grep -m1 '"value" *:' || true; } | sed -E 's/.*"value" *: *"([^"]*)".*/\1/'
 }
 
+# ── v3 prework (prompts/v3/03_00_v3_prework.md) — a separate,
+# machine-to-machine service-account client for the Vault Agentic IAM /
+# OAuth Resource Server spike. Deliberately not the same client as
+# CLIENT_ID above: this project already treats human, agent, and
+# CLI-operator identity as three separate trust domains
+# (security/authority-model.md), and this is a fourth, not a reuse of
+# the human-login client's own scope. client_credentials only — no
+# redirect URI, no browser flow, matching how an agent (not a human)
+# would actually obtain a token.
+AGENTIC_SPIKE_CLIENT_ID=factory-agentic-iam-spike
+
+get_agentic_spike_client_uuid() {
+  "$KC" get clients -r "$REALM" -q clientId="$AGENTIC_SPIKE_CLIENT_ID" --fields id 2>/dev/null | first_id
+}
+
+ensure_agentic_spike_client() {
+  local uuid
+  uuid=$(get_agentic_spike_client_uuid)
+  if [ -n "$uuid" ]; then
+    echo "  = client exists: $AGENTIC_SPIKE_CLIENT_ID ($uuid)"
+  else
+    "$KC" create clients -r "$REALM" \
+      -s clientId="$AGENTIC_SPIKE_CLIENT_ID" \
+      -s protocol=openid-connect \
+      -s publicClient=false \
+      -s standardFlowEnabled=false \
+      -s implicitFlowEnabled=false \
+      -s directAccessGrantsEnabled=false \
+      -s serviceAccountsEnabled=true \
+      -s redirectUris='[]' \
+      -s webOrigins='[]'
+    uuid=$(get_agentic_spike_client_uuid)
+    echo "  + client created: $AGENTIC_SPIKE_CLIENT_ID ($uuid)"
+  fi
+  echo "$uuid"
+}
+
+# authorization_details claim mapper — a hardcoded-value mapper (not a
+# real per-request value; Keycloak has no native RAR support to draw
+# this from). Good enough for the spike's own Phase 3 question ("what
+# does Vault actually do with this claim"), not a template for how a
+# real v3 would mint one — a real implementation would need the caller
+# (the backend, not Keycloak) to set this per-request, which almost
+# certainly means constructing the JWT differently than a Keycloak
+# client credentials grant does. That distinction belongs in this
+# prompt's own findings, not silently papered over here.
+ensure_authorization_details_mapper() {
+  local uuid="$1"
+  local existing
+  existing=$("$KC" get "clients/$uuid/protocol-mappers/models" -r "$REALM" 2>/dev/null |
+    { grep -B8 '"name" *: *"authorization_details"' || true; } | { grep '"id" *:' || true; } | tail -1 |
+    sed -E 's/.*"id" *: *"([^"]*)".*/\1/')
+  if [ -n "$existing" ]; then
+    echo "  = authorization_details claim mapper exists"
+    return
+  fi
+  # Nested-JSON config value doesn't survive kcadm.sh's own -s key=value
+  # parsing reliably (found live: "Cannot parse the JSON [unknown_error]"
+  # on the first attempt) — a real request body file, not many -s flags,
+  # is the robust way to pass a mapper config this shaped.
+  local body
+  body=$(mktemp)
+  cat > "$body" <<'JSON'
+{
+  "name": "authorization_details",
+  "protocol": "openid-connect",
+  "protocolMapper": "oidc-hardcoded-claim-mapper",
+  "config": {
+    "claim.name": "authorization_details",
+    "claim.value": "[{\"type\":\"vault:path_access\",\"path\":\"database/creds/factory-good-role\",\"capabilities\":[\"read\"]}]",
+    "jsonType.label": "JSON",
+    "id.token.claim": "false",
+    "access.token.claim": "true",
+    "userinfo.token.claim": "false"
+  }
+}
+JSON
+  "$KC" create "clients/$uuid/protocol-mappers/models" -r "$REALM" -f "$body"
+  rm -f "$body"
+  echo "  + authorization_details claim mapper created (spike-only hardcoded value)"
+}
+
 # ── groups claim mapper on the client ─────────────────────────────────────
 ensure_group_claim_mapper() {
   local uuid="$1"
@@ -193,6 +275,11 @@ ensure_group_claim_mapper "$CLIENT_UUID"
 
 SECRET=$(get_client_secret "$CLIENT_UUID")
 
+echo "-> v3 prework: agentic IAM spike client"
+SPIKE_UUID=$(ensure_agentic_spike_client | tail -1)
+ensure_authorization_details_mapper "$SPIKE_UUID"
+SPIKE_SECRET=$(get_client_secret "$SPIKE_UUID")
+
 echo
 echo "================================================================"
 echo "Keycloak realm '$REALM' ready."
@@ -201,4 +288,8 @@ echo "Secret:  $SECRET"
 echo
 echo "Add to .env (never commit):"
 echo "  FACTORY_OIDC_CLIENT_SECRET=$SECRET"
+echo "----------------------------------------------------------------"
+echo "v3 prework spike client: $AGENTIC_SPIKE_CLIENT_ID"
+echo "Spike client secret:     $SPIKE_SECRET"
+echo "(client_credentials only — not used by any running service yet)"
 echo "================================================================"

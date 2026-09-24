@@ -147,6 +147,36 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
     implementation; if it does, that is a real bug, not the intended
     BAD-mode showcase 02_03 originally described.
 
+## v3 (Vault-native Agentic IAM — assessed, not yet buildable)
+
+14. **A v3 layer built on Vault Enterprise's native "Agentic IAM"
+    feature (OAuth Resource Server + Rich Authorization Requests) is
+    blocked, not merely undesigned — checked live, not assumed.** Why:
+    `sys/config/oauth-resource-server` is entitled and fully
+    configurable on this build (`v2.1.0+ent`, built 2026-08-31) — real
+    profile created, real Keycloak-issued JWT minted and decoded
+    correctly — but nothing on this build actually authenticates a
+    request using it. Presenting the JWT as `X-Vault-Token` and as a
+    standard `Authorization: Bearer` header both fail identically
+    (Vault audit log shows `mount_type: ns_token` either way — treated
+    as a literal, invalid native-token lookup, never evaluated against
+    the profile). No new auth-method type exists to mount instead
+    (six candidate names probed, all `400 plugin not found in the
+    catalog`); the existing `jwt` auth method's own config schema has
+    no field referencing this profile. The Agent Registry component the
+    original announcement describes is also absent from this build's
+    OpenAPI spec entirely. Full detail, including the exact live
+    checks run: `prompts/v3/03_00_findings.md`. Left in place as cheap,
+    harmless prework rather than torn down: a dedicated
+    `factory-agentic-iam-spike` Keycloak client, one Vault
+    `oauth-resource-server` profile, and the one narrow `vault-admin`
+    policy grant it needed. Rejected (for now): building any v3
+    application code, `workflow_mode`/`authority_mechanism` switch, or
+    UI against this — there is currently nothing for it to call. Revisit
+    only after confirming, live, on a newer Vault build, that a request
+    can actually authenticate this way — do not assume a version bump
+    alone fixes it.
+
 ## How to use this file
 
 Adding a new deliberate trade-off, discovered live or decided

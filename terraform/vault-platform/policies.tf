@@ -177,6 +177,17 @@ resource "vault_policy" "vault_admin" {
       capabilities = ["update"]
     }
 
+    # prompts/v3/03_00: the v3 prework spike — configuring an OAuth
+    # Resource Server profile (Vault's native Agentic IAM / AI-agent
+    # identity feature) needs `sudo`, confirmed live from this path's own
+    # OpenAPI spec entry (`x-vault-sudo: true`), not assumed. Narrowly
+    # scoped to this one config tree, not a blanket sudo grant — see the
+    # comment above `factory/sys/auth/approle` for why sudo elsewhere on
+    # this policy needs the same live-verify-first discipline.
+    path "factory/sys/config/oauth-resource-server/*" {
+      capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+    }
+
     # Found live applying terraform/vault-sentinel with this token: the
     # Vault Terraform provider itself creates a short-lived, limited
     # child token internally for at least the vault_egp_policy resource
