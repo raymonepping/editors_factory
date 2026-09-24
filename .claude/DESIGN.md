@@ -147,52 +147,94 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
     implementation; if it does, that is a real bug, not the intended
     BAD-mode showcase 02_03 originally described.
 
-## v3 (Vault-native Agentic IAM — assessed, not yet buildable)
+## v3 (Vault-native Agentic IAM — built as a separate root-scoped path)
 
-14. **A v3 layer built on Vault Enterprise's native "Agentic IAM"
-    feature (OAuth Resource Server + Rich Authorization Requests) is
-    blocked, not merely undesigned — checked live, not assumed, on two
-    successive Vault builds.** Why: `sys/config/oauth-resource-server`
-    is entitled and fully configurable — real profile created, real
-    Keycloak-issued JWT minted and decoded correctly — but nothing
-    authenticates a request using it. Presenting the JWT as
-    `X-Vault-Token`, as a standard `Authorization: Bearer` header, and
-    against multiple different endpoints (not just one) all fail
-    identically (Vault audit log shows `mount_type: ns_token` every
-    time — treated as a literal, invalid native-token lookup, never
-    evaluated against the profile). No new auth-method type exists to
-    mount instead (six candidate names probed, all `400 plugin not
-    found in the catalog`); the existing `jwt` auth method's own config
-    schema has no field referencing this profile. The Agent Registry
-    component the original announcement describes is also absent from
-    the OpenAPI spec entirely on both builds tried. First checked on
-    `v2.1.0+ent` (built 2026-08-31); the `v2.1.1+ent` changelog then
-    named a bug fix reading as an exact match for the symptom
-    (`auth/token/lookup-self` 403 for JWT tokens in a non-root
-    namespace, this project's `factory` namespace being exactly that) —
-    strong enough evidence to justify a real upgrade (real Raft
-    snapshot taken first, clean upgrade, all data intact, confirmed
-    with `npm test` both suites green afterward), re-tested the same
-    way, same result. The named fix turned out to describe a narrower
-    case (a JWT Vault *did* authenticate via oauth-resource-server, but
-    then wrongly 403'd on one specific endpoint's own post-auth check)
-    than this project's actual blocker (the JWT is never recognized as
-    an oauth-resource-server candidate at the request-authentication
-    layer at all). Full detail, including every live check run on both
-    builds: `prompts/v3/03_00_findings.md`. Left in place as cheap,
-    harmless prework rather than torn down: a dedicated
-    `factory-agentic-iam-spike` Keycloak client, one Vault
-    `oauth-resource-server` profile, and the one narrow `vault-admin`
-    policy grant it needed. The Vault version bump itself is worth
-    keeping regardless (newer Vault, same license, zero regressions
-    found) — it just didn't change this verdict. Rejected (for now):
-    building any v3 application code, `workflow_mode`/
-    `authority_mechanism` switch, or UI against this — there is
-    currently nothing for it to call. Revisit only after confirming,
-    live, on a future Vault build, that a request can actually
-    authenticate this way — a changelog entry that sounds related is
-    not sufficient evidence on its own, as this decision's own history
-    shows.
+14. **Vault Enterprise's native "Agentic IAM" mechanism (OAuth
+    Resource Server + Agent Registry + Rich Authorization Requests)
+    does genuinely work on `v2.1.1+ent` — the original NO-GO verdict
+    was wrong, corrected by further live testing, not by a Vault
+    upgrade.** The original finding (every JWT presentation failing
+    with `mount_type: ns_token`, Agent Registry "absent from the
+    OpenAPI spec") turned out to be incomplete, not a real product
+    limitation: Agent Registry is a real, present, root-namespace-only
+    built-in that simply isn't enumerated by
+    `sys/internal/specs/openapi` the way user-mounted engines are —
+    found live by testing `agent-registry/` against `sys/mounts`
+    directly with root instead of trusting the OpenAPI listing.
+    Registering an entity there, giving it a real ACL policy AND
+    matching `ceiling_policies`, and binding it via
+    `identity/entity-alias` (issuer + external_id, not the standard
+    alias shape) let a spec-clean RFC 9068 JWT (`typ: at+jwt` in the
+    JOSE header) authenticate to Vault and receive real, non-default
+    capability — proven by requesting a path only that entity's own
+    policy could grant, not something the built-in `default` policy
+    already covered. Two more real, live-confirmed findings along the
+    way: Vault's `typ` check reads the JWT **body**'s `typ` claim, not
+    the header — Keycloak 26.6.4 can set the header correctly
+    (`access.token.header.type.rfc9068=true`) but always adds a legacy
+    `typ: "Bearer"` body claim no protocol mapper can override, which
+    alone blocks it (a hand-crafted JWT was needed to isolate this);
+    and Vault resolves both the `oauth-resource-server` profile lookup
+    and the entity-alias lookup **scoped to the target path's own
+    namespace**, while Agent Registry only accepts root-namespace
+    entities — an entity can satisfy Agent Registry or be resolvable
+    against a `factory`-namespace resource, never both. That last
+    constraint is real and unresolved (see decision 15) — everything
+    else was a testing gap, not a Vault limitation. Full evidence,
+    including the three-way triangulation that isolated the namespace
+    constraint from the Agent Registry gap: `prompts/v3/03_00_findings.md`.
+
+15. **v3 is built as a genuinely separate, additive, root-namespace
+    credential path (`prompts/v3/03_01`) — not a replacement authority
+    mechanism for v1/v2's `factory`-namespace flow.** Why: decision
+    14's namespace constraint (Agent Registry root-only, alias
+    resolution scoped to the target) means the mechanism can only
+    reach resources that also live at root — and every real v1/v2
+    resource deliberately lives inside `factory` (decision 4: root is
+    reserved for administration). Migrating the whole stack into root
+    to make v3 a true drop-in replacement was rejected outright — it
+    would relax a deliberate boundary for every existing thing, not
+    just v3. Built instead: a second, root-mounted `database-v3`
+    secrets engine (same Postgres, genuinely separate mount/role,
+    read-only on `products` only — never `orders` or any evidence
+    table v1/v2 depend on), a real `v3-agent-identity` entity/
+    registration/alias/policy (`terraform/vault-platform/
+    v3-root-credential-path.tf`), and a new orthogonal
+    `authority_mechanism` (`sentinel_approle` | `vault_native_oauth`)
+    read only by `routes/credentials.js`'s own new branch — every
+    other route, and every v1/v2 run regardless of `authority_mechanism`,
+    is untouched by construction. Confirmed live end-to-end through
+    the deployed backend (not a spike script): a real agent-c request
+    with `authority_mechanism=vault_native_oauth` mints a JWT, presents
+    it to Vault, and receives a genuine, correctly-TTL'd PostgreSQL
+    credential. Both test suites stayed green through every phase.
+    Two real, non-obvious build findings worth keeping in mind: (a)
+    the Vault Terraform provider's `vault_generic_endpoint` can't
+    track a POST-only path with no matching GET (`agent-registry/register`,
+    `identity/entity-alias`) even with `disable_read` set — `terraform
+    import`'s own refresh reads unconditionally — so those two writes
+    are managed by `scripts/vault-v3-agent-registry-bootstrap.sh`
+    instead, the same escape hatch this project already uses for
+    values Terraform can't cleanly own; (b) a provider major-version
+    bump (`~> 4.0` → `~> 5.10`, needed for the new dedicated
+    `vault_oauth_resource_server_config_profile`/
+    `vault_agent_registration` resource types) was tried and reverted
+    after a live `terraform plan` showed it changes how the provider
+    addresses several already-working `factory`-namespace resources —
+    not worth the risk for two new resources when `vault_generic_endpoint`
+    on the stable provider does the job. No real IdP in this stack can
+    currently produce a Vault-acceptable token (decision 14's `typ`
+    finding) — factory-api mints its own demo JWT instead, a real RSA
+    key held only by the backend (never an agent container, per
+    decision 1), explicitly labeled "(preview)" in the UI as a stand-in
+    for a real identity provider. Vault's own verification and RAR/ACL
+    enforcement are real throughout; only the IdP role is stood in for.
+    Rejected: Sentinel coverage for this path (`require-agent-c-for-db-creds`
+    scopes itself to `factory/database/*`; this path's boundary is
+    Vault's native RAR/ACL intersection instead, which is the point of
+    it existing). Revisit the "separate path, not a replacement" shape
+    only if a future Vault build resolves the Agent Registry
+    root-namespace constraint.
 
 ## How to use this file
 
