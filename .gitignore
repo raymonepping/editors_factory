@@ -186,6 +186,11 @@ init.txt
 # Generated local TLS material (CA key, server cert/key) — see
 # scripts/vault-prepare.sh, prompts/base_project/02_01_vault_ha_cluster.md.
 vault-tls/
+# scripts/vault-backup.sh's own Raft snapshots — real backend state,
+# never meant to be committed. Found live: this was genuinely missing
+# until a real backup was taken for the first time (before the v2.1.1
+# upgrade) and `git status` caught it.
+backups/
 
 ########################################
 # 🍪 Sessions, Cookies & Auth State
