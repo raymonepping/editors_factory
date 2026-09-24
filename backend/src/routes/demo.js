@@ -8,8 +8,39 @@ import { requireRole } from "../auth/authorize.js";
 
 export const demoRouter = Router();
 
-demoRouter.get("/demo/mode", (req, res) => {
-  res.json({ profile: state.getProfile(), runId: state.getCurrentRunId() });
+// v2: currentRunWorkflowMode is the CURRENT RUN's own stored
+// demo_runs.workflow_mode — deliberately distinct from GET
+// /demo/workflow-mode's in-memory state.getWorkflowMode(), which is
+// what the NEXT run (after a reset) will get. Found live (reported
+// three times against this exact confusion): an operator switches the
+// Execution Model selector, then clicks Start Micro-DAG Run without
+// resetting first — the selector's in-memory value updates immediately,
+// but the CURRENT run was already created under the old mode and
+// switching alone never retroactively changes it, so POST /api/dag/runs
+// 409s. That 409 message was already made specific (02_09-era fix), but
+// an operator still had to hit the failure once per occurrence to see
+// it. Exposing both values here lets the frontend detect the mismatch
+// proactively, before the click, instead of only explaining it well
+// after the fact.
+demoRouter.get("/demo/mode", async (req, res, next) => {
+  try {
+    const runId = state.getCurrentRunId();
+    let currentRunWorkflowMode = null;
+    if (runId) {
+      const { rows } = await getPool().query(
+        `SELECT workflow_mode FROM demo_runs WHERE run_id = $1`,
+        [runId],
+      );
+      currentRunWorkflowMode = rows[0]?.workflow_mode ?? null;
+    }
+    res.json({
+      profile: state.getProfile(),
+      runId,
+      currentRunWorkflowMode,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 demoRouter.put(
@@ -31,9 +62,10 @@ demoRouter.put(
       }
 
       state.setProfile(profile);
+      const workflowModeAtStart = state.getWorkflowMode();
       const runId = await audit.startRun(
         profile,
-        state.getWorkflowMode(),
+        workflowModeAtStart,
         state.getFaultInjectionMode(),
       );
       state.setCurrentRunId(runId);
@@ -41,7 +73,13 @@ demoRouter.put(
       state.clearActiveAgentCCredential();
       state.clearPendingApprovals();
 
-      res.json({ profile, runId });
+      // Same field GET /demo/mode exposes — this run just captured
+      // workflowModeAtStart, so no extra query needed to report it.
+      res.json({
+        profile,
+        runId,
+        currentRunWorkflowMode: workflowModeAtStart,
+      });
     } catch (err) {
       next(err);
     }

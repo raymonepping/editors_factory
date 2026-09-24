@@ -137,6 +137,10 @@ export interface FactoryRecordsPage {
 export interface DemoMode {
   profile: Profile
   runId: string | null
+  // The CURRENT run's own stored workflow_mode — distinct from
+  // WorkflowModeResponse's in-memory "what the next run will get"
+  // value. null when there is no current run.
+  currentRunWorkflowMode: WorkflowMode | null
 }
 
 export interface AuthorityMap {

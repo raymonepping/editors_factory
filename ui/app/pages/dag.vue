@@ -15,6 +15,7 @@ const {
 } = useEventStream()
 
 const {
+  getDemoMode,
   setDemoMode,
   getWorkflowMode,
   setWorkflowMode,
@@ -26,14 +27,44 @@ const {
 
 const workflowMode = ref<WorkflowMode | null>(null)
 const faultInjectionMode = ref<FaultInjectionMode | null>(null)
+// The CURRENT run's own stored workflow_mode, independent of the
+// selector above (which reflects what the NEXT run will get). Fetched
+// fresh here rather than trusted from the shared demoMode ref — found
+// live, reported three times: demoMode is shared across pages and
+// nothing refreshes it after a reset performed on a different page
+// (Overview's own onReset only refreshes factory-state/authority), so
+// an operator landing on /dag after resetting elsewhere could see a
+// stale value here otherwise. Same reasoning workflowMode/
+// faultInjectionMode above already fetch fresh rather than trust
+// shared state.
+const currentRunWorkflowMode = ref<WorkflowMode | null>(null)
 const switching = ref(false)
 const starting = ref(false)
 const startError = ref<string | null>(null)
 const drawerOpen = ref(false)
 const selectedNode = ref<DagNodeKey | null>(null)
 
+// True exactly when clicking Start would 409 for the reason this page
+// has now seen reported three times: the selector says recoverable_dag,
+// but the current run was created before that switch and still carries
+// its old mode. Surfaced before the click, not only after it fails.
+const modeMismatch = computed(() =>
+  workflowMode.value === 'recoverable_dag' &&
+  currentRunWorkflowMode.value !== null &&
+  currentRunWorkflowMode.value !== 'recoverable_dag',
+)
+
+async function refreshCurrentRunWorkflowMode() {
+  const mode = await getDemoMode()
+  currentRunWorkflowMode.value = mode.currentRunWorkflowMode
+}
+
 onMounted(async () => {
-  const [wm, fm] = await Promise.all([getWorkflowMode(), getFaultInjectionMode()])
+  const [wm, fm] = await Promise.all([
+    getWorkflowMode(),
+    getFaultInjectionMode(),
+    refreshCurrentRunWorkflowMode(),
+  ])
   workflowMode.value = wm.workflowMode
   faultInjectionMode.value = fm.faultInjectionMode
   if (demoMode.value?.runId) refreshDagTopology(demoMode.value.runId)
@@ -52,6 +83,10 @@ async function onProfileChange(profile: Profile) {
   try {
     const mode = await setDemoMode(profile)
     setDemoModeLocal(mode)
+    // Switching profile starts a fresh run (server-side), which captures
+    // whatever workflow_mode is currently in memory — already in this
+    // same response, no extra fetch needed.
+    currentRunWorkflowMode.value = mode.currentRunWorkflowMode
   } finally {
     switching.value = false
   }
@@ -178,7 +213,12 @@ async function onRetry(nodeKey: DagNodeKey) {
         <span v-else-if="runActive">Run in progress</span>
         <span v-else>Start Micro-DAG Run</span>
       </button>
-      <p class="dag-start-hint">
+      <p v-if="modeMismatch" class="dag-error">
+        The current run was started under "{{ currentRunWorkflowMode }}", not
+        Recoverable Micro-DAG — Start will fail until you reset the factory.
+        Reset now, then start.
+      </p>
+      <p v-else class="dag-start-hint">
         Uses the current run. Switching Execution Model does not change a
         run already in progress or already reset — if you just switched
         to Recoverable Micro-DAG, reset the factory now so the next run
