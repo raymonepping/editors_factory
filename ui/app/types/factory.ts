@@ -183,6 +183,13 @@ export const DESTRUCTIVE_ACTIONS = new Set([
 
 export type WorkflowMode = 'fixed_chain' | 'recoverable_dag'
 export type FaultInjectionMode = 'none' | 'fail_before_mutation' | 'fail_after_mutation' | 'lock_timeout'
+// prompts/v3/03_01 — orthogonal to WorkflowMode/FaultInjectionMode,
+// same pattern. 'vault_native_oauth' routes Agent C's credential
+// request through the v3 root-scoped path (a demo-issued RFC 9068
+// JWT, Vault's native OAuth Resource Server + Agent Registry + RAR)
+// instead of the AppRole + Sentinel + backend-minted-child-token path
+// every other mechanism in this project uses.
+export type AuthorityMechanism = 'sentinel_approle' | 'vault_native_oauth'
 export type DagNodeKey = 'triage' | 'investigate' | 'remediate' | 'notify' | 'verify'
 export type DagNodeStatus =
   | 'pending'

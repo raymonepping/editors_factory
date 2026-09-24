@@ -3,7 +3,7 @@
 // Its own route, not folded into Overview — mirrors agent-d.vue's own
 // precedent of keeping a genuinely distinct execution model in its own
 // place rather than crowding the v1 story.
-import type { DagNodeKey, FaultInjectionMode, Profile, WorkflowMode } from '~/types/factory'
+import type { AuthorityMechanism, DagNodeKey, FaultInjectionMode, Profile, WorkflowMode } from '~/types/factory'
 
 definePageMeta({ layout: 'dashboard' })
 
@@ -21,12 +21,15 @@ const {
   setWorkflowMode,
   getFaultInjectionMode,
   setFaultInjectionMode,
+  getAuthorityMechanism,
+  setAuthorityMechanism,
   initDagRun,
   retryDagNode,
 } = useDemoApi()
 
 const workflowMode = ref<WorkflowMode | null>(null)
 const faultInjectionMode = ref<FaultInjectionMode | null>(null)
+const authorityMechanism = ref<AuthorityMechanism | null>(null)
 // The CURRENT run's own stored workflow_mode, independent of the
 // selector above (which reflects what the NEXT run will get). Fetched
 // fresh here rather than trusted from the shared demoMode ref — found
@@ -60,13 +63,15 @@ async function refreshCurrentRunWorkflowMode() {
 }
 
 onMounted(async () => {
-  const [wm, fm] = await Promise.all([
+  const [wm, fm, am] = await Promise.all([
     getWorkflowMode(),
     getFaultInjectionMode(),
+    getAuthorityMechanism(),
     refreshCurrentRunWorkflowMode(),
   ])
   workflowMode.value = wm.workflowMode
   faultInjectionMode.value = fm.faultInjectionMode
+  authorityMechanism.value = am.authorityMechanism
   if (demoMode.value?.runId) refreshDagTopology(demoMode.value.runId)
 })
 
@@ -108,6 +113,16 @@ async function onFaultInjectionModeChange(mode: FaultInjectionMode) {
   try {
     const res = await setFaultInjectionMode(mode)
     faultInjectionMode.value = res.faultInjectionMode
+  } finally {
+    switching.value = false
+  }
+}
+
+async function onAuthorityMechanismChange(mechanism: AuthorityMechanism) {
+  switching.value = true
+  try {
+    const res = await setAuthorityMechanism(mechanism)
+    authorityMechanism.value = res.authorityMechanism
   } finally {
     switching.value = false
   }
@@ -196,10 +211,12 @@ async function onRetry(nodeKey: DagNodeKey) {
       :profile="demoMode?.profile ?? null"
       :workflow-mode="workflowMode"
       :fault-injection-mode="faultInjectionMode"
+      :authority-mechanism="authorityMechanism"
       :disabled="switching || runActive"
       @update:profile="onProfileChange"
       @update:workflow-mode="onWorkflowModeChange"
       @update:fault-injection-mode="onFaultInjectionModeChange"
+      @update:authority-mechanism="onAuthorityMechanismChange"
     />
 
     <div v-if="workflowMode === 'recoverable_dag'" class="dag-start-row">

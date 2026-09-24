@@ -3,6 +3,7 @@
 
 import type {
   AuthorityMap,
+  AuthorityMechanism,
   DagRunTopology,
   DemoMode,
   FactoryRecordsPage,
@@ -132,6 +133,19 @@ export function useDemoApi() {
     })
   }
 
+  // ── v3 (prompts/v3/03_01) — root-scoped Vault-native OAuth path ────────
+
+  async function getAuthorityMechanism() {
+    return $fetch<{ authorityMechanism: AuthorityMechanism }>(`${base}/api/demo/authority-mechanism`)
+  }
+
+  async function setAuthorityMechanism(authorityMechanism: AuthorityMechanism) {
+    return $fetch<{ authorityMechanism: AuthorityMechanism }>(`${base}/api/demo/authority-mechanism`, {
+      method: 'PUT',
+      body: { authorityMechanism },
+    })
+  }
+
   async function initDagRun() {
     return $fetch<DagRunTopology>(`${base}/api/dag/runs`, { method: 'POST' })
   }
@@ -167,6 +181,8 @@ export function useDemoApi() {
     setWorkflowMode,
     getFaultInjectionMode,
     setFaultInjectionMode,
+    getAuthorityMechanism,
+    setAuthorityMechanism,
     initDagRun,
     getDagRun,
     retryDagNode,
