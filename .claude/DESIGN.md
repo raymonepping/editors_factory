@@ -151,31 +151,48 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
 
 14. **A v3 layer built on Vault Enterprise's native "Agentic IAM"
     feature (OAuth Resource Server + Rich Authorization Requests) is
-    blocked, not merely undesigned — checked live, not assumed.** Why:
-    `sys/config/oauth-resource-server` is entitled and fully
-    configurable on this build (`v2.1.0+ent`, built 2026-08-31) — real
-    profile created, real Keycloak-issued JWT minted and decoded
-    correctly — but nothing on this build actually authenticates a
-    request using it. Presenting the JWT as `X-Vault-Token` and as a
-    standard `Authorization: Bearer` header both fail identically
-    (Vault audit log shows `mount_type: ns_token` either way — treated
-    as a literal, invalid native-token lookup, never evaluated against
-    the profile). No new auth-method type exists to mount instead
-    (six candidate names probed, all `400 plugin not found in the
-    catalog`); the existing `jwt` auth method's own config schema has
-    no field referencing this profile. The Agent Registry component the
-    original announcement describes is also absent from this build's
-    OpenAPI spec entirely. Full detail, including the exact live
-    checks run: `prompts/v3/03_00_findings.md`. Left in place as cheap,
+    blocked, not merely undesigned — checked live, not assumed, on two
+    successive Vault builds.** Why: `sys/config/oauth-resource-server`
+    is entitled and fully configurable — real profile created, real
+    Keycloak-issued JWT minted and decoded correctly — but nothing
+    authenticates a request using it. Presenting the JWT as
+    `X-Vault-Token`, as a standard `Authorization: Bearer` header, and
+    against multiple different endpoints (not just one) all fail
+    identically (Vault audit log shows `mount_type: ns_token` every
+    time — treated as a literal, invalid native-token lookup, never
+    evaluated against the profile). No new auth-method type exists to
+    mount instead (six candidate names probed, all `400 plugin not
+    found in the catalog`); the existing `jwt` auth method's own config
+    schema has no field referencing this profile. The Agent Registry
+    component the original announcement describes is also absent from
+    the OpenAPI spec entirely on both builds tried. First checked on
+    `v2.1.0+ent` (built 2026-08-31); the `v2.1.1+ent` changelog then
+    named a bug fix reading as an exact match for the symptom
+    (`auth/token/lookup-self` 403 for JWT tokens in a non-root
+    namespace, this project's `factory` namespace being exactly that) —
+    strong enough evidence to justify a real upgrade (real Raft
+    snapshot taken first, clean upgrade, all data intact, confirmed
+    with `npm test` both suites green afterward), re-tested the same
+    way, same result. The named fix turned out to describe a narrower
+    case (a JWT Vault *did* authenticate via oauth-resource-server, but
+    then wrongly 403'd on one specific endpoint's own post-auth check)
+    than this project's actual blocker (the JWT is never recognized as
+    an oauth-resource-server candidate at the request-authentication
+    layer at all). Full detail, including every live check run on both
+    builds: `prompts/v3/03_00_findings.md`. Left in place as cheap,
     harmless prework rather than torn down: a dedicated
     `factory-agentic-iam-spike` Keycloak client, one Vault
     `oauth-resource-server` profile, and the one narrow `vault-admin`
-    policy grant it needed. Rejected (for now): building any v3
-    application code, `workflow_mode`/`authority_mechanism` switch, or
-    UI against this — there is currently nothing for it to call. Revisit
-    only after confirming, live, on a newer Vault build, that a request
-    can actually authenticate this way — do not assume a version bump
-    alone fixes it.
+    policy grant it needed. The Vault version bump itself is worth
+    keeping regardless (newer Vault, same license, zero regressions
+    found) — it just didn't change this verdict. Rejected (for now):
+    building any v3 application code, `workflow_mode`/
+    `authority_mechanism` switch, or UI against this — there is
+    currently nothing for it to call. Revisit only after confirming,
+    live, on a future Vault build, that a request can actually
+    authenticate this way — a changelog entry that sounds related is
+    not sufficient evidence on its own, as this decision's own history
+    shows.
 
 ## How to use this file
 

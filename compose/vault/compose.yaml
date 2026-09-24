@@ -4,7 +4,7 @@
 # auto-auth) added by prompts/base_project/02_02_vault_follow_up.md.
 # See prompts/base_project/02_01_vault_ha_cluster.md.
 x-vault: &vault
-  image: docker.io/hashicorp/vault-enterprise:2.1.0-ent
+  image: docker.io/hashicorp/vault-enterprise:2.1.1-ent
   user: "100:1000"
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
@@ -104,7 +104,7 @@ services:
   # prompts/backend/01_01_orchestrator_api.md is implemented; this prompt
   # only produces the token, that one consumes it.
   vault-agent:
-    image: docker.io/hashicorp/vault-enterprise:2.1.0-ent
+    image: docker.io/hashicorp/vault-enterprise:2.1.1-ent
     container_name: factory-vault_agent
     hostname: vault-agent
     user: "1000:1000"
