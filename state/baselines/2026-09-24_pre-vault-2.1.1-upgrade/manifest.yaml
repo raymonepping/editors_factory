@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-24_pre-vault-2.1.1-upgrade"
+  purpose: "Before upgrading Vault Enterprise from 2.1.0-ent to 2.1.1-ent. 2.1.1's changelog names a bug fix that matches the v3 prework spike's exact blocker: auth/token/lookup-self returning 403 for JWT tokens in a non-root namespace (this project runs entirely in the factory namespace). Real Raft snapshots of both vault-s and the main cluster taken via scripts/vault-backup.sh immediately before this baseline."
+  captured_at: "2026-09-24T10:10:46Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-24_post-v3-prework"
+  git:
+    commit: "7f41e1e1c68024feeabc5507044416cf99218f90"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
