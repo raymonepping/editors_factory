@@ -218,7 +218,7 @@ ensure_authorization_details_mapper() {
   # is the robust way to pass a mapper config this shaped.
   local body
   body=$(mktemp)
-  cat > "$body" <<'JSON'
+  cat >"$body" <<'JSON'
 {
   "name": "authorization_details",
   "protocol": "openid-connect",
