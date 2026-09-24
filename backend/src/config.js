@@ -86,6 +86,21 @@ export const config = {
     tokenFile: optional("VAULT_AGENT_TOKEN_FILE", "/vault/secrets/token"),
   },
 
+  // prompts/v3/03_01: the v3 root-scoped credential path's own demo
+  // token issuer — see terraform/vault-platform/v3-root-credential-path.tf
+  // and vault.js's issueV3OAuthCredential(). issuer/audience/subject
+  // match the sys/config/oauth-resource-server/v3-agent profile and the
+  // entity-alias exactly; changing any of them here without changing
+  // the Vault-side config too breaks the whole path. jwtSigningKey is
+  // populated by loadSecretsFromVault before the server accepts
+  // requests, same as config.auth's secrets above.
+  v3: {
+    issuer: "https://factory-api.local/v3-demo-issuer",
+    audience: "v3-agent",
+    subject: "factory-agent-c-v3",
+    jwtSigningKey: null,
+  },
+
   // prompts/improvements/01_08_agentic_iam_inspired_hardening.md Phase 4:
   // a separate AppRole identity, never held standing, used only at the
   // moment a human authorizes a supervised (Control-Group-gated)

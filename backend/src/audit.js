@@ -10,10 +10,11 @@ export async function startRun(
   profile,
   workflowMode = "fixed_chain",
   faultInjectionMode = "none",
+  authorityMechanism = "sentinel_approle",
 ) {
   const { rows } = await getPool().query(
-    `INSERT INTO demo_runs (profile, status, workflow_mode, fault_injection_mode) VALUES ($1, 'running', $2, $3) RETURNING run_id`,
-    [profile, workflowMode, faultInjectionMode],
+    `INSERT INTO demo_runs (profile, status, workflow_mode, fault_injection_mode, authority_mechanism) VALUES ($1, 'running', $2, $3, $4) RETURNING run_id`,
+    [profile, workflowMode, faultInjectionMode, authorityMechanism],
   );
   return rows[0].run_id;
 }
@@ -27,7 +28,7 @@ export async function endRun(runId, status) {
 
 export async function getActiveRun() {
   const { rows } = await getPool().query(
-    `SELECT run_id, profile, workflow_mode, fault_injection_mode FROM demo_runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`,
+    `SELECT run_id, profile, workflow_mode, fault_injection_mode, authority_mechanism FROM demo_runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`,
   );
   return rows[0] || null;
 }

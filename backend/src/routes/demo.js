@@ -67,6 +67,7 @@ demoRouter.put(
         profile,
         workflowModeAtStart,
         state.getFaultInjectionMode(),
+        state.getAuthorityMechanism(),
       );
       state.setCurrentRunId(runId);
       state.clearTasks();
@@ -131,6 +132,57 @@ demoRouter.put(
       }
       state.setWorkflowMode(workflowMode);
       res.json({ workflowMode });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+demoRouter.get("/demo/authority-mechanism", (req, res) => {
+  res.json({ authorityMechanism: state.getAuthorityMechanism() });
+});
+
+/**
+ * prompts/v3/03_01: same pattern as PUT /demo/workflow-mode exactly —
+ * orthogonal to profile/workflow_mode/fault_injection_mode, sets
+ * demo_runs.authority_mechanism for the next triggered run. Guards
+ * against switching mid-DAG-run the same way, even though v3 itself
+ * never participates in a DAG run (Phase 4's non-goals) — kept
+ * consistent with every other per-run control here rather than special-
+ * cased, and costs nothing since a v3 run never sets dag_runs.status
+ * in the first place.
+ */
+demoRouter.put(
+  "/demo/authority-mechanism",
+  requireHumanSession,
+  requireRole("switch_workflow_mode"),
+  async (req, res, next) => {
+    try {
+      const { authorityMechanism } = req.body || {};
+      if (
+        authorityMechanism !== "sentinel_approle" &&
+        authorityMechanism !== "vault_native_oauth"
+      ) {
+        return res.status(400).json({
+          error:
+            'authorityMechanism must be "sentinel_approle" or "vault_native_oauth"',
+        });
+      }
+      const runId = state.getCurrentRunId();
+      if (runId) {
+        const { rows } = await getPool().query(
+          `SELECT status FROM dag_runs WHERE run_id = $1`,
+          [runId],
+        );
+        if (rows[0]?.status === "running") {
+          return res.status(409).json({
+            error:
+              "A v2 DAG run is currently in progress for the active run — reset or let it finish before switching authority_mechanism.",
+          });
+        }
+      }
+      state.setAuthorityMechanism(authorityMechanism);
+      res.json({ authorityMechanism });
     } catch (err) {
       next(err);
     }

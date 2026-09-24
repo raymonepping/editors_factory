@@ -67,6 +67,27 @@ export function setFaultInjectionMode(mode) {
   currentFaultInjectionMode = mode;
 }
 
+// prompts/v3/03_01: orthogonal to workflowMode/profile/faultInjectionMode,
+// same pattern. "sentinel_approle" is every existing credential path
+// this project has ever had (AppRole + Sentinel + backend-minted child
+// token); "vault_native_oauth" routes through the new v3 root-scoped
+// path instead (routes/credentials.js, vault.js's
+// issueV3OAuthCredential). Persisted per-run on demo_runs.authority_mechanism,
+// same as workflow_mode's own column.
+let currentAuthorityMechanism = "sentinel_approle";
+const VALID_AUTHORITY_MECHANISMS = ["sentinel_approle", "vault_native_oauth"];
+
+export function getAuthorityMechanism() {
+  return currentAuthorityMechanism;
+}
+
+export function setAuthorityMechanism(mechanism) {
+  if (!VALID_AUTHORITY_MECHANISMS.includes(mechanism)) {
+    throw new Error(`Invalid authority_mechanism: ${mechanism}`);
+  }
+  currentAuthorityMechanism = mechanism;
+}
+
 // taskId -> { actorId, delegatedBy, delegationDepth, effectiveAuthority, traceId, parentTaskId, goal }
 const tasks = new Map();
 

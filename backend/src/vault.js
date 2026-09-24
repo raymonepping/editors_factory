@@ -9,6 +9,7 @@
 // code here.
 
 import { readFile } from "node:fs/promises";
+import { sign as cryptoSign, randomUUID } from "node:crypto";
 import { config } from "./config.js";
 
 async function readAgentToken() {
@@ -22,12 +23,18 @@ async function readAgentToken() {
   return token;
 }
 
-async function vaultRequest(method, path, { token, body } = {}) {
+// prompts/v3/03_01: `namespace` lets a caller override or omit the
+// default `X-Vault-Namespace: factory` header — the v3 root-scoped
+// credential path (database-v3/, sys/config/oauth-resource-server,
+// agent-registry) deliberately lives outside factory/ (Agent Registry
+// is root-namespace-only; see terraform/vault-platform/
+// v3-root-credential-path.tf), so its own calls must omit the header
+// entirely (namespace: null) rather than inherit factory's.
+async function vaultRequest(method, path, { token, body, namespace } = {}) {
   const url = `${config.vault.addr}/v1/${path}`;
-  const headers = {
-    "X-Vault-Token": token,
-    "X-Vault-Namespace": config.vault.namespace,
-  };
+  const headers = { "X-Vault-Token": token };
+  const ns = namespace === undefined ? config.vault.namespace : namespace;
+  if (ns) headers["X-Vault-Namespace"] = ns;
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   const res = await fetch(url, {
@@ -76,11 +83,12 @@ async function getKvSecret(path) {
  * reach its own secrets should not start half-configured.
  */
 export async function loadSecretsFromVault(config) {
-  const [agents, jwt, cli, oidcSecret] = await Promise.all([
+  const [agents, jwt, cli, oidcSecret, v3Key] = await Promise.all([
     getKvSecret("agents/bearer-tokens"),
     getKvSecret("backend/jwt-signing-secret"),
     getKvSecret("backend/cli-operator-token"),
     getKvSecret("identity/oidc-client-secret"),
+    getKvSecret("backend/v3-jwt-signing-key"),
   ]);
 
   for (const id of ["agent-a", "agent-b", "agent-c", "agent-d"]) {
@@ -105,6 +113,11 @@ export async function loadSecretsFromVault(config) {
       'Vault KV identity/oidc-client-secret missing field "value"',
     );
   config.oidc.clientSecret = oidcSecret.value;
+  if (!v3Key.value)
+    throw new Error(
+      'Vault KV backend/v3-jwt-signing-key missing field "value"',
+    );
+  config.v3.jwtSigningKey = v3Key.value;
 }
 
 /**
@@ -420,6 +433,102 @@ export async function revokeTokenAccessor(accessor) {
     }
     throw err;
   }
+}
+
+// prompts/v3/03_01 Phase 4 — factory-api mints this itself rather than
+// obtaining it from a real IdP: confirmed live (03_00's spike) that
+// Keycloak 26.6.4 cannot produce a Vault-acceptable token no matter
+// how it's configured (a legacy `typ` body claim, distinct from the
+// RFC 9068 JOSE header, that no protocol mapper can override, and
+// that Vault's own validation reads over the header). Vault still
+// performs real signature verification and real Agent Registry/RAR/
+// ACL evaluation against this token — nothing about Vault's own
+// enforcement is mocked, only the IdP role is stood in for. Base64url
+// helpers deliberately duplicate auth/agentJwt.js's own (that file's
+// own comment explains why this project hand-rolls JWTs on
+// node:crypto instead of a library) rather than importing across
+// modules for what is, by design, a completely separate credential
+// domain — this JWT is presented to Vault, never verified by this
+// backend the way agentJwt.js's own tokens are.
+function v3Base64url(input) {
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function mintV3DemoJwt() {
+  const header = {
+    alg: "RS256",
+    typ: "at+jwt",
+    kid: "v3-jwt-signing-key-1",
+  };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: config.v3.issuer,
+    aud: config.v3.audience,
+    sub: config.v3.subject,
+    iat: now,
+    // Found live: Vault caps the issued lease at whatever's left of
+    // this JWT's own remaining validity — the same TTL-alignment
+    // behavior DESIGN.md decision #5 already documents for the
+    // AppRole child-token path, just via a different mechanism (an
+    // OAuth-authenticated identity's own token validity window instead
+    // of a Vault child token's). An earlier version used exp: now+60,
+    // which clipped v3-root-role's own 120s default_ttl down to ~59s
+    // reported. 300s comfortably covers the role's default_ttl while
+    // staying well under its 600s max_ttl.
+    exp: now + 300,
+    jti: randomUUID(),
+    authorization_details: [
+      {
+        type: "vault:path_access",
+        path: "database-v3/creds/v3-root-role",
+        capabilities: ["read"],
+      },
+    ],
+  };
+  const signingInput = `${v3Base64url(JSON.stringify(header))}.${v3Base64url(JSON.stringify(payload))}`;
+  const signature = cryptoSign(
+    "RSA-SHA256",
+    Buffer.from(signingInput),
+    config.v3.jwtSigningKey,
+  );
+  return `${signingInput}.${v3Base64url(signature)}`;
+}
+
+/**
+ * The v3 root-scoped credential path (prompts/v3/03_01): issues a
+ * PostgreSQL credential through Vault's native OAuth Resource Server +
+ * Agent Registry + RAR mechanism instead of the AppRole + Sentinel +
+ * backend-minted-child-token path every other credential in this
+ * project uses. Deliberately root-namespace (namespace: null — see
+ * vaultRequest's own comment) and deliberately NOT gated by
+ * require-agent-c-for-db-creds (that Sentinel EGP scopes itself to
+ * factory/database/*; database-v3/ lives outside factory/ entirely —
+ * this path's own boundary is Vault's RAR/ACL intersection instead,
+ * which is the whole point of it existing). No child token, no
+ * tokenAccessor: the JWT is presented directly as the credential on
+ * one request, not exchanged for a Vault token first, so there is
+ * nothing here to renew or revoke the way issueDatabaseCredential's
+ * AppRole-derived tokens are — the resulting lease is short (this
+ * role's default_ttl is 120s) and left to expire on its own rather
+ * than extending factory-api's own identity with a root-scoped
+ * sys/leases/revoke grant just for this narrow, low-stakes path.
+ */
+export async function issueV3OAuthCredential() {
+  const jwt = mintV3DemoJwt();
+  const data = await vaultRequest("GET", "database-v3/creds/v3-root-role", {
+    token: jwt,
+    namespace: null,
+  });
+  return {
+    username: data.data.username,
+    password: data.data.password,
+    leaseId: data.lease_id,
+    leaseDuration: data.lease_duration,
+  };
 }
 
 export async function vaultHealthCheck() {

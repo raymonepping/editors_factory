@@ -5,6 +5,7 @@ import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
 import {
   issueDatabaseCredential,
   issueSupervisedDatabaseCredential,
+  issueV3OAuthCredential,
   authorizeControlGroupRequest,
   unwrapCredential,
 } from "../vault.js";
@@ -178,6 +179,41 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
       return res
         .status(403)
         .json({ error: `${actorId} may not request a credential` });
+    }
+
+    // prompts/v3/03_01: a completely separate branch, on purpose — v3's
+    // own boundary is Vault's native RAR/ACL intersection
+    // (v3-agent-baseline, database-v3/creds/v3-root-role), not
+    // require-agent-c-for-db-creds, so none of the DAG-context,
+    // Sentinel-metadata, or supervised-approval machinery below applies
+    // to it. Returns before `role` is even computed — v3 only ever
+    // issues its own fixed, read-only role, not BAD/GOOD.
+    if (state.getAuthorityMechanism() === "vault_native_oauth") {
+      const credential = await issueV3OAuthCredential();
+      await audit.recordCredentialEvent({
+        runId,
+        actorId,
+        vaultRole: "v3-root-role",
+        leaseId: credential.leaseId,
+        ttlSeconds: credential.leaseDuration,
+        traceId,
+        taskId,
+      });
+      state.setActiveAgentCCredential({
+        ...credential,
+        role: "v3-root-role",
+        actorId,
+        taskId,
+        tokenAccessor: null,
+        issuedAt: Date.now(),
+      });
+      return res.status(201).json({
+        role: "v3-root-role",
+        leaseId: credential.leaseId,
+        ttlSeconds: credential.leaseDuration,
+        issued: true,
+        authorityMechanism: "vault_native_oauth",
+      });
     }
 
     const role = profile === "bad" ? "factory-bad-role" : "factory-good-role";
