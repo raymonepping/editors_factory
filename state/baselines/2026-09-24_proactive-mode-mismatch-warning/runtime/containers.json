@@ -1,0 +1,235 @@
+[
+  {
+    "Names": [
+      "factory-vault_s"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18190,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_2"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18201,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_3"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18202,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-postgres"
+    ],
+    "Image": "docker.io/library/postgres:16.14-alpine",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 5432,
+        "host_port": 5432,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-identity-secrets-init"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "exited",
+    "Status": "",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-openldap"
+    ],
+    "Image": "docker.io/osixia/openldap:1.5.0",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-ldap-admin"
+    ],
+    "Image": "docker.io/osixia/phpldapadmin:0.9.0",
+    "State": "running",
+    "Status": "",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 80,
+        "host_port": 8085,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-keycloak"
+    ],
+    "Image": "docker.io/keycloak/keycloak:26.6.4",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8080,
+        "host_port": 8088,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-ollama"
+    ],
+    "Image": "docker.io/ollama/ollama:latest",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 11434,
+        "host_port": 11434,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_1"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 8200,
+        "host_port": 18200,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-vault_agent"
+    ],
+    "Image": "docker.io/hashicorp/vault-enterprise:2.1.0-ent",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-api"
+    ],
+    "Image": "localhost/factory-api:local",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 3001,
+        "host_port": 3001,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  },
+  {
+    "Names": [
+      "factory-agent-a"
+    ],
+    "Image": "localhost/factory-agent:local",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-agent-b"
+    ],
+    "Image": "localhost/factory-agent:local",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-agent-c"
+    ],
+    "Image": "localhost/factory-agent:local",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-agent-d"
+    ],
+    "Image": "localhost/factory-agent:local",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": null
+  },
+  {
+    "Names": [
+      "factory-ui"
+    ],
+    "Image": "localhost/factory-ui:local",
+    "State": "running",
+    "Status": "healthy",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 3000,
+        "host_port": 3000,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ]
+  }
+]

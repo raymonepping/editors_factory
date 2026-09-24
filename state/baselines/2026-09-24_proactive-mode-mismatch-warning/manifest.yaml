@@ -1,0 +1,55 @@
+baseline:
+  id: "2026-09-24_proactive-mode-mismatch-warning"
+  purpose: "Closed the recurring workflow-mode ordering trap properly on the third report: GET/PUT /api/demo/mode now expose the current run's own stored workflow_mode; dag.vue fetches it fresh on mount and shows a specific warning before the click instead of only after a failed one. Live-verified with Playwright end to end. Also confirmed the SSE keepalive fix from the prior session is holding at 17+ hours with zero drops -- this was never a timeout/sleep issue."
+  captured_at: "2026-09-24T08:37:16Z"
+  project: "editors_factory"
+  previous_baseline: "2026-09-23_vault-agent-stall-recovery"
+  git:
+    commit: "84e6fd342c177bb1da37ccd7f6f43a186265696b"
+    branch: "main"
+    tag: ""
+    dirty: true
+
+runtime:
+  type: "podman"
+  architecture: "podman-compose, multi-stack (see prompts/base_project/01_01_factory_stack.md)"
+  reachable: true
+
+components:
+  vault:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  infra:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ollama:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  api:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  agents:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+  ui:
+    capture_status: CAPTURED
+    compose_file_present: true
+    observed_running: true
+
+verification:
+  backend-health: PASS
+  ollama-model: PASS
+  mutating-scenarios: UNKNOWN
+
+capture:
+  overall: CAPTURED
+  checks:
+    source: CAPTURED
+    runtime: CAPTURED
+    components: CAPTURED
+    verification: CAPTURED
