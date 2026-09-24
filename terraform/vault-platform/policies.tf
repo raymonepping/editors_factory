@@ -128,6 +128,48 @@ resource "vault_policy" "identity_secrets" {
   EOT
 }
 
+# prompts/v3/03_00 retest: the baseline ACL layer for an Agent
+# Registry-backed OAuth identity. Found live: Vault's RAR model is
+# intersection-only ("RAR constraints can only restrict access, never
+# granting permissions beyond what ACL policies allow" —
+# developer.hashicorp.com/vault/ai/iam/concepts/rar) and Agent
+# Registry's own ceiling_policies is a cap on that baseline, not a
+# source of it. The identity entity this spike registered lives at
+# root (Agent Registry is root-namespace-only — see the vault-admin
+# policy's own agent-registry/* comment), so it cannot attach
+# `factory-agent-c-cred` by name — that policy is itself
+# namespace-scoped to `factory` and doesn't exist as a name in root's
+# own policy store (confirmed live: even vault-admin, before this
+# resource existed, got a flat "permission denied" just LISTING root's
+# own sys/policies/acl — nothing managed a root-homed policy at all
+# yet). This is the root-homed equivalent, reaching into factory/ the
+# same explicit way vault-admin's own policy already does.
+resource "vault_policy" "agentic_iam_spike_baseline" {
+  name   = "agentic-iam-spike-baseline"
+  policy = <<-EOT
+    path "auth/token/lookup-self" {
+      capabilities = ["read"]
+    }
+
+    path "factory/database/creds/factory-good-role" {
+      capabilities = ["read"]
+    }
+
+    # Self-referencing, deliberately: a target the built-in "default"
+    # policy does NOT already cover (unlike auth/token/lookup-self,
+    # whose earlier success alone couldn't prove this policy's own
+    # grant was what worked). Proves or disproves, cleanly, whether an
+    # OAuth-resource-server-derived identity's attached policy actually
+    # grants real, non-default capability when everything — profile,
+    # Agent Registry, entity, alias, target — stays in one (root)
+    # namespace, sidestepping the separate cross-namespace alias
+    # problem found live in this same spike.
+    path "sys/policies/acl/agentic-iam-spike-baseline" {
+      capabilities = ["read"]
+    }
+  EOT
+}
+
 # prompts/improvements/01_06_vault_root_token_elimination.md — the one
 # token routine Vault administration should ever need after initial
 # bootstrap, replacing the literal cluster root token for every
@@ -185,6 +227,70 @@ resource "vault_policy" "vault_admin" {
     # comment above `factory/sys/auth/approle` for why sudo elsewhere on
     # this policy needs the same live-verify-first discipline.
     path "factory/sys/config/oauth-resource-server/*" {
+      capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+    }
+
+    # prompts/v3/03_00 retest: Agent Registry — confirmed live to be a
+    # root-namespace-only built-in (absent from factory's own
+    # sys/mounts listing; a request scoped to the factory namespace
+    # returns "permission denied" even with this grant in place, while
+    # the identical request at root returns "entityId does not exist"
+    # instead — the clean way to tell "wrong namespace" apart from
+    # "missing capability" here). Root-homed here, not under factory/,
+    # for that reason. sys/capabilities-self against
+    # agent-registry/register confirmed a bare "deny" for vault-admin
+    # before this grant existed — nothing implicit covered it.
+    path "agent-registry/*" {
+      capabilities = ["create", "read", "update", "delete", "list"]
+    }
+
+    # Same retest: the entity Agent Registry's entity_id must reference
+    # has to live in the SAME (root) namespace as the registry itself —
+    # a factory-namespace entity gets "specified entityId does not
+    # exist" when registered from root. vault-admin only had
+    # factory/identity/entity before now, never the root-scoped path.
+    path "identity/entity" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    path "identity/entity/id/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    # Manage the new root-homed agentic-iam-spike-baseline policy
+    # itself (defined above) the same routine way as every other
+    # Terraform-applied resource in this file.
+    path "sys/policies/acl/agentic-iam-spike-baseline" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    # prompts/v3/03_00 retest, found via the official setup-agent
+    # tutorial (developer.hashicorp.com/vault/ai/iam/setup-agent): an
+    # OAuth-resource-server-authenticated request only resolves to an
+    # entity's own attached policies through an identity/entity-alias
+    # bound to a Vault-synthesized mount accessor
+    # (oauth-resource-server_<namespace_id>_<config_id>) — entity_id
+    # alone (what Agent Registry itself requires) is not sufficient for
+    # ACL resolution. Root-scoped for the same reason as
+    # identity/entity above: the entity lives at root.
+    path "identity/entity-alias" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
+    # prompts/v3/03_00 retest, continued: identity/entity-alias creation
+    # for an OAuth-resource-server-derived identity does its own
+    # internal lookup for a matching oauth-resource-server profile BY
+    # ISSUER, scoped to the namespace the alias itself is created in.
+    # Our entity/alias live at root (Agent Registry's own hard
+    # constraint — see the agent-registry/* comment above), but this
+    # spike's original profile lives in factory/, so that lookup fails
+    # ("oauth config not found for <issuer>") even though the identical
+    # profile is reachable, just in the wrong namespace. The official
+    # setup-agent tutorial's own reference example is entirely
+    # root-scoped for exactly this reason. A duplicate profile at root
+    # closes the gap for this spike; does not touch the original
+    # factory-scoped one.
+    path "sys/config/oauth-resource-server/*" {
       capabilities = ["create", "read", "update", "delete", "list", "sudo"]
     }
 
