@@ -125,6 +125,9 @@ vault-status: ## Show Vault cluster init/seal/leader status
 vault-unseal: ## Re-unseal the Vault cluster after a host/Podman restart
 	@./scripts/vault-unseal.sh
 
+vault-agent-recover: ## One-command recovery from a stale/dead vault-agent token (CLAUDE.md gotcha #9); safe to run even when nothing is broken
+	@./scripts/vault-agent-recover.sh
+
 vault-admin-bootstrap: ## Mint the narrow vault-admin token (idempotent; run after the first vault-platform apply)
 	@./scripts/vault-admin-bootstrap.sh
 

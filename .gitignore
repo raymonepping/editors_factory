@@ -244,3 +244,4 @@ output/*
 /input
 /prompts
 /state
+/docs/writing/*
