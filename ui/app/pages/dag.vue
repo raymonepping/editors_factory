@@ -10,9 +10,15 @@ definePageMeta({ layout: 'dashboard' })
 const {
   demoMode,
   dagTopology,
+  dagNarrativeSteps,
   setDemoModeLocal,
   refreshDagTopology,
 } = useEventStream()
+
+// prompts/frontend/01_04: Graph is the existing, unchanged default —
+// nobody's current workflow shifts under them. Story reads the same
+// already-fetched dagTopology, no re-fetch on switch.
+const activeTab = ref<'graph' | 'story'>('graph')
 
 const {
   getDemoMode,
@@ -247,7 +253,36 @@ async function onRetry(nodeKey: DagNodeKey) {
     </p>
     <p v-if="startError" class="dag-error">{{ startError }}</p>
 
-    <DagVisualizer :topology="dagTopology" @select-node="onSelectNode" @retry="onRetry" />
+    <div class="dag-tabs" role="tablist" aria-label="Run view">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'graph'"
+        class="dag-tab"
+        :class="{ 'dag-tab--active': activeTab === 'graph' }"
+        @click="activeTab = 'graph'"
+      >
+        Graph
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === 'story'"
+        class="dag-tab"
+        :class="{ 'dag-tab--active': activeTab === 'story' }"
+        @click="activeTab = 'story'"
+      >
+        Story
+      </button>
+    </div>
+
+    <DagVisualizer
+      v-show="activeTab === 'graph'"
+      :topology="dagTopology"
+      @select-node="onSelectNode"
+      @retry="onRetry"
+    />
+    <NarrativeStory v-show="activeTab === 'story'" :steps="dagNarrativeSteps" />
 
     <NodeAttemptDrawer
       :open="drawerOpen"
@@ -264,6 +299,29 @@ async function onRetry(nodeKey: DagNodeKey) {
   flex-direction: column;
   gap: var(--gap-panel);
   max-width: 1100px;
+}
+.dag-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+.dag-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.dag-tab:hover {
+  color: var(--color-text-secondary);
+}
+.dag-tab--active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--factory-blue-400);
 }
 .dag-start-row {
   display: flex;

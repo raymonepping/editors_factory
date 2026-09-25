@@ -13,6 +13,7 @@ import type {
   AgentNodeStatus,
   AuthorityMap,
   CredentialEvent,
+  DagNodeKey,
   DagRunTopology,
   DemoMode,
   FactoryState,
@@ -124,6 +125,93 @@ function deriveNarrative(entries: TimelineEntry[]): NarrativeStep[] {
         steps.push({ id: `finding-${e.finding_id}`, text: 'Discovery warned about it', tone: 'critical' })
       } else if (code === 'D-007') {
         steps.push({ id: `finding-${e.finding_id}`, text: 'Discovery confirmed containment', tone: 'contained' })
+      }
+    }
+  }
+
+  return steps
+}
+
+// prompts/frontend/01_04: the v2 counterpart to deriveNarrative() above
+// — same NarrativeStep shape, same "only render what real evidence
+// actually shows" rule, but walking DagRunTopology's own nodes/attempts
+// instead of the v1 event timeline (a genuinely different event shape:
+// DAG node claim/attempt/retry, not task delegation). Kept as a
+// separate function rather than branching deriveNarrative() on
+// workflow_mode, matching DESIGN.md decision 13's own preference for
+// structurally separate code over a mode-branching one. Takes a plain
+// DagRunTopology (not the composable's internal state) since dag.vue
+// already has exactly that from useEventStream's own dagTopology ref —
+// no dependency on module-level state, safe to call directly.
+const DAG_NODE_ORDER: DagNodeKey[] = ['triage', 'investigate', 'remediate', 'notify', 'verify']
+const DAG_NODE_LABELS: Record<DagNodeKey, string> = {
+  triage: 'Triage',
+  investigate: 'Investigate',
+  remediate: 'Remediate',
+  notify: 'Notify Operator',
+  verify: 'Verify',
+}
+
+function deriveDagNarrative(topology: DagRunTopology | null): NarrativeStep[] {
+  const steps: NarrativeStep[] = []
+  if (!topology?.run) return steps
+
+  for (const nodeKey of DAG_NODE_ORDER) {
+    const node = topology.nodes.find((n) => n.node_key === nodeKey)
+    if (!node) continue
+    const label = DAG_NODE_LABELS[nodeKey]
+    const attempts = topology.attempts
+      .filter((a) => a.node_id === node.node_id)
+      .sort((a, b) => a.attempt_number - b.attempt_number)
+    if (attempts.length === 0) continue
+
+    for (const attempt of attempts) {
+      const isRetry = attempt.attempt_number > 1
+      const prior = attempts.find((a) => a.attempt_number === attempt.attempt_number - 1)
+
+      if (isRetry && prior) {
+        const revokedNote = prior.authority_status === 'revoked'
+          ? prior.revocation_reason
+            ? ` (${prior.revocation_reason})`
+            : ''
+          : ''
+        steps.push({
+          id: `dag-retry-${attempt.attempt_id}`,
+          text: prior.authority_status === 'revoked'
+            ? `${label}'s first attempt failed; its authority was revoked${revokedNote} — a fresh attempt took over with fresh authority`
+            : `${label}'s first attempt failed — a fresh attempt took over`,
+          tone: 'warning',
+        })
+      } else {
+        steps.push({
+          id: `dag-start-${attempt.attempt_id}`,
+          text: `${label} started`,
+          tone: 'neutral',
+        })
+      }
+
+      if (attempt.execution_status === 'completed') {
+        steps.push({
+          id: `dag-done-${attempt.attempt_id}`,
+          text: nodeKey === 'verify' ? "The run's outcome was verified" : `${label} completed`,
+          tone: 'neutral',
+        })
+      } else if (attempt.execution_status === 'failed' || attempt.execution_status === 'timed_out') {
+        // Only render this terminal failure step for the LAST attempt on
+        // this node — an earlier failed attempt already got its own
+        // "failed; a fresh attempt took over" step above from the next
+        // attempt's own retry branch, and rendering both would say the
+        // same failure twice.
+        const isLastAttempt = attempt.attempt_number === attempts[attempts.length - 1]?.attempt_number
+        if (isLastAttempt) {
+          steps.push({
+            id: `dag-failed-${attempt.attempt_id}`,
+            text: nodeKey === 'verify'
+              ? "The run's outcome could not be verified"
+              : `${label} failed${attempt.execution_status === 'timed_out' ? ' (timed out)' : ''}`,
+            tone: 'critical',
+          })
+        }
       }
     }
   }
@@ -423,6 +511,7 @@ export function useEventStream() {
   )
 
   const narrativeSteps = computed(() => deriveNarrative(timeline.value))
+  const dagNarrativeSteps = computed(() => deriveDagNarrative(dagTopology.value))
 
   return {
     connected,
@@ -436,6 +525,7 @@ export function useEventStream() {
     amplificationEventId,
     credentialLedger,
     narrativeSteps,
+    dagNarrativeSteps,
     refreshAuthority,
     refreshFactoryState,
     setDemoModeLocal: (mode: DemoMode) => { demoMode.value = mode },
