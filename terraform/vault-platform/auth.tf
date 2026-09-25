@@ -29,8 +29,16 @@ resource "vault_approle_auth_backend_role" "factory_api" {
     vault_policy.factory_agent_c_cred.name,
     vault_policy.factory_agent_c_cred_supervised.name,
   ]
-  token_ttl      = 3600  # 1h — independent of the DB dynamic-cred TTLs
-  token_max_ttl  = 14400 # 4h
+  token_ttl     = 3600  # 1h — independent of the DB dynamic-cred TTLs
+  token_max_ttl = 86400 # 24h (prompts/hardening/01_00, was 4h)
+  # Governs vault-agent's own long-running renewing identity token, not
+  # any per-task child token TTL (those are minted separately, short-
+  # lived, by mintAgentTaggedChildToken — unrelated to this ceiling).
+  # Not a fix for the renewal-loop reliability gap Phase 1/2 address
+  # (documented upstream Vault Agent behavior — see CLAUDE.md gotcha
+  # #9), but real risk reduction: 24h covers a full unattended demo
+  # session, quartering how often a full renewal-to-reauth cycle must
+  # complete without hitting whatever triggers it.
 
   # prompts/improvements/01_04_vault_hardening.md, Item 3: this was the one
   # standing, unrotated bearer credential authenticating to Vault itself —
