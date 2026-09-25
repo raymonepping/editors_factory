@@ -15,7 +15,13 @@ export async function startRun(
 ) {
   const { rows } = await getPool().query(
     `INSERT INTO demo_runs (profile, status, workflow_mode, fault_injection_mode, authority_mechanism, initiator_subject_id) VALUES ($1, 'running', $2, $3, $4, $5) RETURNING run_id`,
-    [profile, workflowMode, faultInjectionMode, authorityMechanism, initiatorSubjectId],
+    [
+      profile,
+      workflowMode,
+      faultInjectionMode,
+      authorityMechanism,
+      initiatorSubjectId,
+    ],
   );
   return rows[0].run_id;
 }
