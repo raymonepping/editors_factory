@@ -225,6 +225,13 @@ resource "vault_policy" "vault_admin" {
       capabilities = ["create", "read", "update", "delete"]
     }
 
+    # prompts/v3/03_02: v3-obo-human.tf's own policy — same grant as
+    # v3-agent-baseline just above, for the human side of OBO
+    # delegation.
+    path "sys/policies/acl/v3-human-baseline" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+
     # Same retest: the entity Agent Registry's entity_id must reference
     # has to live in the SAME (root) namespace as the registry itself —
     # a factory-namespace entity gets "specified entityId does not

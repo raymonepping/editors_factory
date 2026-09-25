@@ -68,6 +68,7 @@ demoRouter.put(
         workflowModeAtStart,
         state.getFaultInjectionMode(),
         state.getAuthorityMechanism(),
+        req.identity?.subjectId ?? null,
       );
       state.setCurrentRunId(runId);
       state.clearTasks();
@@ -307,6 +308,8 @@ demoRouter.post(
         state.getProfile(),
         state.getWorkflowMode(),
         state.getFaultInjectionMode(),
+        state.getAuthorityMechanism(),
+        req.identity?.subjectId ?? null,
       );
       state.setCurrentRunId(newRunId);
 

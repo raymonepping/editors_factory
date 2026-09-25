@@ -189,7 +189,15 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
     // to it. Returns before `role` is even computed — v3 only ever
     // issues its own fixed, read-only role, not BAD/GOOD.
     if (state.getAuthorityMechanism() === "vault_native_oauth") {
-      const credential = await issueV3OAuthCredential();
+      // prompts/v3/03_02: the run's own initiator_subject_id (set at
+      // PUT /demo/mode or POST /demo/reset time from a real human
+      // OIDC session — null for CLI-triggered runs), not the current
+      // caller (agent-c itself, authenticated via its own task-bound
+      // JWT, never a human session).
+      const activeRun = await audit.getActiveRun();
+      const credential = await issueV3OAuthCredential(
+        activeRun?.initiator_subject_id ?? null,
+      );
       await audit.recordCredentialEvent({
         runId,
         actorId,

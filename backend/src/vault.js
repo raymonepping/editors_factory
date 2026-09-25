@@ -458,7 +458,28 @@ function v3Base64url(input) {
     .replace(/=+$/, "");
 }
 
-function mintV3DemoJwt() {
+// prompts/v3/03_02: actorSubject is the initiating human's real
+// Keycloak `sub` (req.identity.subjectId), captured on demo_runs at
+// the moment a run starts (see routes/demo.js) and threaded through
+// from issueV3OAuthCredential. Absent for every existing caller (CLI
+// runs, agent-JWT-only paths, every current test) — those keep
+// emitting exactly what this function emitted before this claim
+// existed. The profile's own actor_claim = "act.sub"
+// (terraform/vault-platform/v3-root-credential-path.tf) was set during
+// 03_01 in anticipation of this and never read until now.
+//
+// Found live, the hard way: the first attempt put the agent's own
+// fixed subject in `sub` and the human in `act.sub` — every direction
+// a plain reading of "actor claim" suggests. Vault rejected it with
+// "OAuth credentials require the entity to have an agent registration"
+// even though the agent's own entity (resolved via `sub`/user_claim)
+// is genuinely registered. Vault's actual delegation model reads the
+// other way: `sub` (user_claim) is the delegating PRINCIPAL — the
+// human, whose baseline policy is what the intersection actually
+// constrains — and `act.sub` (actor_claim) is the party ACTING right
+// now, which for Agent Registry's purposes is specifically the one
+// that has to be registered — the agent. Swapped below to match.
+function mintV3DemoJwt(actorSubject = null) {
   const header = {
     alg: "RS256",
     typ: "at+jwt",
@@ -468,7 +489,7 @@ function mintV3DemoJwt() {
   const payload = {
     iss: config.v3.issuer,
     aud: config.v3.audience,
-    sub: config.v3.subject,
+    sub: actorSubject || config.v3.subject,
     iat: now,
     // Found live: Vault caps the issued lease at whatever's left of
     // this JWT's own remaining validity — the same TTL-alignment
@@ -488,6 +509,7 @@ function mintV3DemoJwt() {
         capabilities: ["read"],
       },
     ],
+    ...(actorSubject ? { act: { sub: config.v3.subject } } : {}),
   };
   const signingInput = `${v3Base64url(JSON.stringify(header))}.${v3Base64url(JSON.stringify(payload))}`;
   const signature = cryptoSign(
@@ -517,8 +539,8 @@ function mintV3DemoJwt() {
  * than extending factory-api's own identity with a root-scoped
  * sys/leases/revoke grant just for this narrow, low-stakes path.
  */
-export async function issueV3OAuthCredential() {
-  const jwt = mintV3DemoJwt();
+export async function issueV3OAuthCredential(actorSubject = null) {
+  const jwt = mintV3DemoJwt(actorSubject);
   const data = await vaultRequest("GET", "database-v3/creds/v3-root-role", {
     token: jwt,
     namespace: null,

@@ -7,6 +7,14 @@ output "v3_agent_entity_id" {
   value = vault_identity_entity.v3_agent.id
 }
 
+# prompts/v3/03_02: same reasoning as v3_agent_entity_id above — the
+# human entity's own id, needed by
+# scripts/vault-v3-agent-registry-bootstrap.sh's second block to
+# create its entity-alias, and not cheaply resolvable by name.
+output "v3_human_entity_id" {
+  value = vault_identity_entity.v3_human.id
+}
+
 output "factory_namespace" {
   value = vault_namespace.factory.path
 }

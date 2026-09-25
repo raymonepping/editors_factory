@@ -236,6 +236,51 @@ Each entry: **Decision** — **Why** — **Rejected alternative** — **Full det
     only if a future Vault build resolves the Agent Registry
     root-namespace constraint.
 
+16. **OBO human delegation (`prompts/v3/03_02`) works, live-confirmed
+    both directions — and the `sub`/`act.sub` claim mapping is the
+    opposite of what a plain reading of "actor claim" suggests.** The
+    profile's `actor_claim = "act.sub"` was set in decision 15's own
+    Terraform, unused until now. First attempt put the agent's own
+    fixed subject in `sub` and the initiating human's real Keycloak
+    `sub` (`req.identity.subjectId`, captured on `demo_runs.
+    initiator_subject_id` at `PUT /demo/mode`/`POST /demo/reset` time)
+    in `act.sub` — every direction "actor" suggests. Vault rejected it
+    live: `OAuth credentials require the entity to have an agent
+    registration`, even though the agent's own entity genuinely is
+    registered. Vault's real model reads the other way: `sub`
+    (`user_claim`) is the delegating **principal** (the human, whose
+    baseline policy is what actually gets intersected), and `act.sub`
+    (`actor_claim`) is the party **acting** right now — the one Agent
+    Registry's own registration requirement applies to, which is the
+    agent. Swapped (`mintV3DemoJwt()`, `backend/src/vault.js`) and
+    confirmed live, both directions, through the real deployed API (a
+    genuine human OIDC session, not a CLI-token bypass — the CLI path
+    deliberately never carries a real subject): positive control —
+    Vault's own audit log shows `entity_id` resolved to
+    `v3-human-identity`, `metadata.actor_entity_id`/`actor_entity_name`
+    resolved to `v3-agent-identity`, and `policy_results.
+    granting_policies` lists both `v3-human-baseline` and
+    `v3-agent-baseline` as independently evaluated grants — a real
+    `201`/PostgreSQL credential issued. Negative control — with
+    `v3-human-baseline` temporarily changed to grant an unrelated path
+    (same agent, same ceiling, same RAR claim, same `act.sub`), the
+    identical request came back `403 permission denied`; policy
+    restored, positive control reconfirmed, `terraform plan` clean
+    (no drift). This is what proves the human's own baseline policy is
+    genuinely, independently evaluated, not decorative. A second,
+    separate Vault entity (`v3-human-identity`/`v3-human-baseline`,
+    `terraform/vault-platform/v3-obo-human.tf`) was required — not a
+    second alias on the agent's own identity — since OBO intersects
+    two independently-owned policies, not one identity wearing two
+    hats. Scoped deliberately narrow, matching decision 15's own
+    "documented, deliberate stand-in" framing: exactly one demo human
+    identity (`raymon`, the only account whose real Keycloak `sub` this
+    project captured and bound), not a general "any logged-in operator
+    delegates" mechanism. No `factory`-namespace or `v3-agent-identity`
+    resource touched; both test suites (neither of which authenticates
+    as a real human) stayed green throughout, unaffected by construction
+    since `actorSubject` is `null` for every existing caller.
+
 ## How to use this file
 
 Adding a new deliberate trade-off, discovered live or decided

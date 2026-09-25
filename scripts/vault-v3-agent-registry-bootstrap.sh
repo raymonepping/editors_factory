@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# scripts/vault-v3-agent-registry-bootstrap.sh — prompts/v3/03_01.
+# scripts/vault-v3-agent-registry-bootstrap.sh — prompts/v3/03_01,
+# extended by prompts/v3/03_02.
 #
 # Registers the v3 agent identity in Agent Registry and binds its
 # entity-alias, the two pieces of the v3 root-scoped credential path
@@ -15,10 +16,23 @@
 # than blindly re-writing.
 #
 # Must run AFTER terraform/vault-platform's own apply (creates
-# vault_identity_entity.v3_agent and vault_policy.v3_agent_baseline,
-# both referenced below) and AFTER vault-database's own apply of
-# database-v3 (terraform/vault-database/database-v3.tf) — this script
-# only wires identity, not the credential path's own target role.
+# vault_identity_entity.v3_agent/v3_human and
+# vault_policy.v3_agent_baseline/v3_human_baseline, all referenced
+# below) and AFTER vault-database's own apply of database-v3
+# (terraform/vault-database/database-v3.tf) — this script only wires
+# identity, not the credential path's own target role.
+#
+# 03_02's second block (below the agent block) does the same for the
+# human side of OBO delegation — an entity-alias only, no Agent
+# Registry registration (only an agent needs to *be* registered there;
+# a human only needs an entity + alias so its own baseline policy
+# resolves). external_id is the real, live-confirmed Keycloak `sub`
+# for the `raymon` demo account — read directly from the live
+# `sessions` table (`SELECT subject_id FROM sessions WHERE username =
+# 'raymon' ORDER BY expires_at DESC LIMIT 1`), not fabricated. This is
+# scoped to this one demo LDAP/Keycloak deployment: if that data is
+# ever wiped and re-seeded, Keycloak assigns a new `sub` on `raymon`'s
+# next login and HUMAN_SUBJECT below needs recapturing the same way.
 set -euo pipefail
 umask 077
 # shellcheck source=scripts/vault-common.sh
@@ -85,3 +99,34 @@ fi
 
 echo
 echo "v3 agent identity fully wired: entity, Agent Registry registration, entity-alias."
+
+# --- 03_02: the human side of OBO delegation ---
+
+HUMAN_ENTITY_NAME="v3-human-identity"
+HUMAN_ALIAS_NAME="v3-human-jwt-binding"
+HUMAN_SUBJECT="53feffe3-7c90-46b5-9949-675d6860957d" # raymon's Keycloak sub — see header comment
+
+human_entity_id=$(terraform -chdir="$VAULT_PROJECT_ROOT/terraform/vault-platform" output -raw v3_human_entity_id 2>/dev/null) || {
+  echo "Could not read v3_human_entity_id output — run terraform/vault-platform's own apply first." >&2
+  exit 1
+}
+
+echo
+echo "Human entity: $HUMAN_ENTITY_NAME ($human_entity_id)"
+
+current_human_aliases=$(curl -sk -H "X-Vault-Token: $VAULT_TOKEN" \
+  "$VAULT_ADDR/v1/identity/entity/id/$human_entity_id" | jq -r '.data.aliases[]?.name // empty')
+
+if grep -qx "$HUMAN_ALIAS_NAME" <<<"$current_human_aliases"; then
+  echo "Entity-alias '$HUMAN_ALIAS_NAME' already exists — leaving as is."
+else
+  echo "Creating entity-alias '$HUMAN_ALIAS_NAME' (issuer=$ISSUER, external_id=$HUMAN_SUBJECT)..."
+  curl -sk -H "X-Vault-Token: $VAULT_TOKEN" -X POST \
+    -d "$(jq -n --arg name "$HUMAN_ALIAS_NAME" --arg cid "$human_entity_id" --arg iss "$ISSUER" --arg sub "$HUMAN_SUBJECT" \
+      '{name: $name, canonical_id: $cid, issuer: $iss, external_id: $sub}')" \
+    "$VAULT_ADDR/v1/identity/entity-alias" | jq -e '.data.id' >/dev/null
+  echo "Alias created."
+fi
+
+echo
+echo "v3 human identity fully wired: entity, entity-alias (no Agent Registry registration — humans don't register as agents)."
