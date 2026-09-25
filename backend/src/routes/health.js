@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { getPool, getPoolCredentialInfo, renewNow } from "../db.js";
+import {
+  getPoolCredentialInfo,
+  renewNow,
+  verifyCredentialFresh,
+} from "../db.js";
 import { vaultHealthCheck } from "../vault.js";
 
 export const healthRouter = Router();
@@ -8,7 +12,10 @@ healthRouter.get("/health", async (req, res) => {
   const vault = await vaultHealthCheck();
   let db = { ok: false };
   try {
-    await getPool().query("SELECT 1");
+    // prompts/hardening/02_00: a fresh, never-pooled connection, not
+    // getPool().query() — the pool can report success on an already-open
+    // connection even after the credential backing it has been revoked.
+    await verifyCredentialFresh();
     db = { ok: true, credential: getPoolCredentialInfo() };
   } catch (err) {
     db = { ok: false, error: err.message };
