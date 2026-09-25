@@ -125,11 +125,29 @@ services:
       - vault-agent-secrets:/vault/secrets
     networks: [default]
     restart: unless-stopped
-    depends_on:
-      vault-1:
-        condition: service_healthy
+    # prompts/hardening/01_00: this depends_on used to chain
+    # vault-agent -> vault-1 -> vault-s (vault-1's own depends_on
+    # below), which is what caused CLAUDE.md gotcha #9's documented
+    # "--force-recreate vault-agent also recreates vault-s and vault-1"
+    # cascade — podman-compose treats depends_on as a real, engine-level
+    # requirement, not just start-order guidance. Removed: Vault
+    # Agent's own auto_auth already retries connecting to VAULT_ADDR
+    # with exponential backoff when vault-1 isn't reachable yet
+    # (confirmed live in its own logs on every past cold start —
+    # "connect: connection refused backoff=810ms" entries until
+    # vault-1 comes up), so this dependency was never load-bearing for
+    # correctness, only a source of unwanted recreate-cascade risk.
     healthcheck:
-      test: ["CMD-SHELL", "test -s /vault/secrets/token"]
+      # prompts/hardening/01_00: `test -s` only checked the token FILE
+      # was non-empty — found live (CLAUDE.md gotcha #9) that a stale,
+      # dead token is still a non-empty file, so this reported
+      # "healthy" for hours while the token vault-agent was actually
+      # handing out was invalid. A real vault token lookup call (the
+      # `vault` CLI is already present in this Enterprise image, and
+      # VAULT_ADDR/VAULT_CACERT are already set in this container's
+      # own environment above) is the only way this check means what
+      # it claims to.
+      test: ["CMD-SHELL", "VAULT_TOKEN=$(cat /vault/secrets/token) vault token lookup >/dev/null"]
       interval: 15s
       timeout: 5s
       start_period: 30s

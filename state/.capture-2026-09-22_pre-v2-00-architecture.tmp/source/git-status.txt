@@ -1,2 +1,0 @@
- M state/CURRENT
-?? state/.capture-2026-09-22_pre-v2-00-architecture.tmp/

@@ -1,6 +1,0 @@
- M backend/src/routes/factoryRecords.js
- M ui/app/assets/css/main.css
- M ui/app/components/FactoryFooter.vue
- M ui/app/components/FactoryMetric.vue
- M ui/app/pages/index.vue
-?? state/.capture-2026-09-18_post-responsive-scaling.tmp/

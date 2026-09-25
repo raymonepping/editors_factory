@@ -1,8 +1,0 @@
-{
-  "component": "ollama",
-  "expected": true,
-  "compose_file_present": true,
-  "running_containers": 1,
-  "observed_running": true,
-  "capture_status": "CAPTURED"
-}

@@ -531,9 +531,19 @@ export async function issueV3OAuthCredential() {
   };
 }
 
+/**
+ * prompts/hardening/01_00: this used to only check the token FILE was
+ * non-empty (a plain readAgentToken() call) — found live (CLAUDE.md
+ * gotcha #9) that this is exactly the blind spot that let vault-agent
+ * report "healthy" for hours while the token it was actually handing
+ * out was dead: a stale token is still a non-empty file. A real
+ * `auth/token/lookup-self` call is the only way this field means what
+ * it claims to.
+ */
 export async function vaultHealthCheck() {
   try {
-    await readAgentToken();
+    const token = await readAgentToken();
+    await vaultRequest("GET", "auth/token/lookup-self", { token });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };

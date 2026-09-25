@@ -1,8 +1,0 @@
-{
-  "component": "agents",
-  "expected": true,
-  "compose_file_present": true,
-  "running_containers": 0,
-  "observed_running": false,
-  "capture_status": "CAPTURED"
-}

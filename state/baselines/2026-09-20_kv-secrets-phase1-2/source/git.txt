@@ -1,4 +1,0 @@
-commit=27d5daca56f3b70b959a613feb83e0b595fff43b
-branch=main
-tag=
-dirty=true

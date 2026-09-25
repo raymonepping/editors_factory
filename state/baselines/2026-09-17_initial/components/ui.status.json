@@ -1,8 +1,0 @@
-{
-  "component": "ui",
-  "expected": false,
-  "compose_file_present": false,
-  "running_containers": 0,
-  "observed_running": false,
-  "capture_status": "CAPTURED"
-}

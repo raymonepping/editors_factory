@@ -1,9 +1,0 @@
- M backend/src/index.js
- M ui/app/components/FactoryFooter.vue
- M ui/app/components/PanelShell.vue
- M ui/app/composables/useDemoApi.ts
- M ui/app/pages/index.vue
- M ui/app/types/factory.ts
-?? backend/src/routes/factoryRecords.js
-?? state/.capture-2026-09-18_post-records-panel.tmp/
-?? ui/app/components/FactoryRecords.vue
