@@ -24,26 +24,66 @@ const WORKFLOW_MODES: { value: WorkflowMode; label: string }[] = [
   { value: 'fixed_chain', label: 'Fixed Chain (v1)' },
   { value: 'recoverable_dag', label: 'Recoverable Micro-DAG (v2)' },
 ]
-const FAULT_MODES: { value: FaultInjectionMode; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'fail_before_mutation', label: 'Fail Before Mutation' },
-  { value: 'fail_after_mutation', label: 'Fail After Mutation' },
-  { value: 'lock_timeout', label: 'Lock Timeout' },
+
+// prompts/frontend/01_03 — grounded in what checkFaultInjection() /
+// simulateGenuineLockTimeout() (backend/src/routes/actions.js) actually
+// do, not a paraphrase: each mode only ever fires on a node's first
+// attempt, never a retry.
+const FAULT_MODES: { value: FaultInjectionMode; label: string; description: string }[] = [
+  {
+    value: 'none',
+    label: 'None',
+    description: 'No fault is injected — a v2 attempt runs normally, start to finish.',
+  },
+  {
+    value: 'fail_before_mutation',
+    label: 'Fail Before Mutation',
+    description:
+      "On a node's first attempt only, the request fails before the database mutation ever runs. Retrying the node succeeds normally, since nothing was written.",
+  },
+  {
+    value: 'fail_after_mutation',
+    label: 'Fail After Mutation',
+    description:
+      "On a node's first attempt only, the mutation commits successfully, then the failure is raised afterward. This is what exercises the business-effect ledger's idempotency: a retry must report the mutation as already applied, not repeat it.",
+  },
+  {
+    value: 'lock_timeout',
+    label: 'Lock Timeout',
+    description:
+      "On a node's first attempt only, and only under BAD profile (GOOD's read-only-plus-narrow-EXECUTE role can't hold a conflicting lock at all, so it falls back to the same failure as Fail Before Mutation instead): a second connection on the same credential genuinely contends for a PostgreSQL table lock and times out — a real 55P03 error from Postgres itself, not a synthetic one.",
+  },
 ]
-// prompts/v3/03_01 — a separate, additive credential path (its own
-// root-scoped Vault database mount, its own narrow role), not a
-// replacement for anything v1/v2 already do. "(preview)" and the note
-// below are deliberate: credential issuance here goes through a demo
-// token issuer factory-api itself runs, standing in for a real IdP
-// (Keycloak in this stack can't yet produce a token Vault accepts —
-// see prompts/v3/03_00_findings.md) — Vault's own verification and
-// enforcement are real, only the IdP role is stood in for.
-const AUTHORITY_MECHANISMS: { value: AuthorityMechanism; label: string }[] = [
-  { value: 'sentinel_approle', label: 'Sentinel + AppRole (v1/v2)' },
-  { value: 'vault_native_oauth', label: 'Vault-native OAuth (v3 preview)' },
+
+// prompts/v3/03_01 (label/description reworked by prompts/frontend/01_03)
+// — a separate, additive credential path (its own root-scoped Vault
+// database mount, its own narrow role), not a replacement for anything
+// v1/v2 already do. Credential issuance for the OAuth option goes
+// through a demo token issuer factory-api itself runs, standing in for
+// a real IdP (no IdP in this stack, Keycloak included, can currently
+// produce a token Vault accepts — see prompts/v3/03_00_findings.md) —
+// Vault's own verification and enforcement are real, only the IdP role
+// is stood in for.
+const AUTHORITY_MECHANISMS: { value: AuthorityMechanism; label: string; description: string }[] = [
+  {
+    value: 'sentinel_approle',
+    label: 'Sentinel + AppRole (v1/v2)',
+    description:
+      "Agent C's database credential is minted by the backend as a short-lived Vault AppRole child token, tagged with metadata identifying the agent, task, and run. A Sentinel policy (require-agent-c-for-db-creds) inspects that metadata before allowing any database/creds/* read. This is the governed path every v1 and v2 run uses by default — the mechanism this whole project's BAD/GOOD demo is built around.",
+  },
+  {
+    value: 'vault_native_oauth',
+    label: 'Vault-native OAuth',
+    description:
+      "Agent C's credential is issued through Vault's native OAuth Resource Server + Agent Registry mechanism instead of Sentinel + AppRole. A demo token issuer (factory-api's own signing key) stands in for a real identity provider — no IdP in this stack can currently produce a token Vault accepts — but Vault's own signature verification and authorization are real. Read-only, scoped to a separate database role; never used by a v1/v2 run.",
+  },
 ]
 
 const isV2 = computed(() => props.workflowMode === 'recoverable_dag')
+const DEFAULT_FAULT_MODE = FAULT_MODES[0]!
+const selectedFaultMode = computed(() =>
+  FAULT_MODES.find((m) => m.value === props.faultInjectionMode) ?? DEFAULT_FAULT_MODE,
+)
 </script>
 
 <template>
@@ -93,6 +133,10 @@ const isV2 = computed(() => props.workflowMode === 'recoverable_dag')
             {{ mode.label }}
           </button>
         </div>
+        <details class="info-box">
+          <summary>About "{{ selectedFaultMode.label }}"</summary>
+          <p>{{ selectedFaultMode.description }}</p>
+        </details>
       </fieldset>
 
       <fieldset class="control-group">
@@ -112,9 +156,10 @@ const isV2 = computed(() => props.workflowMode === 'recoverable_dag')
             {{ mech.label }}
           </button>
         </div>
-        <p v-if="authorityMechanism === 'vault_native_oauth'" class="control-hint">
-          Agent C's credential is issued through Vault's native OAuth Resource Server + Agent Registry mechanism instead of Sentinel + AppRole — a demo token issuer stands in for a real identity provider (Vault's own verification is real). Read-only, scoped to a separate database role.
-        </p>
+        <details v-for="mech in AUTHORITY_MECHANISMS" :key="mech.value" class="info-box">
+          <summary>About "{{ mech.label }}"</summary>
+          <p>{{ mech.description }}</p>
+        </details>
       </fieldset>
 
       <p v-if="disabled" class="control-hint">
@@ -192,5 +237,45 @@ const isV2 = computed(() => props.workflowMode === 'recoverable_dag')
   margin: 0;
   font-size: 11px;
   color: var(--color-text-muted);
+}
+.info-box {
+  margin-top: 8px;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-panel-info);
+}
+.info-box + .info-box {
+  margin-top: 6px;
+}
+.info-box summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.info-box summary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  transition: transform 0.15s ease;
+}
+.info-box[open] summary::before {
+  transform: rotate(90deg);
+}
+.info-box summary::-webkit-details-marker {
+  display: none;
+}
+.info-box p {
+  margin: 0;
+  padding: 0 12px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
 }
 </style>
