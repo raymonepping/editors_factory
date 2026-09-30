@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `vault-agent` heals a silently dead token on its own: its entrypoint runs a watchdog that restarts the agent after 3 consecutive rejections of its token by Vault (outages are not counted). Proven live: 64 s from a revoked token to `vault ok, db ok`, no recreate (CLAUDE.md gotcha #9).
+- `vault-rotator` now decides on Vault's own answer: it looks up the current secret-id and rotates when it is invalid or below 1/3 of its real lifetime (it used to rotate at a fixed 60 days, which could never catch the 7-day cap), issues exactly one secret-id per rotation (it used to issue two, leaving a valid orphan each time), destroys the replaced one, and warns if Vault issues a shorter life than the role declares. `make vault-up` starts it; `approle-rotator` policy gained `secret-id/lookup` and `secret-id-accessor/destroy`.
+- Demo reset no longer fails intermittently with `violates foreign key constraint … run_id_fkey`: REPEATABLE READ did not stop agent-d's concurrent inserts (FK checks see committed rows, not the snapshot); the reset now locks the evidence tables in EXCLUSIVE mode.
+- AppRole secret-ids died after 7 days instead of 90: the `factory/approle` mount inherited the server-wide `max_lease_ttl = "168h"`, which caps every secret-id regardless of the role's `secret_id_ttl`. The mount is now tuned to a 90-day maximum in Terraform (`auth.tf`), with the matching `vault-admin` grants (`policies.tf`); `identity-secrets`, `control-group-authorizer` and `factory-api` secret-ids re-issued (expire 2026-12-29).
+
 - `ui/app/app.vue` never wrapped `<NuxtPage>` in `<NuxtLayout>`, so a named layout was never applied regardless of `definePageMeta`. Fixed as part of adding the sidebar layout.
 - The dashboard footer used `position: fixed`, permanently consuming viewport height on every screen (confirmed via Playwright at both target demo resolutions) and producing a full-page-screenshot rendering artifact on narrow viewports. It is now a normal in-flow footer.
 - `docs/architecture.md` described dashboard reads as unauthenticated; the dashboard has required a Keycloak session since Wave 7.

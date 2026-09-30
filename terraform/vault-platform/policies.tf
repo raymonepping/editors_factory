@@ -166,6 +166,17 @@ resource "vault_policy" "approle_rotator" {
     path "auth/approle/role/factory-api" {
       capabilities = ["read"]
     }
+
+    # 2026-09-30: the rotator decides on Vault's own answer — it looks the
+    # current secret-id up (expiry, accessor) instead of trusting a local
+    # schedule, and destroys the secret-id it replaced.
+    path "auth/approle/role/factory-api/secret-id/lookup" {
+      capabilities = ["update"]
+    }
+
+    path "auth/approle/role/factory-api/secret-id-accessor/destroy" {
+      capabilities = ["update"]
+    }
   EOT
 }
 
@@ -346,6 +357,19 @@ resource "vault_policy" "vault_admin" {
 
     path "factory/sys/auth/approle" {
       capabilities = ["create", "read", "update", "delete", "sudo"]
+    }
+
+    # The approle mount's own tuning (auth.tf's `tune` block): without it
+    # the mount inherits the server-wide max_lease_ttl (168h), which caps
+    # every secret-id at 7 days regardless of the role's secret_id_ttl.
+    # Found live 2026-09-30 — Terraform reads the mount (GET) before it
+    # can tune it, and vault-admin had neither.
+    path "factory/sys/mounts/auth/approle" {
+      capabilities = ["read"]
+    }
+
+    path "factory/sys/mounts/auth/approle/tune" {
+      capabilities = ["read", "update"]
     }
 
     # Found live on a from-scratch rebuild: AppRole's role-id and

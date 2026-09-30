@@ -4,6 +4,20 @@ resource "vault_auth_backend" "approle" {
   namespace = vault_namespace.factory.path
   type      = "approle"
   path      = "approle"
+
+  # AppRole caps every secret-id (and token) at the mount's effective
+  # max_lease_ttl. Untuned, that is the server-wide max_lease_ttl in
+  # vault-*/config*.hcl — 168h — so every role's `secret_id_ttl = 7776000`
+  # (90 days) silently became 7 days. Found live 2026-09-30: identity-secrets
+  # and control-group-authorizer secret-ids both dead after a week
+  # (identity-secrets-init 403 on login; Control Group approvals 400).
+  # Raising the ceiling on this mount only — not the server-wide value —
+  # keeps every other mount's 7-day maximum. Roles still set their own,
+  # shorter token TTLs; this only stops the mount from overriding them.
+  tune {
+    default_lease_ttl = "1h"
+    max_lease_ttl     = "2160h" # 90 days = the secret_id_ttl every role declares
+  }
 }
 
 # The backend orchestrator's (factory-api) machine identity to Vault.

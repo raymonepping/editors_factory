@@ -104,8 +104,9 @@ services:
   # prompts/backend/01_01_orchestrator_api.md is implemented; this prompt
   # only produces the token, that one consumes it.
   # prompts/hardening/03_00_vault_agent_sidecar.md: Secret-ID Rotator Watchdog.
-  # Proactively rotates factory-api's AppRole secret-id before the 90-day TTL
-  # expires, writing to the shared vault-approle-credentials volume.
+  # Replaces factory-api's AppRole secret-id before Vault says it expires
+  # (checks the real expiry every 12 h; see rotator.sh), writing to the shared
+  # vault-approle-credentials volume.
   vault-rotator:
     image: docker.io/hashicorp/vault-enterprise:2.1.1-ent
     container_name: factory-vault_rotator
@@ -124,8 +125,9 @@ services:
       ROTATOR_SECRET_ID: "${ROTATOR_SECRET_ID}"
       TARGET_ROLE_ID: "${FACTORY_VAULT_ROLE_ID:-3d348d72-c6da-ee9c-819d-b0dad5bcba90}"
       TARGET_ROLE_NAME: "factory-api"
-      CHECK_INTERVAL_SECONDS: "43200"
-      ROTATION_THRESHOLD_SECONDS: "5184000" # 60 days
+      CHECK_INTERVAL_SECONDS: "43200"  # 12 h
+      ROTATE_BELOW_FRACTION: "3"       # rotate when < 1/3 of Vault's reported lifetime is left
+      WARN_IF_SHORTER_THAN: "7776000"  # the 90 days factory-api's role declares
     volumes:
       - ../../vault-tls:/vault/tls:ro
       - ./vault-rotator/rotator.sh:/vault/rotator/rotator.sh:ro

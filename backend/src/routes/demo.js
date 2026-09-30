@@ -287,6 +287,21 @@ demoRouter.post(
       const client = await getPool().connect();
       try {
         await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ");
+        // REPEATABLE READ alone does not close the race above: foreign-key
+        // checks run against the latest COMMITTED rows, not this
+        // transaction's snapshot, so a finding/authority decision agent-d
+        // commits mid-reset still breaks `DELETE FROM demo_runs` (found
+        // live 2026-09-30: 500 "violates foreign key constraint
+        // authority_decisions_run_id_fkey", intermittently, in the test
+        // suites). EXCLUSIVE locks block concurrent INSERTs until this
+        // transaction commits; they queue, then fail cleanly on their own
+        // FK check against the now-deleted run, which is the right outcome
+        // for evidence about a run that no longer exists.
+        await client.query(
+          `LOCK TABLE findings, database_changes, credential_events, authority_decisions,
+                      audit_events, delegations, demo_runs, credential_mandates
+             IN EXCLUSIVE MODE`,
+        );
         await client.query(
           `DELETE FROM findings; DELETE FROM database_changes; DELETE FROM credential_events;
            DELETE FROM authority_decisions; DELETE FROM audit_events; DELETE FROM delegations;

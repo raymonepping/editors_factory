@@ -111,7 +111,9 @@ vault-up: ## Start the Vault HA cluster and bootstrap it (idempotent)
 	@$(MAKE) --no-print-directory network
 	@./scripts/vault-prepare.sh
 	@./scripts/vault-bootstrap.sh
-	@./scripts/compose.sh vault up -d vault-agent
+	@# vault-rotator first: it keeps factory-api's secret-id valid in the shared
+	@# volume, which vault-agent reads on every login (CLAUDE.md gotchas #9, #12).
+	@./scripts/compose.sh vault up -d vault-rotator vault-agent
 
 vault-down: ## Stop the Vault HA cluster
 	@./scripts/compose.sh vault down
