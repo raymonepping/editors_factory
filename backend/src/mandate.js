@@ -18,8 +18,17 @@
 
 import { getPool } from "./db.js";
 
-export const STANDARD_TRANSITIONS = [{ from: "inconsistent", to: "quarantined" }];
-export const ORDER_STATUSES = ["pending", "processing", "inconsistent", "quarantined", "cancelled", "fulfilled"];
+export const STANDARD_TRANSITIONS = [
+  { from: "inconsistent", to: "quarantined" },
+];
+export const ORDER_STATUSES = [
+  "pending",
+  "processing",
+  "inconsistent",
+  "quarantined",
+  "cancelled",
+  "fulfilled",
+];
 
 /**
  * The standard mandate for a task: every order currently in a status the
@@ -48,13 +57,19 @@ export async function buildStandardMandate(task) {
 }
 
 /** Write the mandate rows for one Vault-issued PostgreSQL login. */
-export async function bindMandate(dbUser, entries, { taskId = null, grantedVia = "mandate", reason = null } = {}) {
+export async function bindMandate(
+  dbUser,
+  entries,
+  { taskId = null, grantedVia = "mandate", reason = null } = {},
+) {
   if (!dbUser || entries.length === 0) return 0;
   const values = [];
   const params = [];
   entries.forEach((e, i) => {
     const b = i * 7;
-    values.push(`($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7})`);
+    values.push(
+      `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7})`,
+    );
     params.push(dbUser, e.orderId, e.from, e.to, taskId, grantedVia, reason);
   });
   await getPool().query(
@@ -71,8 +86,12 @@ export async function bindMandate(dbUser, entries, { taskId = null, grantedVia =
  * before PostgreSQL has to.
  */
 export async function checkMandate(dbUser, orderId, toStatus) {
-  const { rows: orders } = await getPool().query("SELECT status FROM orders WHERE id = $1", [orderId]);
-  if (!orders.length) return { ok: false, reason: "order_not_found", from: null };
+  const { rows: orders } = await getPool().query(
+    "SELECT status FROM orders WHERE id = $1",
+    [orderId],
+  );
+  if (!orders.length)
+    return { ok: false, reason: "order_not_found", from: null };
   const from = orders[0].status;
   const { rows } = await getPool().query(
     `SELECT granted_via FROM credential_mandates
@@ -90,5 +109,10 @@ export async function describeMandate(dbUser) {
       WHERE db_user = $1 ORDER BY order_id`,
     [dbUser],
   );
-  return rows.map((r) => ({ orderId: r.order_id, from: r.from_status, to: r.to_status, grantedVia: r.granted_via }));
+  return rows.map((r) => ({
+    orderId: r.order_id,
+    from: r.from_status,
+    to: r.to_status,
+    grantedVia: r.granted_via,
+  }));
 }

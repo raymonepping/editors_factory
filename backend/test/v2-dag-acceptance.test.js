@@ -334,7 +334,11 @@ describe("v2: insert_product and delete_products — individually verified, not 
     // products.insert / products.delete exist only in the BAD profile's
     // ceiling (policy.js). This suite used to rely on whatever profile
     // the demo happened to be left in; set it explicitly.
-    const mode = await apiFetch("/api/demo/mode", { method: "PUT", cliToken: CLI_TOKEN, body: { profile: "bad" } });
+    const mode = await apiFetch("/api/demo/mode", {
+      method: "PUT",
+      cliToken: CLI_TOKEN,
+      body: { profile: "bad" },
+    });
     assert.equal(mode.status, 200);
     await setWorkflowMode("recoverable_dag");
   });

@@ -97,7 +97,11 @@ function sourceEvent({ type, payload }) {
 function parseRow(v) {
   if (!v) return null;
   if (typeof v === "object") return v;
-  try { return JSON.parse(v); } catch { return null; }
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
 }
 
 export function classify({ type, payload }) {
@@ -208,7 +212,12 @@ export function classify({ type, payload }) {
       const after = parseRow(payload.after);
       const from = before?.status;
       const to = after?.status;
-      if (from && to && from !== to && !(from === "inconsistent" && to === "quarantined")) {
+      if (
+        from &&
+        to &&
+        from !== to &&
+        !(from === "inconsistent" && to === "quarantined")
+      ) {
         return {
           code: "D-009",
           severity: "ELEVATED",

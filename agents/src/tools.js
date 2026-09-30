@@ -295,7 +295,9 @@ export const TOOLS = {
       },
     },
     run: async (args, ctx) =>
-      clientFor(ctx).requestCredential(args?.exception ? { exception: args.exception } : undefined),
+      clientFor(ctx).requestCredential(
+        args?.exception ? { exception: args.exception } : undefined,
+      ),
   },
 
   delegate_task: {

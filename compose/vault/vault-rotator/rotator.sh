@@ -15,7 +15,7 @@ set -eu
 : "${ROTATOR_SECRET_ID:?ROTATOR_SECRET_ID is required}"
 : "${TARGET_ROLE_ID:?TARGET_ROLE_ID is required}"
 : "${TARGET_ROLE_NAME:=factory-api}"
-: "${CHECK_INTERVAL_SECONDS:=43200}" # 12 hours
+: "${CHECK_INTERVAL_SECONDS:=43200}"       # 12 hours
 : "${ROTATION_THRESHOLD_SECONDS:=5184000}" # 60 days (in seconds)
 
 export VAULT_ADDR VAULT_CACERT VAULT_NAMESPACE
@@ -34,7 +34,7 @@ chmod 700 /run/approle
 umask 077
 
 # Ensure TARGET_ROLE_ID is written
-printf '%s' "$TARGET_ROLE_ID" > "$ROLE_ID_FILE.tmp"
+printf '%s' "$TARGET_ROLE_ID" >"$ROLE_ID_FILE.tmp"
 mv "$ROLE_ID_FILE.tmp" "$ROLE_ID_FILE"
 chmod 600 "$ROLE_ID_FILE"
 
@@ -46,23 +46,23 @@ get_rotator_token() {
 rotate_secret_id() {
   log "Authenticating with Vault as approle-rotator..."
   TOKEN=$(get_rotator_token)
-  
+
   log "Generating fresh secret-id for role '$TARGET_ROLE_NAME'..."
   SECRET_ID=$(VAULT_TOKEN="$TOKEN" vault write -field=secret_id -f "auth/approle/role/$TARGET_ROLE_NAME/secret-id")
   ACCESSOR=$(VAULT_TOKEN="$TOKEN" vault write -field=secret_id_accessor -f "auth/approle/role/$TARGET_ROLE_NAME/secret-id" 2>/dev/null || echo "unknown")
-  
+
   if [ -z "$SECRET_ID" ] || [ "$SECRET_ID" = "null" ]; then
     log "ERROR: Failed to retrieve secret_id from Vault!"
     return 1
   fi
 
   # Atomic file replacement
-  printf '%s' "$SECRET_ID" > "$SECRET_ID_FILE.tmp"
+  printf '%s' "$SECRET_ID" >"$SECRET_ID_FILE.tmp"
   mv "$SECRET_ID_FILE.tmp" "$SECRET_ID_FILE"
   chmod 600 "$SECRET_ID_FILE"
 
   NOW_TS=$(date +%s)
-  cat <<JSON > "$METADATA_FILE.tmp"
+  cat <<JSON >"$METADATA_FILE.tmp"
 {
   "secret_id_accessor": "$ACCESSOR",
   "created_at_epoch": $NOW_TS,

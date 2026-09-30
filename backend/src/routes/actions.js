@@ -333,7 +333,12 @@ async function recordToolCall({
  * decision (Agent D's D-010 classifies it), answered with what the
  * credential IS allowed to do and how to ask a human for more.
  */
-async function refuseOutsideMandate(res, decision, cred, { orderId, from, to, reason, enforcedBy }) {
+async function refuseOutsideMandate(
+  res,
+  decision,
+  cred,
+  { orderId, from, to, reason, enforcedBy },
+) {
   const detail = `${reason}: order ${orderId} ${from ?? "(missing)"} -> ${to} (enforced by ${enforcedBy})`;
   await audit.recordAuthorityDecision({
     runId: decision.runId,
@@ -508,7 +513,11 @@ actionsRouter.patch(
       // never poisons the ledger. PostgreSQL enforces the same rule again
       // inside set_order_status (caught below).
       if (decision.profile === "good" && cred.role === "factory-good-role") {
-        const mandate = await checkMandate(cred.username, Number(req.params.id), status);
+        const mandate = await checkMandate(
+          cred.username,
+          Number(req.params.id),
+          status,
+        );
         if (!mandate.ok) {
           if (effect.applicable && effect.claimed) {
             await getPool().query(

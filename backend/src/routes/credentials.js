@@ -30,10 +30,20 @@ import {
  * demonstrated flaw. Recorded as an audit event so the evidence trail
  * shows what each credential was allowed to change, not only what it did.
  */
-async function bindCredentialMandate({ role, credential, task, runId, traceId, actorId, exception = null }) {
+async function bindCredentialMandate({
+  role,
+  credential,
+  task,
+  runId,
+  traceId,
+  actorId,
+  exception = null,
+}) {
   if (role !== "factory-good-role") return [];
   const entries = await buildStandardMandate(task);
-  await bindMandate(credential.username, entries, { taskId: task?.taskId ?? null });
+  await bindMandate(credential.username, entries, {
+    taskId: task?.taskId ?? null,
+  });
   if (exception) {
     await bindMandate(credential.username, [exception], {
       taskId: task?.taskId ?? null,
@@ -41,7 +51,9 @@ async function bindCredentialMandate({ role, credential, task, runId, traceId, a
       reason: exception.reason,
     });
   }
-  const bound = exception ? [...entries, { ...exception, grantedVia: "control_group" }] : entries;
+  const bound = exception
+    ? [...entries, { ...exception, grantedVia: "control_group" }]
+    : entries;
   await audit.recordAuditEvent({
     runId,
     traceId: traceId ?? randomUUID(),
@@ -49,7 +61,9 @@ async function bindCredentialMandate({ role, credential, task, runId, traceId, a
     actorId,
     action: "credential.mandate_bound",
     result: "ALLOW",
-    target: bound.map((e) => `orders/${e.orderId}:${e.from}->${e.to}`).join(",") || "(no records)",
+    target:
+      bound.map((e) => `orders/${e.orderId}:${e.from}->${e.to}`).join(",") ||
+      "(no records)",
   });
   return bound;
 }
@@ -150,7 +164,14 @@ async function issueAndRecordAttemptCredential({
   // but no node_id/attempt_id at all, so it alone can't support the
   // lease-reuse-across-attempts check 02_05 asks classify() to make.
   if (attemptRows[0]) publishEvent("dag_node_attempts", attemptRows[0]);
-  credential.mandate = await bindCredentialMandate({ role, credential, task: null, runId, traceId, actorId });
+  credential.mandate = await bindCredentialMandate({
+    role,
+    credential,
+    task: null,
+    runId,
+    traceId,
+    actorId,
+  });
   state.setActiveAgentCCredential({
     ...credential,
     role,
@@ -267,7 +288,8 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
     if (req.body?.exception && (profile !== "good" || dagContext)) {
       return res.status(400).json({
         error: "exception_not_applicable",
-        message: "Mandate exceptions apply to the GOOD profile's fixed-chain workflow only.",
+        message:
+          "Mandate exceptions apply to the GOOD profile's fixed-chain workflow only.",
       });
     }
     if (dagContext && Number(dagContext.attemptNumber) > 1) {
@@ -289,7 +311,9 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
         ttlSeconds: credential.leaseDuration,
         issued: true,
         attemptNumber: dagContext.attemptNumber,
-        ...(role === "factory-good-role" ? { mandate: credential.mandate } : {}),
+        ...(role === "factory-good-role"
+          ? { mandate: credential.mandate }
+          : {}),
       });
     }
 
@@ -312,7 +336,9 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
         ttlSeconds: credential.leaseDuration,
         issued: true,
         attemptNumber: dagContext.attemptNumber,
-        ...(role === "factory-good-role" ? { mandate: credential.mandate } : {}),
+        ...(role === "factory-good-role"
+          ? { mandate: credential.mandate }
+          : {}),
       });
     }
 
@@ -325,18 +351,36 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
       const orderId = Number(exception.orderId);
       const toStatus = String(exception.toStatus ?? "");
       const reason = String(exception.reason ?? "").trim();
-      if (!Number.isInteger(orderId) || !ORDER_STATUSES.includes(toStatus) || reason.length < 10) {
+      if (
+        !Number.isInteger(orderId) ||
+        !ORDER_STATUSES.includes(toStatus) ||
+        reason.length < 10
+      ) {
         return res.status(400).json({
           error: "validation",
-          message: "exception needs orderId, a valid toStatus and a reason of at least 10 characters",
+          message:
+            "exception needs orderId, a valid toStatus and a reason of at least 10 characters",
         });
       }
-      const { rows: orderRows } = await getPool().query("SELECT status FROM orders WHERE id = $1", [orderId]);
-      if (!orderRows.length) return res.status(404).json({ error: "order not found" });
+      const { rows: orderRows } = await getPool().query(
+        "SELECT status FROM orders WHERE id = $1",
+        [orderId],
+      );
+      if (!orderRows.length)
+        return res.status(404).json({ error: "order not found" });
 
-      const wrap = await issueSupervisedDatabaseCredential(role, actorId, taskId);
+      const wrap = await issueSupervisedDatabaseCredential(
+        role,
+        actorId,
+        taskId,
+      );
       const approvalId = randomUUID();
-      const requested = { orderId, from: orderRows[0].status, to: toStatus, reason };
+      const requested = {
+        orderId,
+        from: orderRows[0].status,
+        to: toStatus,
+        reason,
+      };
       state.createPendingApproval(approvalId, {
         wrapAccessor: wrap.wrapAccessor,
         wrapToken: wrap.wrapToken,
@@ -359,7 +403,8 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
         status: "pending_approval",
         approvalId,
         exception: requested,
-        message: "A change outside the task's mandate requires human authorization in Vault before it can be made.",
+        message:
+          "A change outside the task's mandate requires human authorization in Vault before it can be made.",
       });
     }
 
@@ -407,7 +452,12 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
 
     const credential = await issueDatabaseCredential(role, actorId, taskId);
     const mandate = await bindCredentialMandate({
-      role, credential, task: state.getTask(taskId), runId, traceId, actorId,
+      role,
+      credential,
+      task: state.getTask(taskId),
+      runId,
+      traceId,
+      actorId,
     });
 
     // taskId makes cleanupTaskCredentials' own ownership check real
