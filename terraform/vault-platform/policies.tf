@@ -135,6 +135,40 @@ resource "vault_policy" "identity_secrets" {
   EOT
 }
 
+# prompts/hardening/03_00_vault_agent_sidecar.md — dedicated AppRole rotator
+# policy. Scoped strictly to creating/updating and listing secret-ids for
+# factory-api's AppRole so the rotator sidecar can automatically maintain
+# secret-id freshness before the 90-day TTL expires.
+resource "vault_policy" "approle_rotator" {
+  namespace = vault_namespace.factory.path
+  name      = "approle-rotator"
+  policy    = <<-EOT
+    path "auth/approle/role/factory-api/secret-id" {
+      capabilities = ["create", "update"]
+    }
+
+    path "auth/approle/role/factory-api/custom-secret-id" {
+      capabilities = ["create", "update"]
+    }
+
+    path "auth/approle/role/factory-api/secret-id-accessor" {
+      capabilities = ["list"]
+    }
+
+    path "auth/approle/role/factory-api/secret-id-accessor/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+
+    path "auth/approle/role/factory-api/role-id" {
+      capabilities = ["read"]
+    }
+
+    path "auth/approle/role/factory-api" {
+      capabilities = ["read"]
+    }
+  EOT
+}
+
 # prompts/v3/03_01: the 03_00 spike's own throwaway
 # agentic-iam-spike-baseline policy (its live-testing role now fully
 # superseded by v3-root-credential-path.tf's real v3-agent-baseline)
@@ -435,6 +469,20 @@ resource "vault_policy" "vault_admin" {
     }
 
     path "factory/sys/policies/acl/factory-agent-c-cred-supervised" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    # prompts/hardening/03_00_vault_agent_sidecar.md: managing the approle-rotator policy
+    # and role via vault-admin
+    path "factory/auth/approle/role/approle-rotator" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "factory/auth/approle/role/approle-rotator/*" {
+      capabilities = ["create", "read", "update", "delete"]
+    }
+    
+    path "factory/sys/policies/acl/approle-rotator" {
       capabilities = ["create", "read", "update", "delete"]
     }
   EOT

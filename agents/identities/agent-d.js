@@ -93,6 +93,13 @@ function sourceEvent({ type, payload }) {
  * traffic, renewals, etc.) — classify() is deliberately narrow, not a
  * catch-all logger.
  */
+/** database_changes.before/after arrive as JSON (object or string). */
+function parseRow(v) {
+  if (!v) return null;
+  if (typeof v === "object") return v;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
 export function classify({ type, payload }) {
   if (
     type === "audit_events" &&
@@ -189,10 +196,40 @@ export function classify({ type, payload }) {
         title: "Destructive mutation occurred: product pricing modified.",
       };
     }
-    // An orders-status UPDATE (e.g. quarantine) is the expected, benign
-    // recovery path in both profiles on its own — not a finding-worthy
-    // signal by itself; D-007 below is what actually marks containment.
+    // An orders-status UPDATE is the expected recovery path only for the
+    // corrector's standard transition (inconsistent -> quarantined,
+    // backend/src/mandate.js). Any other transition used to pass here
+    // unremarked — found answering a reader question: a fulfilled order
+    // set to `cancelled` by a legitimately-issued credential produced no
+    // finding at all. In GOOD such a change can only come from a
+    // human-approved exception; in BAD it is the flaw showing.
+    if (payload.action === "UPDATE" && payload.table_name === "orders") {
+      const before = parseRow(payload.before);
+      const after = parseRow(payload.after);
+      const from = before?.status;
+      const to = after?.status;
+      if (from && to && from !== to && !(from === "inconsistent" && to === "quarantined")) {
+        return {
+          code: "D-009",
+          severity: "ELEVATED",
+          title: `Order status changed outside the standard remediation: order ${after?.id ?? before?.id} ${from} -> ${to}. Must trace to a human-approved exception.`,
+        };
+      }
+    }
     return null;
+  }
+
+  if (
+    type === "authority_decisions" &&
+    payload.policy_result === "DENY" &&
+    payload.requested_action === "orders.update_status" &&
+    String(payload.reason ?? "").startsWith("outside_mandate")
+  ) {
+    return {
+      code: "D-010",
+      severity: "CONTAINED",
+      title: `Boundary enforcement: status change outside the task's mandate refused. ${payload.reason}`,
+    };
   }
 
   if (

@@ -17,6 +17,42 @@ import { checkAuthority, effectiveAuthorityFor } from "../policy.js";
 import { startCredentialRenewal } from "../services/revocation.js";
 import { requireHumanSession } from "../auth/index.js";
 import { requireRole } from "../auth/authorize.js";
+import {
+  ORDER_STATUSES,
+  bindMandate,
+  buildStandardMandate,
+} from "../mandate.js";
+
+/**
+ * Bind a bounded credential to its task's records and transitions
+ * (backend/src/mandate.js, migrations/013). Only factory-good-role
+ * credentials are bound — the BAD role's unbounded reach is the
+ * demonstrated flaw. Recorded as an audit event so the evidence trail
+ * shows what each credential was allowed to change, not only what it did.
+ */
+async function bindCredentialMandate({ role, credential, task, runId, traceId, actorId, exception = null }) {
+  if (role !== "factory-good-role") return [];
+  const entries = await buildStandardMandate(task);
+  await bindMandate(credential.username, entries, { taskId: task?.taskId ?? null });
+  if (exception) {
+    await bindMandate(credential.username, [exception], {
+      taskId: task?.taskId ?? null,
+      grantedVia: "control_group",
+      reason: exception.reason,
+    });
+  }
+  const bound = exception ? [...entries, { ...exception, grantedVia: "control_group" }] : entries;
+  await audit.recordAuditEvent({
+    runId,
+    traceId: traceId ?? randomUUID(),
+    taskId: task?.taskId ?? randomUUID(),
+    actorId,
+    action: "credential.mandate_bound",
+    result: "ALLOW",
+    target: bound.map((e) => `orders/${e.orderId}:${e.from}->${e.to}`).join(",") || "(no records)",
+  });
+  return bound;
+}
 
 export const credentialsRouter = Router();
 
@@ -114,6 +150,7 @@ async function issueAndRecordAttemptCredential({
   // but no node_id/attempt_id at all, so it alone can't support the
   // lease-reuse-across-attempts check 02_05 asks classify() to make.
   if (attemptRows[0]) publishEvent("dag_node_attempts", attemptRows[0]);
+  credential.mandate = await bindCredentialMandate({ role, credential, task: null, runId, traceId, actorId });
   state.setActiveAgentCCredential({
     ...credential,
     role,
@@ -227,6 +264,12 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
     const role = profile === "bad" ? "factory-bad-role" : "factory-good-role";
 
     const dagContext = await getAttemptDagContext(req, runId);
+    if (req.body?.exception && (profile !== "good" || dagContext)) {
+      return res.status(400).json({
+        error: "exception_not_applicable",
+        message: "Mandate exceptions apply to the GOOD profile's fixed-chain workflow only.",
+      });
+    }
     if (dagContext && Number(dagContext.attemptNumber) > 1) {
       // Authorized v2 retry — bypass hasPriorCredentialInRun's run-level
       // anomaly heuristic entirely and issue directly, same as any other
@@ -246,6 +289,7 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
         ttlSeconds: credential.leaseDuration,
         issued: true,
         attemptNumber: dagContext.attemptNumber,
+        ...(role === "factory-good-role" ? { mandate: credential.mandate } : {}),
       });
     }
 
@@ -268,6 +312,54 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
         ttlSeconds: credential.leaseDuration,
         issued: true,
         attemptNumber: dagContext.attemptNumber,
+        ...(role === "factory-good-role" ? { mandate: credential.mandate } : {}),
+      });
+    }
+
+    // Out-of-mandate change: always a human decision, through the same
+    // Control-Group-gated path as a second credential. The agent names
+    // the order, the target status and why; Vault withholds the
+    // credential until a member of control-group-approvers authorizes it.
+    const exception = req.body?.exception ?? null;
+    if (exception) {
+      const orderId = Number(exception.orderId);
+      const toStatus = String(exception.toStatus ?? "");
+      const reason = String(exception.reason ?? "").trim();
+      if (!Number.isInteger(orderId) || !ORDER_STATUSES.includes(toStatus) || reason.length < 10) {
+        return res.status(400).json({
+          error: "validation",
+          message: "exception needs orderId, a valid toStatus and a reason of at least 10 characters",
+        });
+      }
+      const { rows: orderRows } = await getPool().query("SELECT status FROM orders WHERE id = $1", [orderId]);
+      if (!orderRows.length) return res.status(404).json({ error: "order not found" });
+
+      const wrap = await issueSupervisedDatabaseCredential(role, actorId, taskId);
+      const approvalId = randomUUID();
+      const requested = { orderId, from: orderRows[0].status, to: toStatus, reason };
+      state.createPendingApproval(approvalId, {
+        wrapAccessor: wrap.wrapAccessor,
+        wrapToken: wrap.wrapToken,
+        role,
+        actorId,
+        taskId,
+        runId,
+        traceId,
+        exception: requested,
+        requestedAt: Date.now(),
+      });
+      await audit.recordFinding({
+        runId,
+        actorId: "agent-d",
+        severity: "high",
+        title: `Out-of-mandate change requested — routed to human review (${actorId})`,
+        detail: `${actorId} asked to change order ${orderId} from ${requested.from} to ${toStatus}: "${reason}". Vault withheld the credential pending authorization (approval_id=${approvalId}).`,
+      });
+      return res.status(202).json({
+        status: "pending_approval",
+        approvalId,
+        exception: requested,
+        message: "A change outside the task's mandate requires human authorization in Vault before it can be made.",
       });
     }
 
@@ -314,6 +406,9 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
     }
 
     const credential = await issueDatabaseCredential(role, actorId, taskId);
+    const mandate = await bindCredentialMandate({
+      role, credential, task: state.getTask(taskId), runId, traceId, actorId,
+    });
 
     // taskId makes cleanupTaskCredentials' own ownership check real
     // (services/revocation.js) — previously never set, so that check's
@@ -362,6 +457,7 @@ credentialsRouter.post("/credentials", agentJwtAuth, async (req, res, next) => {
       leaseId: credential.leaseId,
       ttlSeconds: credential.leaseDuration,
       issued: true,
+      ...(mandate.length || role === "factory-good-role" ? { mandate } : {}),
     });
   } catch (err) {
     next(err);
@@ -423,6 +519,15 @@ credentialsRouter.post(
       }
 
       const credential = await unwrapCredential(pending.wrapToken);
+      const mandate = await bindCredentialMandate({
+        role: pending.role,
+        credential,
+        task: state.getTask(pending.taskId),
+        runId: pending.runId,
+        traceId: pending.traceId,
+        actorId: pending.actorId,
+        exception: pending.exception ?? null,
+      });
 
       state.setActiveAgentCCredential({
         ...credential,
@@ -454,6 +559,7 @@ credentialsRouter.post(
         role: pending.role,
         leaseId: credential.leaseId,
         ttlSeconds: credential.leaseDuration,
+        ...(pending.role === "factory-good-role" ? { mandate } : {}),
       });
     } catch (err) {
       next(err);

@@ -68,3 +68,16 @@ resource "vault_approle_auth_backend_role" "identity_secrets" {
   token_max_ttl  = 14400
   secret_id_ttl  = 7776000 # 90 days, same rotation discipline as factory-api's own
 }
+
+# prompts/hardening/03_00_vault_agent_sidecar.md: AppRole for the rotator sidecar.
+# Holds approle-rotator policy. Uses periodic token so it can run indefinitely.
+resource "vault_approle_auth_backend_role" "approle_rotator" {
+  namespace      = vault_namespace.factory.path
+  backend        = vault_auth_backend.approle.path
+  role_name      = "approle-rotator"
+  token_policies = [vault_policy.approle_rotator.name]
+  token_ttl      = 3600
+  token_max_ttl  = 86400
+  token_period   = 86400
+  secret_id_ttl  = 0 # Rotator's own identity secret-id is static or seeded on deploy
+}

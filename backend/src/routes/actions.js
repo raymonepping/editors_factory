@@ -3,6 +3,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { agentJwtAuth } from "../middleware/agentJwtAuth.js";
 import { getPool, withAgentCredential } from "../db.js";
 import { cleanupTaskCredentials } from "../services/revocation.js";
+import { checkMandate, describeMandate } from "../mandate.js";
 import * as audit from "../audit.js";
 import * as state from "../state.js";
 import {
@@ -327,6 +328,44 @@ async function recordToolCall({
   });
 }
 
+/**
+ * A change outside the credential's mandate: recorded as a DENY authority
+ * decision (Agent D's D-010 classifies it), answered with what the
+ * credential IS allowed to do and how to ask a human for more.
+ */
+async function refuseOutsideMandate(res, decision, cred, { orderId, from, to, reason, enforcedBy }) {
+  const detail = `${reason}: order ${orderId} ${from ?? "(missing)"} -> ${to} (enforced by ${enforcedBy})`;
+  await audit.recordAuthorityDecision({
+    runId: decision.runId,
+    actorId: decision.actorId,
+    requestedAction: "orders.update_status",
+    policyResult: "DENY",
+    reason: detail,
+    traceId: decision.traceId,
+    taskId: decision.taskId,
+  });
+  await recordToolCall({
+    runId: decision.runId,
+    actorId: decision.actorId,
+    traceId: decision.traceId,
+    taskId: decision.taskId,
+    toolName: "update_order_status",
+    target: `orders/${orderId}`,
+    result: "DENY",
+    rowsAffected: 0,
+  });
+  return res.status(403).json({
+    error: "outside_mandate",
+    message: `This credential may not change order ${orderId} from ${from ?? "(missing)"} to ${to}. Its task covers only the changes listed in "mandate".`,
+    enforcedBy,
+    order: { id: orderId, status: from },
+    requested: to,
+    mandate: await describeMandate(cred.username),
+    exception:
+      "To make this change, request a credential with { exception: { orderId, toStatus, reason } }: a human must authorize it in Vault.",
+  });
+}
+
 function denyResponse(res, decision) {
   return res.status(403).json({ error: decision.reason });
 }
@@ -459,6 +498,34 @@ actionsRouter.patch(
         );
       }
 
+      // Mandate check (backend/src/mandate.js, migrations/013). A bounded
+      // credential may make only the (order, from, to) changes bound to
+      // it at issuance. Runs AFTER the business-effect ledger's replay
+      // check — a duplicate of an already-applied change must get the
+      // cached answer, not a refusal because the order has since moved
+      // on (found by v2-dag-acceptance's own duplicate-retry test) — and
+      // releases the ledger claim if it refuses, so a refused change
+      // never poisons the ledger. PostgreSQL enforces the same rule again
+      // inside set_order_status (caught below).
+      if (decision.profile === "good" && cred.role === "factory-good-role") {
+        const mandate = await checkMandate(cred.username, Number(req.params.id), status);
+        if (!mandate.ok) {
+          if (effect.applicable && effect.claimed) {
+            await getPool().query(
+              "DELETE FROM dag_business_effects WHERE business_effect_key = $1 AND result IS NULL",
+              [effect.businessEffectKey],
+            );
+          }
+          return refuseOutsideMandate(res, decision, cred, {
+            orderId: Number(req.params.id),
+            from: mandate.from,
+            to: status,
+            reason: mandate.reason,
+            enforcedBy: "backend policy",
+          });
+        }
+      }
+
       const before = await getPool().query(
         "SELECT * FROM orders WHERE id = $1",
         [req.params.id],
@@ -469,12 +536,35 @@ actionsRouter.patch(
       // silently dropped by Vault's PostgreSQL secrets engine). Same call
       // for both profiles, matching this project's "no separate code path
       // for GOOD mode" rule.
-      const result = await withAgentCredential(cred, (client) =>
-        client.query("SELECT * FROM set_order_status($1, $2)", [
-          req.params.id,
-          status,
-        ]),
-      );
+      let result;
+      try {
+        result = await withAgentCredential(cred, (client) =>
+          client.query("SELECT * FROM set_order_status($1, $2)", [
+            req.params.id,
+            status,
+          ]),
+        );
+      } catch (err) {
+        // 42501 from set_order_status = the database's own mandate check.
+        if (err.code === "42501" && /outside mandate/.test(err.message)) {
+          // Release the unfinished ledger claim so a later, valid attempt
+          // isn't mistaken for "already applied" (same trap as 02_08).
+          if (effect.applicable && effect.claimed) {
+            await getPool().query(
+              "DELETE FROM dag_business_effects WHERE business_effect_key = $1 AND result IS NULL",
+              [effect.businessEffectKey],
+            );
+          }
+          return refuseOutsideMandate(res, decision, cred, {
+            orderId: Number(req.params.id),
+            from: before.rows[0]?.status ?? null,
+            to: status,
+            reason: "outside_mandate",
+            enforcedBy: "PostgreSQL",
+          });
+        }
+        throw err;
+      }
 
       await checkFaultInjection(req, ["fail_after_mutation"]);
 

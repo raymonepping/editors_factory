@@ -96,6 +96,11 @@ resource "vault_database_secret_backend_role" "factory_bad_role" {
 # `vault read database/creds/factory-good-role` will fail with a real
 # PostgreSQL error until that schema/function exists; that failure is
 # expected and informative, not a bug in this module.
+# Mandate binding (backend/src/migrations/013_credential_mandates.sql):
+# every GOOD credential also joins factory_bound_corrector, which makes
+# set_order_status refuse any (order, from, to) the backend did not write
+# into credential_mandates for this exact login. The permission stops
+# being "change any order's status" and becomes "make these changes".
 resource "vault_database_secret_backend_role" "factory_good_role" {
   namespace = "factory"
   backend   = vault_mount.database.path
@@ -103,7 +108,7 @@ resource "vault_database_secret_backend_role" "factory_good_role" {
   db_name   = vault_database_secret_backend_connection.postgres.name
 
   creation_statements = [
-    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT EXECUTE ON FUNCTION set_order_status(integer, text) TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
+    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT EXECUTE ON FUNCTION set_order_status(integer, text) TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";\nGRANT factory_bound_corrector TO \"{{name}}\";",
   ]
 
   revocation_statements = [
@@ -161,7 +166,7 @@ resource "vault_database_secret_backend_role" "factory_backend_role" {
   # GET /api/dag/runs/:id worked before this), but writes need the
   # table named here explicitly, same as every other evidence table.
   creation_statements = [
-    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT INSERT, UPDATE, DELETE ON demo_runs, audit_events, delegations, authority_decisions, credential_events, database_changes, findings, sessions, dag_runs, dag_nodes, dag_edges, dag_node_attempts, dag_business_effects TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
+    "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";\nGRANT INSERT, UPDATE, DELETE ON demo_runs, audit_events, delegations, authority_decisions, credential_events, database_changes, findings, sessions, dag_runs, dag_nodes, dag_edges, dag_node_attempts, dag_business_effects, credential_mandates TO \"{{name}}\";\nGRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";",
   ]
 
   revocation_statements = [

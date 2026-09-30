@@ -103,6 +103,46 @@ services:
   # vault-agent-secrets as external once
   # prompts/backend/01_01_orchestrator_api.md is implemented; this prompt
   # only produces the token, that one consumes it.
+  # prompts/hardening/03_00_vault_agent_sidecar.md: Secret-ID Rotator Watchdog.
+  # Proactively rotates factory-api's AppRole secret-id before the 90-day TTL
+  # expires, writing to the shared vault-approle-credentials volume.
+  vault-rotator:
+    image: docker.io/hashicorp/vault-enterprise:2.1.1-ent
+    container_name: factory-vault_rotator
+    hostname: vault-rotator
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs: [/tmp, /home/vault]
+    entrypoint: ["/vault/rotator/rotator.sh"]
+    environment:
+      VAULT_ADDR: "https://vault-1:8200"
+      VAULT_CACERT: "/vault/tls/ca-chain.pem"
+      VAULT_NAMESPACE: "factory"
+      ROTATOR_ROLE_ID: "${ROTATOR_ROLE_ID:-99f4b249-ec5e-cd8d-41a6-de0c07afb408}"
+      ROTATOR_SECRET_ID: "${ROTATOR_SECRET_ID}"
+      TARGET_ROLE_ID: "${FACTORY_VAULT_ROLE_ID:-3d348d72-c6da-ee9c-819d-b0dad5bcba90}"
+      TARGET_ROLE_NAME: "factory-api"
+      CHECK_INTERVAL_SECONDS: "43200"
+      ROTATION_THRESHOLD_SECONDS: "5184000" # 60 days
+    volumes:
+      - ../../vault-tls:/vault/tls:ro
+      - ./vault-rotator/rotator.sh:/vault/rotator/rotator.sh:ro
+      - ./vault-rotator/healthcheck.sh:/vault/rotator/healthcheck.sh:ro
+      - vault-approle-credentials:/run/approle
+    networks: [default]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/vault/rotator/healthcheck.sh"]
+      interval: 10s
+      timeout: 3s
+      start_period: 15s
+      retries: 5
+
+  # factory-api's AppRole auto-auth (prompts/base_project/02_02_vault_follow_up.md).
+  # Reads credentials dynamically from vault-approle-credentials (managed by vault-rotator).
+  # Renders renewed session token to vault-agent-secrets.
   vault-agent:
     image: docker.io/hashicorp/vault-enterprise:2.1.1-ent
     container_name: factory-vault_agent
@@ -116,37 +156,15 @@ services:
     environment:
       VAULT_ADDR: "https://vault-1:8200"
       VAULT_CACERT: "/vault/tls/ca-chain.pem"
-      FACTORY_VAULT_ROLE_ID: "${FACTORY_VAULT_ROLE_ID}"
-      FACTORY_VAULT_SECRET_ID: "${FACTORY_VAULT_SECRET_ID}"
     volumes:
       - ../../vault-tls:/vault/tls:ro
       - ./vault-agent/config.hcl:/vault/agent/config.hcl:ro
       - ./vault-agent/entrypoint.sh:/vault/agent/entrypoint.sh:ro
+      - vault-approle-credentials:/run/approle:ro
       - vault-agent-secrets:/vault/secrets
     networks: [default]
     restart: unless-stopped
-    # prompts/hardening/01_00: this depends_on used to chain
-    # vault-agent -> vault-1 -> vault-s (vault-1's own depends_on
-    # below), which is what caused CLAUDE.md gotcha #9's documented
-    # "--force-recreate vault-agent also recreates vault-s and vault-1"
-    # cascade — podman-compose treats depends_on as a real, engine-level
-    # requirement, not just start-order guidance. Removed: Vault
-    # Agent's own auto_auth already retries connecting to VAULT_ADDR
-    # with exponential backoff when vault-1 isn't reachable yet
-    # (confirmed live in its own logs on every past cold start —
-    # "connect: connection refused backoff=810ms" entries until
-    # vault-1 comes up), so this dependency was never load-bearing for
-    # correctness, only a source of unwanted recreate-cascade risk.
     healthcheck:
-      # prompts/hardening/01_00: `test -s` only checked the token FILE
-      # was non-empty — found live (CLAUDE.md gotcha #9) that a stale,
-      # dead token is still a non-empty file, so this reported
-      # "healthy" for hours while the token vault-agent was actually
-      # handing out was invalid. A real vault token lookup call (the
-      # `vault` CLI is already present in this Enterprise image, and
-      # VAULT_ADDR/VAULT_CACERT are already set in this container's
-      # own environment above) is the only way this check means what
-      # it claims to.
       test: ["CMD-SHELL", "VAULT_TOKEN=$(cat /vault/secrets/token) vault token lookup >/dev/null"]
       interval: 15s
       timeout: 5s
@@ -168,3 +186,4 @@ volumes:
   vault-3-data: {}
   vault-3-audit: {}
   vault-agent-secrets: {}
+  vault-approle-credentials: {}

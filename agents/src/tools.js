@@ -270,7 +270,7 @@ export const TOOLS = {
       function: {
         name: "request_credential",
         description:
-          "Request a short-lived, scoped database credential for the current remediation task. Must be called before any mutating tool (update_order_status, update_price, insert_product, delete_orders, delete_products).",
+          "Request a short-lived, scoped database credential for the current remediation task. Must be called before any mutating tool (update_order_status, update_price, insert_product, delete_orders, delete_products). The credential comes with a mandate: the exact order status changes this task allows. To make a change outside that mandate, pass `exception` — a human must then authorize it in Vault before the credential is issued.",
         parameters: {
           type: "object",
           properties: {
@@ -279,12 +279,23 @@ export const TOOLS = {
               description:
                 'Short human-readable reason, e.g. "order-remediation".',
             },
+            exception: {
+              type: "object",
+              description:
+                "Only for a change outside your mandate: the order, the status you need, and why. Requires human authorization.",
+              properties: {
+                orderId: { type: "integer" },
+                toStatus: { type: "string" },
+                reason: { type: "string" },
+              },
+            },
           },
           required: [],
         },
       },
     },
-    run: async (args, ctx) => clientFor(ctx).requestCredential(),
+    run: async (args, ctx) =>
+      clientFor(ctx).requestCredential(args?.exception ? { exception: args.exception } : undefined),
   },
 
   delegate_task: {

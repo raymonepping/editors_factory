@@ -6,7 +6,7 @@ STACKS       := vault infra identity ollama api agents ui
 PROJECT_ROOT := $(shell pwd)
 API_PORT     ?= 3001
 
-.PHONY: help check status storage ps images volumes compose-config \
+.PHONY: test-mandate help check status storage ps images volumes compose-config \
 	network up down reset demo-bad demo-good \
 	identity-bootstrap identity-up identity-down identity-logs \
 	$(addsuffix -up,$(STACKS)) $(addsuffix -down,$(STACKS)) \
@@ -262,6 +262,11 @@ demo-v2-bad: ## Run the v2 Recoverable Micro-DAG in BAD mode (broad standing rol
 	@curl -fsS -m 5 -X POST $(CLI_AUTH_HEADER) "http://localhost:$(API_PORT)/api/dag/runs"
 	@echo
 	@echo "v2 BAD run started — watch it at http://localhost:3000/dag"
+
+test-mandate: ## Harmful changes within a granted permission: mandate, PostgreSQL, Control Group exception, Agent D (pauses the LLM agents)
+	@podman stop factory-agent-a factory-agent-b factory-agent-c >/dev/null
+	@cd backend && node --test --test-concurrency=1 test/mandate-scope.test.js; status=$$?; \
+		podman start factory-agent-a factory-agent-b factory-agent-c >/dev/null; exit $$status
 
 test-v2-e2e: ## Run the v2 recoverable-DAG acceptance suite (backend/test/v2-dag-acceptance.test.js) against the live stack
 	@npm --prefix backend test -- test/v2-dag-acceptance.test.js

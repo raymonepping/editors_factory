@@ -30,7 +30,16 @@ if ! command -v podman >/dev/null 2>&1; then
   exit 69
 fi
 
-: "${PODMAN_COMPOSE_PROVIDER:=podman-compose}"
+# docker-compose, not podman-compose: podman-compose turns every
+# `depends_on` into a hard Podman `--requires` link, so a finished one-shot
+# container (identity-secrets-init) can never be removed while the services
+# that waited on it exist ("has dependent containers which must be removed
+# before it"), and `up` hits the dependent-container race handled below.
+# docker-compose orders startup itself and creates no such links: once the
+# stack is up, `podman rm factory-identity-secrets-init` just works. Every
+# service sets container_name, so names are identical under both providers.
+# Override with PODMAN_COMPOSE_PROVIDER=podman-compose if ever needed.
+: "${PODMAN_COMPOSE_PROVIDER:=docker-compose}"
 export PODMAN_COMPOSE_PROVIDER
 
 run_compose() {
@@ -58,6 +67,7 @@ status=0
 run_compose "$@" >"$log" 2>&1 || status=$?
 cat "$log"
 
+# Only reachable under podman-compose (see the provider note above).
 if [ "$status" -ne 0 ] && grep -qE 'dependent container|already in use' "$log"; then
   echo "[compose.sh] '$stack up' hit the known dependent-container race — retrying once" >&2
   status=0

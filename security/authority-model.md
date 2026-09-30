@@ -66,7 +66,9 @@ agent-d   observe, correlate, create-finding (unchanged from GOOD)
 agent-a   inspect, diagnose, delegate→agent-b            (unchanged)
 agent-b   inspect, diagnose, restart-order-service,
           delegate→agent-c                                (unchanged)
-agent-c   inspect, diagnose, SELECT + UPDATE(status) only on orders
+agent-c   inspect, diagnose, SELECT + UPDATE(status) only on orders,
+            and only the (order, from, to) changes its task's mandate
+            binds to the credential — see "Mandate" below
             (factory-good-role, TTL 120s) — derived from intersecting
             what agent-b requested for agent-c with agent-c's own,
             independently fixed role ceiling (never derived from
@@ -110,6 +112,50 @@ layers**, and all three must hold:
 Do not remove any layer to simplify implementation. The demo's
 credibility depends on all three being real and independently
 verifiable.
+
+## Mandate: records and transitions, not only actions
+
+The three layers above decide *which actions* Agent C may take. Until
+2026-09-30 nothing decided *which records* or *which transitions*: the
+GOOD corrector's permission was "change any order's status". A reader of
+Part I asked what happens to harmful changes that stay within a
+legitimately granted permission, and the honest answer, proven live, was
+that they landed: with a real delegation chain and a real 2-minute
+factory-good-role credential, agent-c set order 2 (`fulfilled`, in no
+task) to `cancelled` — HTTP 200, recorded in `database_changes`, and not
+flagged by Agent D.
+
+Now every GOOD credential carries a **mandate**, bound to its own
+Vault-issued PostgreSQL login at issuance (`backend/src/mandate.js`,
+`backend/src/migrations/013_credential_mandates.sql`):
+
+- **Standard mandate.** Each order that is `inconsistent` when the
+  credential is issued may go `inconsistent -> quarantined`, and nothing
+  else. That is the corrector's own job (isolate a record the order
+  system could not reconcile; reversible, no outcome decided). A
+  delegation may narrow it further with `scope.orderIds`.
+- **Enforced twice.** The backend refuses anything outside the mandate
+  (`403 outside_mandate`, with the credential's actual mandate in the
+  answer) before the change is attempted. PostgreSQL refuses it again on
+  its own: GOOD credentials join the marker role `factory_bound_corrector`,
+  and for its members `set_order_status` checks `credential_mandates`
+  against `session_user` — the dynamic login, which a SECURITY DEFINER
+  function cannot change. Bypassing the backend doesn't help.
+- **Exceptions are human decisions.** Anything else (another order,
+  another outcome) needs a credential requested with
+  `exception: { orderId, toStatus, reason }`. It goes through the same
+  Vault Control Group as a second credential: Vault withholds it until a
+  member of `control-group-approvers` authorizes it, and the approved
+  row is recorded with `granted_via = control_group`.
+- **Observed.** Agent D's D-010 (CONTAINED) marks a refused
+  out-of-mandate change; D-009 (ELEVATED) flags any order status change
+  other than `inconsistent -> quarantined` — in GOOD it must trace to an
+  approved exception, in BAD it is the flaw showing.
+- **BAD is unchanged on purpose.** factory-bad-role does not carry the
+  marker role; its unbounded reach is still the demonstrated flaw.
+
+Test: `make test-mandate` (`backend/test/mandate-scope.test.js`, 11
+checks, LLM agents paused for determinism).
 
 ## Namespace: `factory/`
 

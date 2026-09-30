@@ -290,7 +290,7 @@ demoRouter.post(
         await client.query(
           `DELETE FROM findings; DELETE FROM database_changes; DELETE FROM credential_events;
            DELETE FROM authority_decisions; DELETE FROM audit_events; DELETE FROM delegations;
-           DELETE FROM demo_runs;`,
+           DELETE FROM demo_runs; DELETE FROM credential_mandates;`,
         );
         await client.query("COMMIT");
       } catch (err) {

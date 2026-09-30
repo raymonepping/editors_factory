@@ -271,7 +271,13 @@ describe("v2: retry issues a fresh credential and business-effect idempotency pr
       "attempt 2 issued directly, not routed to Control Groups",
     );
 
-    const mutate1 = await apiFetch("/api/actions/orders/1/status", {
+    // Mutate an order the credential's own mandate covers (GOOD binds
+    // inconsistent -> quarantined, backend/src/mandate.js). This used to
+    // quarantine order 1 — a fulfilled order no task covers, exactly the
+    // harmful-but-permitted change the mandate now refuses
+    // (test/mandate-scope.test.js). BAD credentials carry no mandate.
+    const target = cred1.data.mandate?.[0]?.orderId ?? 6;
+    const mutate1 = await apiFetch(`/api/actions/orders/${target}/status`, {
       method: "PATCH",
       token: claim2.data.attemptToken,
       body: { status: "quarantined" },
@@ -282,7 +288,7 @@ describe("v2: retry issues a fresh credential and business-effect idempotency pr
     // Repeat the identical mutation as if a second, slower attempt-2
     // retry arrived — the business-effect ledger (same run/node/
     // operation/target/payload) must intercept it, not the database.
-    const mutate2 = await apiFetch("/api/actions/orders/1/status", {
+    const mutate2 = await apiFetch(`/api/actions/orders/${target}/status`, {
       method: "PATCH",
       token: claim2.data.attemptToken,
       body: { status: "quarantined" },
@@ -325,6 +331,11 @@ async function setFaultInjectionMode(mode) {
 
 describe("v2: insert_product and delete_products — individually verified, not just symmetric by code", () => {
   before(async () => {
+    // products.insert / products.delete exist only in the BAD profile's
+    // ceiling (policy.js). This suite used to rely on whatever profile
+    // the demo happened to be left in; set it explicitly.
+    const mode = await apiFetch("/api/demo/mode", { method: "PUT", cliToken: CLI_TOKEN, body: { profile: "bad" } });
+    assert.equal(mode.status, 200);
     await setWorkflowMode("recoverable_dag");
   });
   after(async () => {

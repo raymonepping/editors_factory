@@ -27,6 +27,10 @@ output "identity_secrets_role_id" {
   value = vault_approle_auth_backend_role.identity_secrets.role_id
 }
 
+output "approle_rotator_role_id" {
+  value = vault_approle_auth_backend_role.approle_rotator.role_id
+}
+
 output "factory_api_secret_id_instructions" {
   value = <<-EOT
     role_id is not sensitive and is output above.

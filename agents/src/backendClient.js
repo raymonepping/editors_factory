@@ -141,7 +141,7 @@ export const backendClient = {
     request("POST", "/api/actions/services/order-processor/restart"),
 
   // ── Credential + delegation ─────────────────────────────────────────
-  requestCredential: () => request("POST", "/api/credentials"),
+  requestCredential: (body) => request("POST", "/api/credentials", body),
   delegateTask: ({ toActor, goal, authorityEnvelope }) =>
     request("POST", "/api/delegations", { toActor, goal, authorityEnvelope }),
 
@@ -207,8 +207,8 @@ export function createAttemptToolClient(token, attemptIdempotencyKey = null) {
         undefined,
         opts,
       ),
-    requestCredential: () =>
-      request("POST", "/api/credentials", undefined, opts),
+    requestCredential: (body) =>
+      request("POST", "/api/credentials", body, opts),
   };
 }
 
