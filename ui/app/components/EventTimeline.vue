@@ -111,8 +111,8 @@ function timeOf(e: TimelineEntry): string {
 .col-action { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
 .col-target { color: var(--color-text-muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 
-tr.is-newest td { border-left: var(--rail-width) solid var(--color-accent-primary); }
-tr:not(.is-newest) td:first-child { border-left: var(--rail-width) solid var(--factory-blue-700); }
+/* Newest row: a wash, not a coloured rail (glass family: no rails > 1px). */
+tr.is-newest td { background: color-mix(in srgb, var(--hue-blue) 8%, transparent); }
 
 .tone-ok { color: var(--color-state-healthy); }
 .tone-deny { color: var(--color-state-warning); }

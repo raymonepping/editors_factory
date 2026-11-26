@@ -26,7 +26,6 @@ watch(
 
 <style scoped>
 .metric {
-  background: var(--color-bg-panel);
   padding: var(--pad-dense) 14px;
   display: flex;
   flex-direction: column;

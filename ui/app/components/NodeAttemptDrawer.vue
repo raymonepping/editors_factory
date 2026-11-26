@@ -154,7 +154,9 @@ watch(
   position: fixed;
   inset: 0;
   z-index: 65;
-  background: rgb(0 0 0 / 0.5);
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
 .attempt-drawer {
   position: fixed;
@@ -163,8 +165,11 @@ watch(
   right: 0;
   z-index: 70;
   width: min(420px, 92vw);
-  background: var(--color-bg-shell);
-  border-left: var(--border-width) solid var(--color-border-subtle);
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-left: var(--border-width) solid var(--color-border-strong);
+  box-shadow: -8px 0 40px rgb(15 26 42 / 0.22);
   padding: 16px;
   overflow-y: auto;
   transform: translateX(100%);
@@ -224,7 +229,7 @@ watch(
 }
 .exec-completed { color: var(--color-state-healthy); border-color: var(--color-state-healthy); }
 .exec-failed, .exec-timed_out { color: var(--color-state-critical); border-color: var(--color-state-critical); }
-.exec-running { color: var(--factory-blue-400); border-color: var(--factory-blue-400); }
+.exec-running { color: var(--color-accent-primary); border-color: var(--color-accent-primary); }
 
 .attempt-fields {
   display: grid;

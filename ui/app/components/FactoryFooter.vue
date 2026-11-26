@@ -33,7 +33,7 @@ function toggleLegend() {
 // the footer legend is functional, not decorative: every state color used
 // anywhere in the dashboard is named here once.
 const legend = [
-  { swatch: 'var(--color-accent-primary)', label: 'Active / energy' },
+  { swatch: 'var(--color-state-live)', label: 'Active / energy' },
   { swatch: 'var(--color-border-info)', label: 'Information / contained' },
   { swatch: 'var(--color-state-warning)', label: 'Warning / elevated' },
   { swatch: 'var(--color-state-critical)', label: 'Critical / destructive' },
@@ -124,15 +124,18 @@ const links = [
 <style scoped>
 .factory-footer {
   margin-top: auto;
-  border-top: var(--border-width) solid var(--color-border-subtle);
+  border-top: var(--border-width) solid var(--glass-border);
   background: var(--color-bg-shell);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
   overflow: hidden;
 }
 
+/* Aluminium frame rule (replaces the gold gradient rail). */
 .footer-rail {
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--color-accent-primary) 20%, var(--factory-gold-glow) 50%, var(--color-accent-primary) 80%, transparent);
-  opacity: 0.55;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(125 138 153 / 0.45), transparent);
 }
 
 .footer-legend {
@@ -239,7 +242,7 @@ const links = [
   position: absolute;
   inset: 0;
   color: transparent;
-  background: linear-gradient(100deg, transparent 42%, rgba(255, 255, 255, 0.9) 50%, transparent 58%);
+  background: linear-gradient(100deg, transparent 42%, var(--color-accent-active) 50%, transparent 58%);
   background-size: 260% 100%;
   background-position: 130% 0;
   -webkit-background-clip: text;
@@ -269,7 +272,6 @@ const links = [
 }
 .footer-word:hover {
   color: var(--color-accent-primary);
-  text-shadow: var(--glow-active);
   transform: translateY(-1px);
 }
 .footer-word i {

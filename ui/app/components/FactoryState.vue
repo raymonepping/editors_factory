@@ -50,10 +50,9 @@ const STATUS_STYLE: Record<FactoryState['status'], { color: string; label: strin
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 1px;
-  background: var(--color-border-subtle);
   flex: 1;
 }
+.metric-grid :deep(.metric + .metric) { border-left: 1px solid var(--color-border-subtle); }
 
 @media (max-width: 640px) {
   .metric-grid { grid-template-columns: repeat(2, 1fr); }

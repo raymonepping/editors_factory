@@ -26,7 +26,7 @@ export default defineNuxtConfig({
       meta: [
         { name: 'description', content: 'The Factory — delegated-authority AI agent demo control room' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'color-scheme', content: 'dark' },
+        { name: 'color-scheme', content: 'light' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },

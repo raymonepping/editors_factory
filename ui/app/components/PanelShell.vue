@@ -95,8 +95,8 @@ const bodyId = useId()
   animation: alarm-pulse 1.8s ease-in-out infinite;
 }
 @keyframes alarm-pulse {
-  0%, 100% { box-shadow: var(--shadow-panel), var(--shadow-inset-steel), 0 0 0 rgb(196 71 61 / 0); }
-  50% { box-shadow: var(--shadow-panel), var(--shadow-inset-steel), 0 0 22px rgb(196 71 61 / 0.45); }
+  0%, 100% { box-shadow: var(--shadow-panel), var(--shadow-inset-steel), 0 0 0 color-mix(in srgb, var(--color-state-critical) 0%, transparent); }
+  50% { box-shadow: var(--shadow-panel), var(--shadow-inset-steel), 0 0 22px color-mix(in srgb, var(--color-state-critical) 45%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .panel.is-alarm {

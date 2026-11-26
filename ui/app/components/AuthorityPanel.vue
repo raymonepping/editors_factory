@@ -64,12 +64,11 @@ function entriesFor(id: ActorId) {
 .authority-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1px;
-  background: var(--color-border-subtle);
 }
 .authority-col {
-  background: var(--color-bg-panel);
+  min-width: 0;
   padding: var(--pad-dense) 14px;
+  border-right: 1px solid var(--color-border-subtle);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -92,6 +91,7 @@ function entriesFor(id: ActorId) {
 .authority-entry {
   font-family: var(--font-mono);
   font-size: 12px;
+  overflow-wrap: anywhere;
   color: var(--color-text-muted);
 }
 .authority-empty { color: var(--color-text-muted); opacity: 0.6; }

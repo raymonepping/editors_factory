@@ -126,7 +126,7 @@ onUnmounted(() => {
 .approval-authorize-btn:disabled { cursor: not-allowed; opacity: 0.6; }
 .approval-authorize-btn:not(:disabled):hover {
   background: var(--color-state-critical);
-  color: var(--color-bg-page);
+  color: var(--color-text-on-gold);
 }
 
 .approval-error {

@@ -58,28 +58,29 @@ function select(profile: Profile) {
   min-width: 132px;
   padding: 8px 16px;
   border-radius: var(--radius-control);
-  border: var(--border-width) solid var(--color-border-info);
+  border: var(--border-width) solid var(--color-border-subtle);
   background: var(--color-bg-panel-info);
   color: var(--color-text-secondary);
   cursor: pointer;
+  transition: border-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out), background-color 180ms var(--ease-out);
 }
 .profile-segment:disabled { cursor: not-allowed; opacity: 0.6; }
-.profile-segment svg { color: var(--factory-blue-400); }
+.profile-segment svg { color: var(--color-accent-info); }
 .profile-segment.is-selected {
   border-color: var(--color-border-active);
-  box-shadow: 0 0 0 1px var(--color-border-active), var(--glow-active);
+  box-shadow: 0 0 0 1px var(--color-border-active);
   color: var(--color-text-primary);
 }
 .profile-segment.is-selected svg { color: var(--color-accent-primary); }
 
 .profile-segment--bad {
-  border-color: var(--factory-rust-700);
+  border-color: color-mix(in srgb, var(--color-state-critical) 35%, transparent);
   background: var(--color-bg-panel-warning);
 }
 .profile-segment--bad svg { color: var(--color-state-critical); }
 .profile-segment--bad.is-selected {
-  border-color: var(--color-border-active);
-  box-shadow: 0 0 0 1px var(--color-border-active), var(--glow-active);
+  border-color: var(--color-state-critical);
+  box-shadow: 0 0 0 1px var(--color-state-critical);
 }
 
 .profile-caption {

@@ -238,7 +238,7 @@ const NODE_LABELS: Record<DagNodeKey, string> = {
   position: absolute;
   left: 0;
   right: 0;
-  border-top: 1.5px solid var(--color-border-subtle);
+  border-top: 1.5px solid var(--color-border-strong);
 }
 .branch-line--up { top: 25%; }
 .branch-line--down { top: 75%; }
@@ -276,7 +276,7 @@ const NODE_LABELS: Record<DagNodeKey, string> = {
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--color-bg-panel-warning);
-  border: var(--border-width) solid var(--factory-rust-700);
+  border: var(--border-width) solid color-mix(in srgb, var(--color-state-critical) 35%, transparent);
   color: var(--color-text-secondary);
 }
 .dag-retry-btn {
@@ -302,12 +302,12 @@ const NODE_LABELS: Record<DagNodeKey, string> = {
 
 /* Running: pulsing blue border */
 .state-running {
-  border-color: var(--factory-blue-400);
+  border-color: var(--color-accent-primary);
   animation: dag-pulse 1.6s ease-in-out infinite;
 }
 @keyframes dag-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.45); }
-  50% { box-shadow: 0 0 0 4px rgba(96, 165, 250, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent-primary) 45%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent-primary) 0%, transparent); }
 }
 
 /* Completed: solid green border */
@@ -334,8 +334,8 @@ const NODE_LABELS: Record<DagNodeKey, string> = {
     45deg,
     transparent,
     transparent 6px,
-    rgba(237, 186, 71, 0.12) 6px,
-    rgba(237, 186, 71, 0.12) 12px
+    color-mix(in srgb, var(--hue-amber) 14%, transparent) 6px,
+    color-mix(in srgb, var(--hue-amber) 14%, transparent) 12px
   );
 }
 

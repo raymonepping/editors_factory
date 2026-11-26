@@ -321,7 +321,7 @@ async function onRetry(nodeKey: DagNodeKey) {
 }
 .dag-tab--active {
   color: var(--color-text-primary);
-  border-bottom-color: var(--factory-blue-400);
+  border-bottom-color: var(--color-accent-primary);
 }
 .dag-start-row {
   display: flex;

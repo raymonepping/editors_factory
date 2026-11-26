@@ -65,9 +65,9 @@ watch(showAgentD, (visible) => {
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
         </button>
         <svg class="dashboard-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" rx="6" fill="var(--color-bg-shell)" stroke="var(--color-border-active)" stroke-width="1" />
-          <path d="M6 22 L6 16 L12 16 L12 19 L20 19 L20 13 L26 13 L26 22 Z" fill="var(--color-accent-primary)" />
-          <circle cx="23" cy="10" r="2.4" fill="var(--factory-gold-glow)" />
+          <rect width="32" height="32" rx="8" fill="var(--ink)" />
+          <path d="M6 22 L6 16 L12 16 L12 19 L20 19 L20 13 L26 13 L26 22 Z" fill="#7dd3fc" />
+          <circle cx="23" cy="10" r="2.4" fill="#fbbf24" />
         </svg>
         <div>
           <h1 class="dashboard-title">The Factory</h1>
@@ -119,14 +119,24 @@ watch(showAgentD, (visible) => {
   min-height: 100dvh;
 }
 
+/* Floating sticky glass topbar (the family's shell pattern). */
 .dashboard-header {
+  position: sticky;
+  top: 12px;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
   flex-wrap: wrap;
-  padding: 20px clamp(16px, 2vw, 28px);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  margin: 12px clamp(16px, 1.4vw, 28px) 0;
+  padding: 12px 20px;
+  background: var(--color-bg-shell);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--border-width) solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-panel), inset 0 1px 0 var(--glass-hi);
 }
 .dashboard-title-group {
   display: flex;
@@ -149,17 +159,16 @@ watch(showAgentD, (visible) => {
 .sidebar-toggle:hover { color: var(--color-accent-primary); border-color: var(--color-border-active); }
 
 .dashboard-mark {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 10px rgb(237 186 71 / 0.25));
 }
 .dashboard-title {
-  font-size: clamp(22px, 1.4vw, 32px);
+  font-size: clamp(20px, 1.3vw, 28px);
   font-weight: 750;
   color: var(--color-text-primary);
   margin: 0;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   line-height: 1.1;
 }
 .dashboard-subtitle {
@@ -180,9 +189,9 @@ watch(showAgentD, (visible) => {
   align-items: center;
   gap: 8px;
   padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: var(--well);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-control);
   font-size: 12px;
 }
 .user-name {
@@ -198,14 +207,14 @@ watch(showAgentD, (visible) => {
   letter-spacing: 0.04em;
 }
 .role-operator {
-  background: rgba(249, 115, 22, 0.2);
-  color: #fb923c;
-  border: 1px solid rgba(249, 115, 22, 0.4);
+  background: color-mix(in srgb, var(--hue-amber) 14%, transparent);
+  color: var(--color-state-live);
+  border: 1px solid color-mix(in srgb, var(--hue-amber) 30%, transparent);
 }
 .role-viewer {
-  background: rgba(148, 163, 184, 0.2);
-  color: #cbd5e1;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: color-mix(in srgb, var(--hue-slate) 14%, transparent);
+  color: var(--color-state-neutral);
+  border: 1px solid color-mix(in srgb, var(--hue-slate) 30%, transparent);
 }
 .logout-btn {
   background: none;
@@ -219,7 +228,7 @@ watch(showAgentD, (visible) => {
 }
 .logout-btn:hover {
   color: var(--color-accent-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--hover);
 }
 
 .connection-pill { margin-left: 4px; }
@@ -234,8 +243,8 @@ watch(showAgentD, (visible) => {
   animation: dot-pulse 1.8s ease-in-out infinite;
 }
 @keyframes dot-pulse {
-  0%, 100% { box-shadow: 0 0 0 rgb(111 146 120 / 0); }
-  50% { box-shadow: 0 0 6px rgb(111 146 120 / 0.8); }
+  0%, 100% { box-shadow: 0 0 0 color-mix(in srgb, var(--color-state-healthy) 0%, transparent); }
+  50% { box-shadow: 0 0 6px color-mix(in srgb, var(--color-state-healthy) 70%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .connection-dot.is-live { animation: none; }
@@ -265,6 +274,7 @@ watch(showAgentD, (visible) => {
   width: 100%;
   padding: clamp(16px, 1.4vw, 28px);
 }
+.shell-body { align-items: flex-start; }
 
 @media (max-width: 900px) {
   .sidebar-toggle { display: inline-flex; }

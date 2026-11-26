@@ -26,7 +26,7 @@ function requestReset() {
 </script>
 
 <template>
-  <section class="panel" aria-labelledby="human-request-title">
+  <section class="panel ink-island" aria-labelledby="human-request-title">
     <div class="panel-header">
       <h2 id="human-request-title" class="panel-title">Human request</h2>
       <ProfileSwitch
@@ -59,6 +59,8 @@ function requestReset() {
 </template>
 
 <style scoped>
+/* Inside the ink island, --color-bg-shell resolves to the light-on-ink
+ * value (a faint white well), so the prompt reads as an inset console. */
 .console-prompt {
   padding: 12px 14px;
   border-radius: var(--radius-control);

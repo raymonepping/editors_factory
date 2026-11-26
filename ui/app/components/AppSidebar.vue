@@ -98,12 +98,21 @@ function closeOnNavigate() {
 </template>
 
 <style scoped>
+/* Frosted left rail. The active item is a raised white chip, never a
+ * coloured left border. */
 .app-sidebar {
-  width: 200px;
+  width: 216px;
   flex-shrink: 0;
+  position: sticky;
+  top: 88px;
+  margin: 16px 0 16px clamp(16px, 2vw, 28px);
   background: var(--color-bg-shell);
-  border-right: var(--border-width) solid var(--color-border-subtle);
-  padding: 16px 0;
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--border-width) solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel), inset 0 1px 0 var(--glass-hi);
+  padding: 10px 8px;
 }
 
 .sidebar-nav {
@@ -117,28 +126,29 @@ function closeOnNavigate() {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 20px;
+  padding: 9px 12px;
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--color-text-secondary);
   text-decoration: none;
-  border-left: var(--rail-width) solid transparent;
-  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+  border-radius: 8px;
+  transition: color 180ms var(--ease-out), background-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
 }
 .sidebar-item:hover {
   color: var(--color-text-primary);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.55);
 }
 .sidebar-item.is-active {
-  color: var(--color-accent-primary);
-  border-left-color: var(--color-accent-primary);
-  background: rgba(237, 186, 71, 0.06);
+  color: var(--color-text-primary);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(15, 26, 42, 0.08), 0 4px 12px -8px rgba(15, 26, 42, 0.35);
 }
 .sidebar-item:focus-visible {
   outline: 2px solid var(--color-accent-primary);
   outline-offset: -2px;
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 .sidebar-dot {
@@ -158,12 +168,16 @@ function closeOnNavigate() {
     top: 0;
     bottom: 0;
     left: 0;
+    margin: 0;
     width: min(260px, 80vw);
     z-index: 60;
     transform: translateX(-100%);
     transition: transform 180ms ease;
-    box-shadow: 8px 0 24px rgb(0 0 0 / 0.4);
+    border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--shadow-lift);
     overflow-y: auto;
+    padding-top: 16px;
   }
   .app-sidebar.is-open {
     transform: translateX(0);
@@ -172,7 +186,7 @@ function closeOnNavigate() {
     position: fixed;
     inset: 0;
     z-index: 55;
-    background: rgb(0 0 0 / 0.5);
+    background: var(--scrim);
   }
 }
 @media (min-width: 901px) {

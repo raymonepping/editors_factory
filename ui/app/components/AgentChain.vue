@@ -91,21 +91,22 @@ function pathActive(fromStatus: AgentNodeStatus) {
 
 .station.is-reasoning {
   border-color: var(--color-border-info);
-  color: var(--factory-blue-200);
+  color: var(--color-text-secondary);
 }
-.station.is-reasoning .station-pill { color: var(--factory-blue-300); }
+.station.is-reasoning .station-pill { color: var(--color-accent-info); }
 
+/* Acting = live work moving: amber (the colour that replaced gold). */
 .station.is-acting {
-  border-color: var(--color-border-active);
+  border-color: var(--color-state-live);
   box-shadow: var(--glow-active);
-  color: var(--factory-warm-white);
+  color: var(--color-text-primary);
   animation: station-breathe 2.2s ease-in-out infinite;
 }
-.station.is-acting .station-pill { color: var(--color-accent-primary); }
+.station.is-acting .station-pill { color: var(--color-state-live); }
 
 @keyframes station-breathe {
   0%, 100% { box-shadow: var(--glow-active); }
-  50% { box-shadow: 0 0 26px rgb(237 186 71 / 0.42); }
+  50% { box-shadow: 0 0 24px color-mix(in srgb, var(--hue-amber) 45%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .station.is-acting { animation: none; }
@@ -131,7 +132,7 @@ function pathActive(fromStatus: AgentNodeStatus) {
   border-radius: 2px;
 }
 .connector.is-active .connector-line {
-  background: var(--color-accent-primary);
+  background: var(--color-state-live);
   box-shadow: var(--glow-active);
 }
 
@@ -144,8 +145,8 @@ function pathActive(fromStatus: AgentNodeStatus) {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--factory-gold-glow);
-  box-shadow: 0 0 8px var(--factory-gold-glow);
+  background: var(--color-state-live);
+  box-shadow: 0 0 8px var(--color-state-live);
   animation: connector-travel 1.4s ease-in-out infinite;
 }
 @keyframes connector-travel {
